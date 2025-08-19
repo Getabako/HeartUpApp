@@ -1,0 +1,17 @@
+# 環境変数
+.env
+config.js
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Node modules (今後追加する場合)
+node_modules/
+
+# ログファイル
+*.log
