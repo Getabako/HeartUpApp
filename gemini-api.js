@@ -8,34 +8,54 @@ class GeminiAPI {
 
     // APIキーを設定
     setApiKey(key) {
-        this.apiKey = key;
-        if (key && key !== 'YOUR_API_KEY_HERE') {
-            this.initialized = true;
-            localStorage.setItem('gemini_api_key', key);
+        // 無効なキーをフィルタリング
+        if (!key || key === 'YOUR_API_KEY_HERE' || key.includes('github.com') || key.includes('http://') || key.includes('https://')) {
+            console.error('Invalid API key format:', key);
+            return false;
         }
+        
+        this.apiKey = key;
+        this.initialized = true;
+        localStorage.setItem('gemini_api_key', key);
+        console.log('API key set successfully');
+        return true;
     }
 
     // 保存されたAPIキーを読み込み
     loadApiKey() {
         // 1. まずconfig.jsから読み込みを試みる
         if (typeof API_CONFIG !== 'undefined' && API_CONFIG.GEMINI_API_KEY && API_CONFIG.GEMINI_API_KEY !== 'YOUR_API_KEY_HERE') {
+            console.log('Loading API key from config.js');
             this.setApiKey(API_CONFIG.GEMINI_API_KEY);
             return true;
         }
         
         // 2. localStorageから読み込み
         const savedKey = localStorage.getItem('gemini_api_key');
-        if (savedKey) {
+        if (savedKey && !savedKey.includes('github.com')) {  // GitHub URLが誤って保存されている場合は無視
+            console.log('Loading API key from localStorage');
             this.setApiKey(savedKey);
             return true;
+        } else if (savedKey && savedKey.includes('github.com')) {
+            console.warn('Invalid API key found in localStorage (GitHub URL), clearing...');
+            localStorage.removeItem('gemini_api_key');
         }
         
+        console.log('No valid API key found');
         return false;
     }
 
     // APIキーが設定されているか確認
     isInitialized() {
-        return this.initialized && this.apiKey && this.apiKey !== 'YOUR_API_KEY_HERE';
+        const isInit = this.initialized && this.apiKey && this.apiKey !== 'YOUR_API_KEY_HERE';
+        if (!isInit) {
+            console.log('API not initialized:', {
+                initialized: this.initialized,
+                hasApiKey: !!this.apiKey,
+                apiKeyLength: this.apiKey ? this.apiKey.length : 0
+            });
+        }
+        return isInit;
     }
 
     // プロンプトを送信して結果を取得
@@ -84,8 +104,17 @@ class GeminiAPI {
             });
 
             if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error?.message || 'API呼び出しに失敗しました');
+                const errorText = await response.text();
+                console.error('API Response Error:', errorText);
+                try {
+                    const error = JSON.parse(errorText);
+                    if (error.error?.message?.includes('API key not valid')) {
+                        throw new Error('API key not valid. Please pass a valid API key.');
+                    }
+                    throw new Error(error.error?.message || 'API呼び出しに失敗しました');
+                } catch (parseError) {
+                    throw new Error(`API呼び出しに失敗しました: ${errorText}`);
+                }
             }
 
             const data = await response.json();

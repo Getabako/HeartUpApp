@@ -50,11 +50,223 @@ const sampleResources = [
     }
 ];
 
+// 練習メニューデータ
+const practiceMenus = [
+    {
+        id: 1,
+        title: "ボールフィーリング",
+        category: "warmup",
+        difficulty: "☆",
+        description: "ボールに慣れるための基本的な練習",
+        filename: "ボールフィーリング☆.pdf"
+    },
+    {
+        id: 2,
+        title: "ボール運び",
+        category: "warmup",
+        difficulty: "☆",
+        description: "ボールを運ぶ基礎練習",
+        filename: "ボール運び☆.pdf"
+    },
+    {
+        id: 3,
+        title: "フラフープ色鬼",
+        category: "game",
+        difficulty: "☆",
+        description: "フラフープを使った鬼ごっこ",
+        filename: "フラフープ色鬼☆.pdf"
+    },
+    {
+        id: 4,
+        title: "コーン倒しゲーム",
+        category: "game",
+        difficulty: "☆",
+        description: "コーンを倒すゲーム形式の練習",
+        filename: "コーン倒しゲーム☆.pdf"
+    },
+    {
+        id: 5,
+        title: "守護神ゲーム",
+        category: "game",
+        difficulty: "☆",
+        description: "ゴールキーパーの基本練習",
+        filename: "守護神ゲーム☆.pdf"
+    },
+    {
+        id: 6,
+        title: "色々な動き",
+        category: "warmup",
+        difficulty: "★☆",
+        description: "様々な動きを取り入れた運動",
+        filename: "色々な動き★☆.pdf"
+    },
+    {
+        id: 7,
+        title: "ステップトレーニング",
+        category: "warmup",
+        difficulty: "★☆",
+        description: "フットワークの基礎練習",
+        filename: "ステップトレーニング★☆.pdf"
+    },
+    {
+        id: 8,
+        title: "コーンドリブル",
+        category: "dribble",
+        difficulty: "★☆",
+        description: "コーンを使ったドリブル練習",
+        filename: "コーンドリブル★☆.pdf"
+    },
+    {
+        id: 9,
+        title: "追跡ドリブル",
+        category: "dribble",
+        difficulty: "★☆",
+        description: "相手を追いかけながらのドリブル",
+        filename: "追跡ドリブル★☆.pdf"
+    },
+    {
+        id: 10,
+        title: "様々なターン",
+        category: "dribble",
+        difficulty: "★☆",
+        description: "ターン技術の習得",
+        filename: "様々なターン★☆.pdf"
+    },
+    {
+        id: 11,
+        title: "対面パス",
+        category: "match",
+        difficulty: "★☆",
+        description: "対面でのパス練習",
+        filename: "対面パス★☆.pdf"
+    },
+    {
+        id: 12,
+        title: "コントロールパス",
+        category: "match",
+        difficulty: "★☆",
+        description: "正確なパスコントロール練習",
+        filename: "コントロールパス★☆.pdf"
+    },
+    {
+        id: 13,
+        title: "けんけんシュート",
+        category: "shoot",
+        difficulty: "★☆",
+        description: "片足でのシュート練習",
+        filename: "けんけんシュート★☆.pdf"
+    },
+    {
+        id: 14,
+        title: "又抜きシュート",
+        category: "shoot",
+        difficulty: "★☆",
+        description: "股抜きからのシュート練習",
+        filename: "又抜きシュート★☆.pdf"
+    },
+    {
+        id: 15,
+        title: "ゲート通過シュート",
+        category: "shoot",
+        difficulty: "★☆",
+        description: "ゲートを通過してからのシュート",
+        filename: "ゲート通過シュート★☆.pdf"
+    },
+    {
+        id: 16,
+        title: "さまざまなシュート",
+        category: "shoot",
+        difficulty: "★☆",
+        description: "いろいろな種類のシュート練習",
+        filename: "さまざまなシュート★☆.pdf"
+    },
+    {
+        id: 17,
+        title: "ボール集めゲーム",
+        category: "game",
+        difficulty: "★☆",
+        description: "ボールを集めるゲーム形式の練習",
+        filename: "ボール集めゲーム★☆.pdf"
+    },
+    {
+        id: 18,
+        title: "爆弾ゲーム",
+        category: "game",
+        difficulty: "★☆",
+        description: "爆弾に見立てたボールを使ったゲーム",
+        filename: "爆弾ゲーム★☆.pdf"
+    },
+    {
+        id: 19,
+        title: "たまご落としゲーム",
+        category: "game",
+        difficulty: "★☆",
+        description: "卵に見立てたボールを使ったゲーム",
+        filename: "たまご落としゲーム★☆.pdf"
+    },
+    {
+        id: 20,
+        title: "逆鬼ごっこ",
+        category: "game",
+        difficulty: "★☆",
+        description: "通常と逆の鬼ごっこ",
+        filename: "逆鬼ごっこ★☆.pdf"
+    },
+    {
+        id: 21,
+        title: "試合",
+        category: "match",
+        difficulty: "★☆",
+        description: "実際の試合形式での練習",
+        filename: "試合★☆.pdf"
+    },
+    {
+        id: 22,
+        title: "サッカー療育 ウォーミングアップ編",
+        category: "warmup",
+        difficulty: "総合",
+        description: "ウォーミングアップの総合ガイド",
+        filename: "サッカー療育　ウォーミングアップ編.pdf"
+    },
+    {
+        id: 23,
+        title: "サッカー療育 ドリブル編",
+        category: "dribble",
+        difficulty: "総合",
+        description: "ドリブル技術の総合ガイド",
+        filename: "サッカー療育　ドリブル編.pdf"
+    },
+    {
+        id: 24,
+        title: "サッカー療育 シュート編",
+        category: "shoot",
+        difficulty: "総合",
+        description: "シュート技術の総合ガイド",
+        filename: "サッカー療育　シュート編.pdf"
+    },
+    {
+        id: 25,
+        title: "サッカー療育 対人編",
+        category: "match",
+        difficulty: "総合",
+        description: "対人練習の総合ガイド",
+        filename: "サッカー療育　対人編.pdf"
+    }
+];
+
 // 現在のカテゴリフィルター
 let currentCategory = 'all';
+let currentPracticeCategory = 'all';
 
 // ページ読み込み時の初期化
 document.addEventListener('DOMContentLoaded', function() {
+    // localStorageの無効なAPIキーをクリア
+    const savedKey = localStorage.getItem('gemini_api_key');
+    if (savedKey && (savedKey.includes('github.com') || savedKey.includes('http://') || savedKey.includes('https://'))) {
+        console.warn('Clearing invalid API key from localStorage:', savedKey);
+        localStorage.removeItem('gemini_api_key');
+    }
+    
     // Gemini APIの初期化
     initializeGeminiAPI();
     // メインタブ切り替え機能
@@ -130,8 +342,28 @@ document.addEventListener('DOMContentLoaded', function() {
         displayResources();
     });
     
+    // 練習メニューのカテゴリフィルター機能
+    const practiceCategoryButtons = document.querySelectorAll('.practice-category-btn');
+    practiceCategoryButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            practiceCategoryButtons.forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+            currentPracticeCategory = this.getAttribute('data-category');
+            displayPracticeMenus();
+        });
+    });
+
+    // 練習メニューの検索機能
+    const practiceSearchInput = document.getElementById('practiceSearchInput');
+    if (practiceSearchInput) {
+        practiceSearchInput.addEventListener('input', function() {
+            displayPracticeMenus();
+        });
+    }
+
     // 初期表示
     displayResources();
+    displayPracticeMenus();
     initializeAITabs();
 });
 
@@ -191,6 +423,86 @@ function displayResources() {
         
         grid.appendChild(card);
     });
+}
+
+// 練習メニューの表示
+function displayPracticeMenus() {
+    const searchTerm = document.getElementById('practiceSearchInput')?.value.toLowerCase() || '';
+    const grid = document.getElementById('practiceGrid');
+
+    if (!grid) return;
+
+    // フィルタリング
+    let filteredMenus = practiceMenus;
+
+    // カテゴリフィルター
+    if (currentPracticeCategory !== 'all') {
+        filteredMenus = filteredMenus.filter(menu => menu.category === currentPracticeCategory);
+    }
+
+    // 検索フィルター
+    if (searchTerm) {
+        filteredMenus = filteredMenus.filter(menu =>
+            menu.title.toLowerCase().includes(searchTerm) ||
+            menu.description.toLowerCase().includes(searchTerm)
+        );
+    }
+
+    // HTMLの生成
+    grid.innerHTML = '';
+
+    if (filteredMenus.length === 0) {
+        grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #999;">該当する練習メニューが見つかりませんでした。</p>';
+        return;
+    }
+
+    filteredMenus.forEach(menu => {
+        const card = document.createElement('div');
+        card.className = 'practice-card';
+        card.onclick = () => openPracticeMenuPDF(menu);
+
+        const categoryLabel = getPracticeCategoryLabel(menu.category);
+        const difficultyClass = getDifficultyClass(menu.difficulty);
+
+        card.innerHTML = `
+            <div class="practice-header">
+                <span class="practice-category-label">${categoryLabel}</span>
+                <span class="practice-difficulty ${difficultyClass}">${menu.difficulty}</span>
+            </div>
+            <h3>${menu.title}</h3>
+            <p>${menu.description}</p>
+            <div class="practice-footer">
+                <span class="view-pdf-btn">📄 PDFを見る</span>
+            </div>
+        `;
+
+        grid.appendChild(card);
+    });
+}
+
+// 練習メニューのカテゴリラベルを取得
+function getPracticeCategoryLabel(category) {
+    const labels = {
+        'warmup': 'ウォーミングアップ',
+        'dribble': 'ドリブル',
+        'shoot': 'シュート',
+        'match': '対人・試合',
+        'game': 'ゲーム'
+    };
+    return labels[category] || 'その他';
+}
+
+// 難易度のクラスを取得
+function getDifficultyClass(difficulty) {
+    if (difficulty === '☆') return 'difficulty-easy';
+    if (difficulty === '★☆') return 'difficulty-medium';
+    return 'difficulty-advanced';
+}
+
+// 練習メニューのPDFを開く
+function openPracticeMenuPDF(menu) {
+    const pdfPath = `practicemenu/${menu.filename}`;
+    window.open(pdfPath, '_blank');
 }
 
 // カテゴリラベルを取得
@@ -701,7 +1013,12 @@ function saveApiKey() {
     }
     
     // APIキーを保存
-    geminiAPI.setApiKey(apiKey);
+    const success = geminiAPI.setApiKey(apiKey);
+    
+    if (!success) {
+        alert('無効なAPIキー形式です。正しいGemini APIキーを入力してください。');
+        return;
+    }
     
     // モーダルを閉じる
     document.getElementById('apiKeyModal').classList.add('hidden');

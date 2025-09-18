@@ -23,6 +23,9 @@
                 <button class="tab-button active" data-tab="resources">
                     📚 資料閲覧
                 </button>
+                <button class="tab-button" data-tab="practice-menu">
+                    ⚽ 練習メニュー
+                </button>
                 <button class="tab-button" data-tab="ai-tools">
                     🤖 AI書類作成
                 </button>
@@ -45,6 +48,28 @@
 
                 <div class="resources-grid" id="resourcesGrid">
                     <!-- 資料カードがここに表示されます -->
+                </div>
+            </div>
+
+            <!-- 練習メニュータブ -->
+            <div id="practice-menu" class="tab-content">
+                <div class="search-section">
+                    <h2>練習メニューを検索</h2>
+                    <div class="search-controls">
+                        <input type="text" id="practiceSearchInput" placeholder="メニュー名を検索...">
+                        <div class="category-tabs">
+                            <button class="practice-category-btn active" data-category="all">すべて</button>
+                            <button class="practice-category-btn" data-category="warmup">ウォーミングアップ</button>
+                            <button class="practice-category-btn" data-category="dribble">ドリブル</button>
+                            <button class="practice-category-btn" data-category="shoot">シュート</button>
+                            <button class="practice-category-btn" data-category="match">対人・試合</button>
+                            <button class="practice-category-btn" data-category="game">ゲーム</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="practice-grid" id="practiceGrid">
+                    <!-- 練習メニューカードがここに表示されます -->
                 </div>
             </div>
 
