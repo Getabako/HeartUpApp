@@ -50,7 +50,7 @@ const sampleResources = [
     }
 ];
 
-// 練習メニューデータ
+// 練習メニューデータ - 実際のファイル名と完全一致させる
 const practiceMenus = [
     {
         id: 1,
@@ -98,7 +98,7 @@ const practiceMenus = [
         category: "warmup",
         difficulty: "★☆",
         description: "様々な動きを取り入れた運動",
-        filename: "色々な動き★☆.pdf"
+        filename: "色々な動き★☆.pdf"  // 実際のファイル名と確認済
     },
     {
         id: 7,
@@ -130,7 +130,7 @@ const practiceMenus = [
         category: "dribble",
         difficulty: "★☆",
         description: "ターン技術の習得",
-        filename: "様々なターン★☆.pdf"
+        filename: "様々なターン★☆.pdf"  // 実際のファイル名と確認済
     },
     {
         id: 11,
@@ -501,7 +501,25 @@ function getDifficultyClass(difficulty) {
 
 // 練習メニューのPDFを開く
 function openPracticeMenuPDF(menu) {
-    const pdfPath = `practicemenu/${menu.filename}`;
+    // GitHub Pages対応 - 相対パスとURLエンコーディング
+    const isGitHubPages = window.location.hostname.includes('github.io');
+    const baseUrl = isGitHubPages
+        ? '/HeartUpApp/'
+        : './';
+
+    // ファイル名をエンコード（★☆などの特殊文字対応）
+    const encodedFilename = menu.filename
+        .replace(/★/g, '%E2%98%85')  // ★をURLエンコード
+        .replace(/☆/g, '%E2%98%86');  // ☆をURLエンコード
+
+    const pdfPath = `${baseUrl}practicemenu/${encodedFilename}`;
+
+    // デバッグ用ログ（本番環境では削除可能）
+    console.log('Opening PDF:', pdfPath);
+    console.log('Original filename:', menu.filename);
+    console.log('Encoded filename:', encodedFilename);
+    console.log('Is GitHub Pages:', isGitHubPages);
+
     window.open(pdfPath, '_blank');
 }
 
