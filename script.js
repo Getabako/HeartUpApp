@@ -222,35 +222,35 @@ const practiceMenus = [
     },
     {
         id: 22,
-        title: "サッカー療育 ウォーミングアップ編",
+        title: "サッカー療育ウォーミングアップ編",
         category: "warmup",
         difficulty: "総合",
         description: "ウォーミングアップの総合ガイド",
-        filename: "サッカー療育　ウォーミングアップ編.pdf"
+        filename: "サッカー療育ウォーミングアップ編.pdf"
     },
     {
         id: 23,
-        title: "サッカー療育 ドリブル編",
+        title: "サッカー療育ドリブル編",
         category: "dribble",
         difficulty: "総合",
         description: "ドリブル技術の総合ガイド",
-        filename: "サッカー療育　ドリブル編.pdf"
+        filename: "サッカー療育ドリブル編.pdf"
     },
     {
         id: 24,
-        title: "サッカー療育 シュート編",
+        title: "サッカー療育シュート編",
         category: "shoot",
         difficulty: "総合",
         description: "シュート技術の総合ガイド",
-        filename: "サッカー療育　シュート編.pdf"
+        filename: "サッカー療育シュート編.pdf"
     },
     {
         id: 25,
-        title: "サッカー療育 対人編",
+        title: "サッカー療育対人編",
         category: "match",
         difficulty: "総合",
         description: "対人練習の総合ガイド",
-        filename: "サッカー療育　対人編.pdf"
+        filename: "サッカー療育対人編.pdf"
     }
 ];
 
