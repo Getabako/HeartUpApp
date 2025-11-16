@@ -1,0 +1,293 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高崎 アセスメントシート</title>
+    <style>
+        body {
+            font-family: 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Yu Gothic', 'Meiryo', sans-serif;
+            padding: 40px;
+            background-color: #f5f5f5;
+        }
+        .assessment-sheet {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #2e7d32;
+        }
+        .header h1 {
+            color: #2e7d32;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        .basic-info {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+        }
+        .info-item {
+            display: flex;
+            gap: 10px;
+        }
+        .info-label {
+            font-weight: bold;
+            color: #2e7d32;
+            min-width: 120px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #4caf50;
+            color: white;
+            font-weight: bold;
+        }
+        .category-header {
+            background-color: #e8f5e9;
+            font-weight: bold;
+            color: #2e7d32;
+        }
+        .rating {
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .rating-good { color: #4caf50; }
+        .rating-fair { color: #ff9800; }
+        .rating-poor { color: #f44336; }
+        .details {
+            font-size: 14px;
+            color: #555;
+            line-height: 1.6;
+        }
+        .print-button {
+            display: block;
+            margin: 20px auto;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        @media print {
+            .print-button { display: none; }
+            body { padding: 0; background: white; }
+        }
+    </style>
+</head>
+<body>
+    <div class="assessment-sheet">
+        <div class="header">
+            <h1>カラーズFC 特性シート①</h1>
+        </div>
+
+        <div class="basic-info">
+            <div class="info-item">
+                <span class="info-label">児童名:</span>
+                <span>高崎</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">ふりがな:</span>
+                <span>たかさき</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">生年月日:</span>
+                <span>2025-11-20</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">性別:</span>
+                <span>男</span>
+            </div>
+            <div class="info-item" style="grid-column: 1 / -1;">
+                <span class="info-label">診断名:</span>
+                <span>自閉スペクトラム症(ASD)</span>
+            </div>
+        </div>
+
+        <p style="font-size: 12px; color: #666; margin-bottom: 20px;">※各種心理・WISC検査結果を別紙でご提出お願い致します。</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 30%;">評価項目</th>
+                    <th style="width: 50%;">課題・実態・具体的エピソード</th>
+                    <th style="width: 20%;">支援・配慮</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- 対人社会性 -->
+                <tr class="category-header">
+                    <td colspan="3">対人社会性</td>
+                </tr>
+                <tr>
+                    <td>場面や指示の理解</td>
+                    <td class="details">特記事項なし</td>
+                    <td class="rating rating-poor">×</td>
+                </tr>
+                <tr>
+                    <td>人の気持ち、心の理解（共感性）</td>
+                    <td class="details">特記事項なし</td>
+                    <td class="rating rating-"></td>
+                </tr>
+                <tr>
+                    <td>常識・社会的ルール（協調性）</td>
+                    <td class="details">特記事項なし</td>
+                    <td class="rating rating-"></td>
+                </tr>
+                <tr>
+                    <td>善悪の判断（価値意識）</td>
+                    <td class="details">特記事項なし</td>
+                    <td class="rating rating-"></td>
+                </tr>
+                <tr>
+                    <td>対人・コミュニケーション力</td>
+                    <td class="details">特記事項なし</td>
+                    <td class="rating rating-"></td>
+                </tr>
+                <tr>
+                    <td>柔軟な対処の困難（こだわり）</td>
+                    <td class="details">特記事項なし</td>
+                    <td class="rating rating-"></td>
+                </tr>
+                <tr>
+                    <td>その他</td>
+                    <td class="details">特記事項なし</td>
+                    <td></td>
+                </tr>
+
+                <!-- 行動情緒 -->
+                <tr class="category-header">
+                    <td colspan="3">行動情緒</td>
+                </tr>
+                <tr>
+                    <td>指示の受け入れ</td>
+                    <td class="details">特記事項なし</td>
+                    <td class="rating rating-"></td>
+                </tr>
+                <tr>
+                    <td>不注意・集中困難</td>
+                    <td class="details">特記事項なし</td>
+                    <td class="rating rating-"></td>
+                </tr>
+                <tr>
+                    <td>多動性</td>
+                    <td class="details">特記事項なし</td>
+                    <td class="rating rating-"></td>
+                </tr>
+                <tr>
+                    <td>衝動性</td>
+                    <td class="details">特記事項なし</td>
+                    <td class="rating rating-"></td>
+                </tr>
+                <tr>
+                    <td>寡動性・無気力・ぼんやり</td>
+                    <td class="details">特記事項なし</td>
+                    <td class="rating rating-poor">×</td>
+                </tr>
+                <tr>
+                    <td>パニック（興奮・コントロール困難）</td>
+                    <td class="details">特記事項なし</td>
+                    <td class="rating rating-"></td>
+                </tr>
+                <tr>
+                    <td>暴言・暴力</td>
+                    <td class="details">特記事項なし</td>
+                    <td class="rating rating-"></td>
+                </tr>
+                <tr>
+                    <td>心因反応（心理社会的要因）</td>
+                    <td class="details">特記事項なし</td>
+                    <td class="rating rating-poor">×</td>
+                </tr>
+                <tr>
+                    <td>その他</td>
+                    <td class="details">特記事項なし</td>
+                    <td></td>
+                </tr>
+
+                <!-- 身体運動 -->
+                <tr class="category-header">
+                    <td colspan="3">身体運動</td>
+                </tr>
+                <tr>
+                    <td>身体・健康</td>
+                    <td class="details">特記事項なし</td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td>粗大運動（全身、協応・筋力）</td>
+                    <td class="details">特記事項なし</td>
+                    <td class="rating rating-"></td>
+                </tr>
+                <tr>
+                    <td>微細運動（手指、足趾の巧緻性）</td>
+                    <td class="details">特記事項なし</td>
+                    <td class="rating rating-"></td>
+                </tr>
+                <tr>
+                    <td>バランス運動</td>
+                    <td class="details">特記事項なし</td>
+                    <td class="rating rating-"></td>
+                </tr>
+                <tr>
+                    <td>その他（別紙機能評価）</td>
+                    <td class="details"></td>
+                    <td></td>
+                </tr>
+
+                <!-- その他 -->
+                <tr class="category-header">
+                    <td colspan="3">その他</td>
+                </tr>
+                <tr>
+                    <td>生活習慣・身辺自立</td>
+                    <td class="details">特記事項なし</td>
+                    <td class="rating rating-"></td>
+                </tr>
+                <tr>
+                    <td>家庭での教育・養育配慮</td>
+                    <td class="details">特記事項なし</td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td>登校しぶり</td>
+                    <td class="details">特記事項なし</td>
+                    <td class="rating rating-"></td>
+                </tr>
+                <tr>
+                    <td>その他</td>
+                    <td class="details">特記事項なし</td>
+                    <td></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p style="font-size: 12px; color: #666;">※プラス評価○、普通○、弱い部分△で表示</p>
+
+        <button class="print-button" onclick="window.print()">印刷する</button>
+    </div>
+</body>
+</html>

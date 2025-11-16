@@ -48,15 +48,15 @@
                 </div>
 
                 <div class="form-group">
-                    <label>診断名（もしあれば・複数選択可）</label>
+                    <label>診断名（もしあれば・複数選択可）※DSM-5準拠</label>
                     <div class="checkbox-group">
-                        <label><input type="checkbox" name="diagnosis" value="自閉スペクトラム症(ASD)"> 自閉スペクトラム症(ASD)</label>
-                        <label><input type="checkbox" name="diagnosis" value="注意欠如・多動症(ADHD)"> 注意欠如・多動症(ADHD)</label>
-                        <label><input type="checkbox" name="diagnosis" value="学習障害(LD)"> 学習障害(LD)</label>
-                        <label><input type="checkbox" name="diagnosis" value="知的発達症"> 知的発達症</label>
-                        <label><input type="checkbox" name="diagnosis" value="発達性協調運動症(DCD)"> 発達性協調運動症(DCD)</label>
-                        <label><input type="checkbox" name="diagnosis" value="言語発達症"> 言語発達症</label>
-                        <label><input type="checkbox" name="diagnosis" value="社会的コミュニケーション症"> 社会的コミュニケーション症</label>
+                        <label><input type="checkbox" name="diagnosis" value="自閉スペクトラム症/自閉症スペクトラム障害(ASD)"> 自閉スペクトラム症/自閉症スペクトラム障害(ASD)</label>
+                        <label><input type="checkbox" name="diagnosis" value="注意欠如多動症(ADHD)"> 注意欠如多動症(ADHD)</label>
+                        <label><input type="checkbox" name="diagnosis" value="限局性学習症/学習障害(SLD)"> 限局性学習症/学習障害(SLD)</label>
+                        <label><input type="checkbox" name="diagnosis" value="知的能力障害/知的発達症"> 知的能力障害/知的発達症</label>
+                        <label><input type="checkbox" name="diagnosis" value="発達性協調運動障害(DCD)"> 発達性協調運動障害(DCD)</label>
+                        <label><input type="checkbox" name="diagnosis" value="コミュニケーション症群"> コミュニケーション症群</label>
+                        <label><input type="checkbox" name="diagnosis" value="社会的(語用論的)コミュニケーション症"> 社会的(語用論的)コミュニケーション症</label>
                     </div>
                     <div class="form-group" style="margin-top: 10px;">
                         <label for="diagnosisOther">その他の診断名（手入力）</label>
@@ -86,8 +86,19 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="situationEpisode">具体的なエピソードや、特に理解しやすい（または難しい）指示の傾向があれば教えてください。</label>
-                    <textarea id="situationEpisode" name="situationEpisode" rows="4" placeholder="例：絵カードがあると分かりやすい、一度に多くのことを言うと混乱するなど"></textarea>
+                    <label>具体的なエピソード（複数選択可）</label>
+                    <div class="checkbox-group">
+                        <label><input type="checkbox" name="situationEpisode" value="絵カードや視覚的な指示があると理解しやすい"> 絵カードや視覚的な指示があると理解しやすい</label>
+                        <label><input type="checkbox" name="situationEpisode" value="一度に多くのことを言うと混乱する"> 一度に多くのことを言うと混乱する</label>
+                        <label><input type="checkbox" name="situationEpisode" value="複雑な指示は理解が難しい"> 複雑な指示は理解が難しい</label>
+                        <label><input type="checkbox" name="situationEpisode" value="口頭の指示だけだと忘れやすい"> 口頭の指示だけだと忘れやすい</label>
+                        <label><input type="checkbox" name="situationEpisode" value="短く簡潔な指示が分かりやすい"> 短く簡潔な指示が分かりやすい</label>
+                        <label><input type="checkbox" name="situationEpisode" value="見通しを示すと安心して行動できる"> 見通しを示すと安心して行動できる</label>
+                    </div>
+                    <div class="form-group" style="margin-top: 10px;">
+                        <label for="situationEpisodeOther">その他の具体的なエピソード</label>
+                        <textarea id="situationEpisodeOther" name="situationEpisodeOther" rows="2"></textarea>
+                    </div>
                 </div>
 
                 <h3>人の気持ち、心の理解（共感性）</h3>

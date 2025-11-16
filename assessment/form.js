@@ -15,8 +15,8 @@ document.getElementById('assessmentForm').addEventListener('submit', async funct
         const data = {};
 
         for (let [key, value] of formData.entries()) {
-            // Handle multiple diagnosis checkboxes
-            if (key === 'diagnosis') {
+            // Handle multiple checkboxes (diagnosis and episode checkboxes)
+            if (key === 'diagnosis' || key === 'situationEpisode') {
                 if (!data[key]) {
                     data[key] = [];
                 }
@@ -37,6 +37,19 @@ document.getElementById('assessmentForm').addEventListener('submit', async funct
             data.diagnosis = data.diagnosisOther;
         } else {
             data.diagnosis = data.diagnosis || 'なし';
+        }
+
+        // Combine situation episode checkboxes and other input
+        if (Array.isArray(data.situationEpisode)) {
+            const episodeList = [...data.situationEpisode];
+            if (data.situationEpisodeOther && data.situationEpisodeOther.trim()) {
+                episodeList.push(data.situationEpisodeOther);
+            }
+            data.situationEpisode = episodeList.join('、');
+        } else if (data.situationEpisodeOther && data.situationEpisodeOther.trim()) {
+            data.situationEpisode = data.situationEpisodeOther;
+        } else {
+            data.situationEpisode = data.situationEpisode || '特記事項なし';
         }
 
         // Add rating data (will be filled in assessment sheet generation)
