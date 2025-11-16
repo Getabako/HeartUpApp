@@ -766,18 +766,50 @@ function closeModal() {
 // 記録作成フォームを表示
 function showRecordForm() {
     const container = document.getElementById('recordToolContent');
-    
+
+    // localStorageから最新のアセスメントと支援計画を取得
+    const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
+    const supportPlans = JSON.parse(localStorage.getItem('supportPlans') || '{}');
+
+    // 最新のアセスメントデータを取得（作成日時でソート）
+    let latestAssessment = null;
+    let latestChildName = '';
+    const assessmentEntries = Object.entries(assessments);
+    if (assessmentEntries.length > 0) {
+        const sorted = assessmentEntries.sort((a, b) => {
+            const dateA = new Date(a[1].createdAt || 0);
+            const dateB = new Date(b[1].createdAt || 0);
+            return dateB - dateA;
+        });
+        latestAssessment = sorted[0][1].data;
+        latestChildName = latestAssessment?.childName || '';
+    }
+
+    // 対応する支援計画を取得
+    let supportPlanData = null;
+    if (latestChildName) {
+        for (const [key, plan] of Object.entries(supportPlans)) {
+            if (plan.childName === latestChildName) {
+                supportPlanData = plan;
+                break;
+            }
+        }
+    }
+
     container.innerHTML = `
+        ${latestChildName ? '<div style="background: #e8f5e9; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;"><strong>最新のアセスメント情報を読み込みました:</strong> ' + latestChildName + '</div>' : ''}
         <form onsubmit="generateRecord(event)">
             <div class="form-group">
                 <label>日付</label>
                 <input type="date" id="recordDate" required value="${new Date().toISOString().split('T')[0]}">
             </div>
-            
+
             <div class="form-group">
                 <label>対象児童名</label>
-                <input type="text" id="childName" placeholder="例: 山田太郎" required>
+                <input type="text" id="childName" placeholder="例: 山田太郎" value="${latestChildName}" required>
             </div>
+
+            <input type="hidden" id="supportPlanDataJson" value='${supportPlanData ? JSON.stringify(supportPlanData).replace(/'/g, "&apos;") : ''}'>
             
             <div class="form-group">
                 <label>活動内容</label>
@@ -1012,6 +1044,17 @@ async function generateRecord(event) {
     document.getElementById('generatedRecord').style.display = 'block';
     
     try {
+        // 支援計画データを取得
+        const supportPlanDataJson = document.getElementById('supportPlanDataJson')?.value;
+        let supportPlanData = null;
+        if (supportPlanDataJson) {
+            try {
+                supportPlanData = JSON.parse(supportPlanDataJson);
+            } catch (e) {
+                console.error('Failed to parse support plan data:', e);
+            }
+        }
+
         // Gemini APIを使用して生成
         if (geminiAPI.isInitialized()) {
             const recordData = {
@@ -1019,7 +1062,8 @@ async function generateRecord(event) {
                 childName,
                 activityType: activityLabels[activityType],
                 observation,
-                notes
+                notes,
+                supportPlan: supportPlanData  // 支援計画データを追加
             };
 
             const generatedText = await geminiAPI.generateRecord(recordData);
@@ -1111,6 +1155,22 @@ async function generatePlan(event) {
             // 修正用に保存
             lastGeneratedPlan = generatedText;
             lastPlanData = planData;
+
+            // localStorageに支援計画を保存
+            const supportPlans = JSON.parse(localStorage.getItem('supportPlans') || '{}');
+            const planKey = `${childName}_plan_${Date.now()}`;
+            supportPlans[planKey] = {
+                childName,
+                age,
+                priorityArea,
+                issues,
+                strengths,
+                parentRequest,
+                generatedText,
+                createdAt: new Date().toISOString()
+            };
+            localStorage.setItem('supportPlans', JSON.stringify(supportPlans));
+            console.log('Support plan saved to localStorage:', planKey);
         } else {
             // デフォルトのHTML
             const planHTML = `
