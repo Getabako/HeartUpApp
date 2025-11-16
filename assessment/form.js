@@ -1,5 +1,4 @@
-// Import Gemini API configuration
-import { generateWithGemini } from '../config.js';
+// Remove import as it's causing issues - we don't need Gemini API for this form
 
 document.getElementById('assessmentForm').addEventListener('submit', async function(e) {
     e.preventDefault();
