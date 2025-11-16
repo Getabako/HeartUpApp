@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HeartUp - サッカー療育支援システム</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <div class="logo">
+                <span class="ball-icon">⚽</span>
+                <h1>HeartUp</h1>
+            </div>
+            <p class="subtitle">サッカー療育支援システム - デモ版</p>
+        </div>
+    </header>
+
+    <main>
+        <div class="tab-container">
+            <div class="tabs">
+                <button class="tab-button active" data-tab="resources">
+                    📚 資料閲覧
+                </button>
+                <button class="tab-button" data-tab="practice-menu">
+                    ⚽ 練習メニュー
+                </button>
+                <button class="tab-button" data-tab="ai-tools">
+                    🤖 AI書類作成
+                </button>
+                <button class="tab-button" onclick="window.location.href='assessment-manager.html'">
+                    📋 アセスメント管理
+                </button>
+            </div>
+
+            <!-- 資料閲覧タブ -->
+            <div id="resources" class="tab-content active">
+                <div class="search-section">
+                    <h2>勉強会資料を検索</h2>
+                    <div class="search-controls">
+                        <input type="text" id="searchInput" placeholder="キーワードを入力...">
+                        <div class="category-tabs">
+                            <button class="category-btn active" data-category="all">すべて</button>
+                            <button class="category-btn" data-category="soccer">サッカー療育</button>
+                            <button class="category-btn" data-category="aba">応用行動分析</button>
+                            <button class="category-btn" data-category="case">事例研究</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="resources-grid" id="resourcesGrid">
+                    <!-- 資料カードがここに表示されます -->
+                </div>
+            </div>
+
+            <!-- 練習メニュータブ -->
+            <div id="practice-menu" class="tab-content">
+                <div class="search-section">
+                    <h2>練習メニューを検索</h2>
+                    <div class="search-controls">
+                        <input type="text" id="practiceSearchInput" placeholder="メニュー名を検索...">
+                        <div class="category-tabs">
+                            <button class="practice-category-btn active" data-category="all">すべて</button>
+                            <button class="practice-category-btn" data-category="warmup">ウォーミングアップ</button>
+                            <button class="practice-category-btn" data-category="dribble">ドリブル</button>
+                            <button class="practice-category-btn" data-category="shoot">シュート</button>
+                            <button class="practice-category-btn" data-category="match">対人・試合</button>
+                            <button class="practice-category-btn" data-category="game">ゲーム</button>
+                            <button class="practice-category-btn" data-category="concentration">集中力強化</button>
+                            <button class="practice-category-btn" data-category="switching">切り替え強化</button>
+                            <button class="practice-category-btn" data-category="competition">勝ち負け</button>
+                            <button class="practice-category-btn" data-category="vestibular">前庭覚刺激</button>
+                            <button class="practice-category-btn" data-category="proprioceptive">固有覚刺激</button>
+                            <button class="practice-category-btn" data-category="tactile">触覚刺激</button>
+                            <button class="practice-category-btn" data-category="flexibility">柔軟性（稼働域）</button>
+                            <button class="practice-category-btn" data-category="bodyimage">ボディイメージ</button>
+                            <button class="practice-category-btn" data-category="balance">バランス</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="practice-grid" id="practiceGrid">
+                    <!-- 練習メニューカードがここに表示されます -->
+                </div>
+            </div>
+
+            <!-- AI書類作成タブ -->
+            <div id="ai-tools" class="tab-content">
+                <!-- AI機能の内部タブ -->
+                <div class="ai-tabs-container">
+                    <div class="ai-tabs">
+                        <button class="ai-tab-button active" data-ai-tab="record">
+                            <span class="ai-tab-icon">📝</span>
+                            <span class="ai-tab-text">記録作成補助</span>
+                        </button>
+                        <button class="ai-tab-button" data-ai-tab="plan">
+                            <span class="ai-tab-icon">📋</span>
+                            <span class="ai-tab-text">支援計画作成</span>
+                        </button>
+                        <button class="ai-tab-button" data-ai-tab="review">
+                            <span class="ai-tab-icon">📊</span>
+                            <span class="ai-tab-text">成長の振り返り</span>
+                        </button>
+                    </div>
+                    
+                    <!-- 記録作成補助タブコンテンツ -->
+                    <div id="ai-record" class="ai-tab-content active">
+                        <div class="ai-tool-description">
+                            <h3>📝 記録作成補助</h3>
+                            <p>簡単な情報入力で活動記録を自動生成します。日々の療育活動を効率的に記録できます。</p>
+                        </div>
+                        <div id="recordToolContent">
+                            <!-- 記録作成フォームがここに表示されます -->
+                        </div>
+                    </div>
+                    
+                    <!-- 支援計画作成タブコンテンツ -->
+                    <div id="ai-plan" class="ai-tab-content">
+                        <div class="ai-tool-description">
+                            <h3>📋 支援計画作成</h3>
+                            <p>短期から長期まで、個別のニーズに応じた支援計画を自動で立案します。</p>
+                        </div>
+                        <div id="planToolContent">
+                            <!-- 支援計画フォームがここに表示されます -->
+                        </div>
+                    </div>
+                    
+                    <!-- 成長の振り返りタブコンテンツ -->
+                    <div id="ai-review" class="ai-tab-content">
+                        <div class="ai-tool-description">
+                            <h3>📊 成長の振り返り</h3>
+                            <p>記録データから成長を分析し、達成度や今後の課題を可視化します。</p>
+                        </div>
+                        <div id="reviewToolContent">
+                            <!-- 振り返りフォームがここに表示されます -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- モーダル -->
+    <div id="modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeModal()">&times;</span>
+            <div id="modalBody">
+                <!-- モーダルの内容がここに表示されます -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 外部スクリプトの読み込み順序重要 -->
+    <!-- config.jsは存在する場合のみ読み込む（デプロイ時に自動生成される） -->
+    <script>
+        // 最初に空のAPI_CONFIGを定義（デフォルト値）
+        window.API_CONFIG = {
+            GEMINI_API_KEY: '',
+            MODEL_NAME: 'gemini-2.0-flash-exp'
+        };
+    </script>
+    <script src="config.js" onerror="console.log('config.js not found - using default API_CONFIG')"></script>
+    <script src="gemini-api.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
