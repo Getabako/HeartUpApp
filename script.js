@@ -829,11 +829,28 @@ function showRecordForm() {
 function showPlanForm() {
     const container = document.getElementById('planToolContent');
 
+    // URLパラメータまたはlocalStorageからアセスメントデータを取得
+    const urlParams = new URLSearchParams(window.location.search);
+    const childNameParam = urlParams.get('childName');
+    let assessmentData = null;
+
+    // localStorageからアセスメントデータを探す
+    if (childNameParam) {
+        const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
+        for (const [fileName, assessment] of Object.entries(assessments)) {
+            if (assessment.data && assessment.data.childName === childNameParam) {
+                assessmentData = assessment.data;
+                break;
+            }
+        }
+    }
+
     container.innerHTML = `
+        ${assessmentData ? '<div style="background: #e8f5e9; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;"><strong>アセスメント情報を読み込みました:</strong> ' + assessmentData.childName + '</div>' : ''}
         <form onsubmit="generatePlan(event)">
             <div class="form-group">
                 <label>対象児童名</label>
-                <input type="text" id="planChildName" placeholder="例: 山田太郎" required>
+                <input type="text" id="planChildName" placeholder="例: 山田太郎" value="${assessmentData?.childName || childNameParam || ''}" required>
             </div>
 
             <div class="form-group">
@@ -867,6 +884,8 @@ function showPlanForm() {
                 <label>保護者の要望</label>
                 <textarea id="parentRequest" placeholder="例: 友達と協力できるようになってほしい"></textarea>
             </div>
+
+            <input type="hidden" id="assessmentDataJson" value='${assessmentData ? JSON.stringify(assessmentData).replace(/'/g, "&apos;") : ''}'>
 
             <div style="display: flex; gap: 1rem;">
                 <button type="submit" class="btn-primary">計画を生成</button>
@@ -1046,6 +1065,17 @@ async function generatePlan(event) {
     const strengths = document.getElementById('strengths').value;
     const parentRequest = document.getElementById('parentRequest').value;
 
+    // アセスメントデータを取得
+    const assessmentDataJson = document.getElementById('assessmentDataJson').value;
+    let assessmentData = null;
+    if (assessmentDataJson) {
+        try {
+            assessmentData = JSON.parse(assessmentDataJson);
+        } catch (e) {
+            console.error('Failed to parse assessment data:', e);
+        }
+    }
+
     // ローディング表示
     document.getElementById('planContent').innerHTML = '<div style="text-align: center; padding: 2rem;">🔄 AIが支援計画を生成中...</div>';
     document.getElementById('generatedPlan').style.display = 'block';
@@ -1058,7 +1088,8 @@ async function generatePlan(event) {
                 priorityArea,
                 issues,
                 strengths,
-                parentRequest
+                parentRequest,
+                assessmentData  // アセスメントデータを追加
             };
 
             const generatedText = await geminiAPI.generateSupportPlan(planData);

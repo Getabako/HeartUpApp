@@ -168,8 +168,92 @@ class GeminiAPI {
         const priorityAreaText = planData.priorityArea ? `
 優先課題領域: ${planData.priorityArea}` : '';
 
+        // アセスメントデータから問題行動を分析
+        let problemBehaviorAnalysis = '';
+        let criticalBehaviors = [];
+
+        if (planData.assessmentData) {
+            const assessment = planData.assessmentData;
+
+            // C評価（重度）の問題行動を特定
+            if (assessment.flexibility === 'C') {
+                criticalBehaviors.push('予定変更やいつもと違う状況に対する強い抵抗・パニック（柔軟性の困難）');
+                if (assessment.persistence) {
+                    criticalBehaviors.push(`こだわりの具体例: ${assessment.persistence}`);
+                }
+            }
+
+            if (assessment.panic === 'C') {
+                criticalBehaviors.push('感情のコントロール困難・パニックが頻繁に発生');
+                if (assessment.panicDetails) {
+                    criticalBehaviors.push(`パニックの詳細: ${assessment.panicDetails}`);
+                }
+            }
+
+            if (assessment.aggression === 'C') {
+                criticalBehaviors.push('思い通りにならない時の暴言・暴力が頻繁に発生');
+                if (assessment.aggressionDetails) {
+                    criticalBehaviors.push(`暴言暴力の詳細: ${assessment.aggressionDetails}`);
+                }
+            }
+
+            if (assessment.instructionAcceptance === 'C') {
+                criticalBehaviors.push('指示の受け入れ拒否・抵抗が多い');
+                if (assessment.instructionDetails) {
+                    criticalBehaviors.push(`指示受け入れの詳細: ${assessment.instructionDetails}`);
+                }
+            }
+
+            if (assessment.concentration === 'C') {
+                criticalBehaviors.push('集中力維持が非常に困難');
+            }
+
+            if (assessment.hyperactivity === 'C') {
+                criticalBehaviors.push('多動性が顕著・座っていられない');
+            }
+
+            if (assessment.impulsivity === 'C') {
+                criticalBehaviors.push('衝動性が高い・行動抑制が非常に困難');
+            }
+
+            // 問題行動分析セクションを作成
+            if (criticalBehaviors.length > 0) {
+                problemBehaviorAnalysis = `
+
+【重要：優先的に対処すべき問題行動】
+アセスメント結果より、以下の問題行動が「C」評価（重度）として特定されており、最優先で対処が必要です：
+${criticalBehaviors.map((b, i) => `${i + 1}. ${b}`).join('\n')}
+
+これらの問題行動は、本人の安全、周囲との関係構築、学習・療育活動への参加に重大な影響を及ぼします。
+支援計画では、これらの問題行動への対応を最優先課題として位置づけ、具体的な介入方法を明確に示してください。`;
+            }
+
+            // その他のアセスメント情報も追加
+            let additionalInfo = [];
+            if (assessment.diagnosis && assessment.diagnosis.length > 0) {
+                additionalInfo.push(`診断名: ${Array.isArray(assessment.diagnosis) ? assessment.diagnosis.join('、') : assessment.diagnosis}`);
+            }
+            if (assessment.situationUnderstanding) {
+                additionalInfo.push(`場面や指示の理解: ${assessment.situationUnderstanding}評価`);
+            }
+            if (assessment.empathy) {
+                additionalInfo.push(`共感性: ${assessment.empathy}評価`);
+            }
+            if (assessment.socialRules) {
+                additionalInfo.push(`社会的ルールの理解: ${assessment.socialRules}評価`);
+            }
+
+            if (additionalInfo.length > 0) {
+                problemBehaviorAnalysis += `
+
+【その他のアセスメント情報】
+${additionalInfo.join('\n')}`;
+            }
+        }
+
         const prompt = `
 あなたはサッカー療育の支援計画作成の専門家です。以下の情報を基に、5つの発達領域を踏まえた個別支援計画を作成してください。
+${problemBehaviorAnalysis}
 
 【5つの発達領域】
 1. 健康・生活：定期的な運動習慣を通じて身体的な健康を促進し、生活リズムの安定や体力向上につなげます
@@ -188,40 +272,50 @@ class GeminiAPI {
 【支援計画フォーマット】
 以下の構成で具体的な支援計画を作成してください：
 
-1. 5つの発達領域からのアセスメント
+${criticalBehaviors.length > 0 ? `1. **最優先課題：問題行動への介入計画**
+   上記で特定された問題行動それぞれに対して：
+   - 問題行動の機能分析（なぜその行動が起こるのか）
+   - 具体的な予防策（先行事象への介入）
+   - 問題行動発生時の対処法
+   - 代替行動の教示方法
+   - 成功体験を積むための環境調整
+   - 評価指標（頻度・強度の測定方法）
+
+2. ` : '1. '}5つの発達領域からのアセスメント
    各領域について現状を分析し、特に優先課題領域を詳しく記載
 
-2. 個別支援計画の優先順位
-   最優先課題: ${planData.priorityArea || '5領域から最も気になる領域を選定'}
+${criticalBehaviors.length > 0 ? '3. ' : '2. '}個別支援計画の優先順位
+   最優先課題: ${criticalBehaviors.length > 0 ? '上記問題行動への対応' : planData.priorityArea || '5領域から最も気になる領域を選定'}
    その理由と本人に合わせた目標設定
 
-3. 短期目標（1-3ヶ月）
-   5領域それぞれの具体的な目標と評価基準
+${criticalBehaviors.length > 0 ? '4. ' : '3. '}短期目標（1-3ヶ月）
+   ${criticalBehaviors.length > 0 ? '問題行動の軽減を最優先としつつ、' : ''}5領域それぞれの具体的な目標と評価基準
 
-4. 中期目標（3-6ヶ月）
-   5領域それぞれの具体的な目標と評価基準
+${criticalBehaviors.length > 0 ? '5. ' : '4. '}中期目標（3-6ヶ月）
+   ${criticalBehaviors.length > 0 ? '問題行動の改善を踏まえた' : ''}5領域それぞれの具体的な目標と評価基準
 
-5. 長期目標（1年）
+${criticalBehaviors.length > 0 ? '6. ' : '5. '}長期目標（1年）
    5領域を統合した総合的な目標
 
-6. 専門的支援実施計画
-   - サッカー療育を通じた具体的な支援方法
+${criticalBehaviors.length > 0 ? '7. ' : '6. '}専門的支援実施計画
+   - サッカー療育を通じた具体的な支援方法${criticalBehaviors.length > 0 ? '（問題行動への対応を含む）' : ''}
    - 各領域に対する専門的アプローチ
    - 個別配慮事項
+   ${criticalBehaviors.length > 0 ? '- 問題行動予防のための環境設定\n   - クールダウンの方法と場所' : ''}
 
-7. 家族支援計画
-   - 支援者と家族の一貫した支援体制の構築
+${criticalBehaviors.length > 0 ? '8. ' : '7. '}家族支援計画
+   - 支援者と家族の一貫した支援体制の構築${criticalBehaviors.length > 0 ? '（問題行動への対応方法の共有）' : ''}
    - 家庭での取り組み提案
    - 家族の負担軽減策
 
-8. 移行支援計画
+${criticalBehaviors.length > 0 ? '9. ' : '8. '}移行支援計画
    - 進学や環境変化への準備
    - 新しい環境での適応支援
    - 引き継ぎ事項
 
-9. 評価と見直しの時期
+${criticalBehaviors.length > 0 ? '10. ' : '9. '}評価と見直しの時期
 
-5領域のバランスを考慮しつつ、優先課題を中心とした実践的な計画を作成してください。
+${criticalBehaviors.length > 0 ? '**重要**: 問題行動への対応を最優先としながらも、5領域のバランスを考慮した実践的な計画を作成してください。問題行動の軽減が、他の領域の成長にもつながることを意識してください。' : '5領域のバランスを考慮しつつ、優先課題を中心とした実践的な計画を作成してください。'}
 `;
 
         return await this.generateContent(prompt);
