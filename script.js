@@ -845,8 +845,21 @@ function showPlanForm() {
         }
     }
 
+    // 生年月日から年齢を計算
+    let calculatedAge = '';
+    if (assessmentData?.birthDate) {
+        const birthDate = new Date(assessmentData.birthDate);
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+        }
+        calculatedAge = age.toString();
+    }
+
     container.innerHTML = `
-        ${assessmentData ? '<div style="background: #e8f5e9; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;"><strong>アセスメント情報を読み込みました:</strong> ' + assessmentData.childName + '</div>' : ''}
+        ${assessmentData ? '<div style="background: #e8f5e9; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;"><strong>アセスメント情報を読み込みました:</strong> ' + assessmentData.childName + (calculatedAge ? ' （' + calculatedAge + '歳）' : '') + '</div>' : ''}
         <form onsubmit="generatePlan(event)">
             <div class="form-group">
                 <label>対象児童名</label>
@@ -855,7 +868,7 @@ function showPlanForm() {
 
             <div class="form-group">
                 <label>年齢</label>
-                <input type="number" id="childAge" min="3" max="18" placeholder="例: 8" required>
+                <input type="number" id="childAge" min="3" max="18" placeholder="例: 8" value="${calculatedAge}" required>
             </div>
 
             <div class="form-group">
