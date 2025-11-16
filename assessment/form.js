@@ -15,8 +15,8 @@ document.getElementById('assessmentForm').addEventListener('submit', async funct
         const data = {};
 
         for (let [key, value] of formData.entries()) {
-            // Handle multiple checkboxes (diagnosis and episode checkboxes)
-            if (key === 'diagnosis' || key === 'situationEpisode') {
+            // Handle multiple checkboxes (diagnosis checkboxes only)
+            if (key === 'diagnosis') {
                 if (!data[key]) {
                     data[key] = [];
                 }
@@ -37,19 +37,6 @@ document.getElementById('assessmentForm').addEventListener('submit', async funct
             data.diagnosis = data.diagnosisOther;
         } else {
             data.diagnosis = data.diagnosis || 'なし';
-        }
-
-        // Combine situation episode checkboxes and other input
-        if (Array.isArray(data.situationEpisode)) {
-            const episodeList = [...data.situationEpisode];
-            if (data.situationEpisodeOther && data.situationEpisodeOther.trim()) {
-                episodeList.push(data.situationEpisodeOther);
-            }
-            data.situationEpisode = episodeList.join('、');
-        } else if (data.situationEpisodeOther && data.situationEpisodeOther.trim()) {
-            data.situationEpisode = data.situationEpisodeOther;
-        } else {
-            data.situationEpisode = data.situationEpisode || '特記事項なし';
         }
 
         // Add rating data (will be filled in assessment sheet generation)
@@ -425,37 +412,53 @@ function getRatingClass(rating) {
 
 async function saveAssessmentSheet(fileName, html, data) {
     try {
-        // Send to server API
-        const response = await fetch('http://localhost:3000/api/save-assessment', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                fileName,
-                html,
-                data
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error('サーバーへの保存に失敗しました');
-        }
-
-        const result = await response.json();
-        console.log('アセスメントシート保存成功:', result);
-
-        // Also save to localStorage for offline access
+        // Save to localStorage
         const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
         assessments[fileName] = {
             html: html,
             data: data,
             createdAt: new Date().toISOString(),
-            filePath: result.filePath
+            filePath: `temp/assessmentSheet/${fileName}`
         };
         localStorage.setItem('assessments', JSON.stringify(assessments));
 
-        return result;
+        // Create downloadable file
+        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        // Also save JSON metadata
+        const metadata = {
+            fileName,
+            data,
+            createdAt: new Date().toISOString(),
+            filePath: `temp/assessmentSheet/${fileName}`
+        };
+        const jsonBlob = new Blob([JSON.stringify(metadata, null, 2)], { type: 'application/json;charset=utf-8' });
+        const jsonUrl = URL.createObjectURL(jsonBlob);
+        const jsonLink = document.createElement('a');
+        jsonLink.href = jsonUrl;
+        jsonLink.download = fileName.replace('.html', '.json');
+        jsonLink.style.display = 'none';
+        document.body.appendChild(jsonLink);
+        jsonLink.click();
+        document.body.removeChild(jsonLink);
+        URL.revokeObjectURL(jsonUrl);
+
+        console.log('アセスメントシート保存成功:', fileName);
+
+        return {
+            success: true,
+            filePath: `temp/assessmentSheet/${fileName}`,
+            message: 'アセスメントシートが保存されました'
+        };
     } catch (error) {
         console.error('ファイル保存エラー:', error);
         throw new Error(`ファイルの保存に失敗しました: ${error.message}`);
