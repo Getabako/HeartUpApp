@@ -1,5 +1,24 @@
 // Remove import as it's causing issues - we don't need Gemini API for this form
 
+// Google Drive API初期化
+let driveInitialized = false;
+
+async function initGoogleDrive() {
+    if (typeof googleDriveAPI !== 'undefined') {
+        try {
+            driveInitialized = await googleDriveAPI.initialize();
+            if (driveInitialized) {
+                console.log('Google Drive API: 準備完了');
+            }
+        } catch (error) {
+            console.warn('Google Drive API 初期化スキップ:', error);
+        }
+    }
+}
+
+// ページロード時にGoogle Drive APIを初期化
+document.addEventListener('DOMContentLoaded', initGoogleDrive);
+
 document.getElementById('assessmentForm').addEventListener('submit', async function(e) {
     e.preventDefault();
 
@@ -45,12 +64,36 @@ document.getElementById('assessmentForm').addEventListener('submit', async funct
         // Generate assessment sheet HTML
         const assessmentHTML = await generateAssessmentSheet(data);
 
-        // Save assessment sheet
+        // Save assessment sheet locally
         const fileName = `${data.childName}_アセスメントシート.html`;
         await saveAssessmentSheet(fileName, assessmentHTML, data);
 
+        // Google Driveへ自動保存
+        let driveResult = null;
+        if (driveInitialized && googleDriveAPI.isInitialized()) {
+            submitButton.textContent = 'Google Driveに保存中...';
+            try {
+                driveResult = await googleDriveAPI.saveAssessmentToDrive(fileName, assessmentHTML, data);
+                if (driveResult.success) {
+                    console.log('Google Drive保存成功:', driveResult);
+                }
+            } catch (driveError) {
+                console.warn('Google Drive保存エラー（ローカル保存は成功）:', driveError);
+            }
+        }
+
         // Show success message
-        alert(`✓ アセスメントシートが作成されました！\n\nファイル名: ${fileName}\n保存先: temp/assessmentSheet/\n\nこのメッセージを閉じると支援計画作成画面に移動します。`);
+        let successMessage = `✓ アセスメントシートが作成されました！\n\nファイル名: ${fileName}\n保存先: temp/assessmentSheet/`;
+
+        if (driveResult && driveResult.success) {
+            successMessage += `\n\n✓ Google Driveにも保存されました！\nリンク: ${driveResult.html.webViewLink}`;
+        } else if (driveInitialized) {
+            successMessage += `\n\n※ Google Driveへの保存は行われませんでした`;
+        }
+
+        successMessage += `\n\nこのメッセージを閉じると支援計画作成画面に移動します。`;
+
+        alert(successMessage);
 
         // Redirect to support plan creation page (AI Tools tab, Support Plan sub-tab)
         window.location.href = '../index.html?tab=ai-tools&subtab=plan&childName=' + encodeURIComponent(data.childName);
