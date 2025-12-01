@@ -3,9 +3,9 @@
 
 class GoogleDriveAPI {
     constructor() {
-        // Google API設定
-        this.CLIENT_ID = null;
-        this.API_KEY = null;
+        // Google API設定（固定値）
+        this.CLIENT_ID = '537186649664-12ft0p2d5a3jkbkpvjoquugfgpoiov86.apps.googleusercontent.com';
+        this.API_KEY = 'AIzaSyDen7M5YfihnQYaiHtigRvNewb4f6utUbo';
         this.SCOPES = 'https://www.googleapis.com/auth/drive.file';
         this.DISCOVERY_DOCS = ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'];
 
@@ -16,48 +16,6 @@ class GoogleDriveAPI {
         this.gapiInited = false;
         this.gisInited = false;
         this.isSignedIn = false;
-    }
-
-    /**
-     * APIキーとクライアントIDを設定
-     */
-    setCredentials(clientId, apiKey) {
-        this.CLIENT_ID = clientId;
-        this.API_KEY = apiKey;
-        this.saveCredentialsToStorage();
-    }
-
-    /**
-     * 認証情報をlocalStorageに保存
-     */
-    saveCredentialsToStorage() {
-        if (this.CLIENT_ID) {
-            localStorage.setItem('google_drive_client_id', this.CLIENT_ID);
-        }
-        if (this.API_KEY) {
-            localStorage.setItem('google_drive_api_key', this.API_KEY);
-        }
-    }
-
-    /**
-     * localStorageから認証情報を読み込み
-     */
-    loadCredentialsFromStorage() {
-        this.CLIENT_ID = localStorage.getItem('google_drive_client_id') || null;
-        this.API_KEY = localStorage.getItem('google_drive_api_key') || null;
-    }
-
-    /**
-     * configから認証情報を読み込み
-     */
-    loadCredentialsFromConfig() {
-        if (typeof DRIVE_CONFIG !== 'undefined') {
-            this.CLIENT_ID = DRIVE_CONFIG.CLIENT_ID || this.CLIENT_ID;
-            this.API_KEY = DRIVE_CONFIG.API_KEY || this.API_KEY;
-            if (DRIVE_CONFIG.TARGET_FOLDER_ID) {
-                this.TARGET_FOLDER_ID = DRIVE_CONFIG.TARGET_FOLDER_ID;
-            }
-        }
     }
 
     /**
@@ -140,15 +98,6 @@ class GoogleDriveAPI {
      * 初期化処理
      */
     async initialize() {
-        // まずconfigから読み込み、なければlocalStorageから
-        this.loadCredentialsFromConfig();
-        this.loadCredentialsFromStorage();
-
-        if (!this.CLIENT_ID || !this.API_KEY) {
-            console.log('Google Drive API: 認証情報が設定されていません');
-            return false;
-        }
-
         try {
             await this.loadGoogleAPIs();
             console.log('Google Drive API: 初期化完了');

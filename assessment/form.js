@@ -10,132 +10,14 @@ async function initGoogleDrive() {
             if (driveInitialized) {
                 console.log('Google Drive API: 準備完了');
             }
-            updateDriveStatusIndicator();
         } catch (error) {
             console.warn('Google Drive API 初期化スキップ:', error);
-            updateDriveStatusIndicator();
         }
-    } else {
-        updateDriveStatusIndicator();
-    }
-}
-
-// ステータスインジケーターを更新
-function updateDriveStatusIndicator() {
-    const indicator = document.getElementById('driveStatusIndicator');
-    if (!indicator) return;
-
-    const clientId = localStorage.getItem('google_drive_client_id');
-    const apiKey = localStorage.getItem('google_drive_api_key');
-
-    if (clientId && apiKey && driveInitialized) {
-        indicator.className = 'status-indicator connected';
-        indicator.title = 'Google Drive: 接続済み';
-    } else if (clientId && apiKey) {
-        indicator.className = 'status-indicator';
-        indicator.title = 'Google Drive: 設定済み（未接続）';
-    } else {
-        indicator.className = 'status-indicator';
-        indicator.title = 'Google Drive: 未設定';
-    }
-}
-
-// モーダルを開く
-function openDriveSettingsModal() {
-    const modal = document.getElementById('driveSettingsModal');
-    modal.style.display = 'flex';
-
-    // 保存済みの設定を読み込み
-    const clientId = localStorage.getItem('google_drive_client_id') || '';
-    const apiKey = localStorage.getItem('google_drive_api_key') || '';
-    const folderId = localStorage.getItem('google_drive_folder_id') || '';
-
-    document.getElementById('driveClientId').value = clientId;
-    document.getElementById('driveApiKey').value = apiKey;
-    document.getElementById('driveFolderId').value = folderId;
-
-    // ステータスをクリア
-    const statusDiv = document.getElementById('driveStatus');
-    statusDiv.className = 'drive-status';
-    statusDiv.textContent = '';
-    statusDiv.style.display = 'none';
-}
-
-// モーダルを閉じる
-function closeDriveSettingsModal() {
-    const modal = document.getElementById('driveSettingsModal');
-    modal.style.display = 'none';
-}
-
-// 設定を保存
-async function saveDriveSettings() {
-    const clientId = document.getElementById('driveClientId').value.trim();
-    const apiKey = document.getElementById('driveApiKey').value.trim();
-    const folderId = document.getElementById('driveFolderId').value.trim();
-    const statusDiv = document.getElementById('driveStatus');
-
-    // バリデーション
-    if (!clientId || !apiKey) {
-        statusDiv.className = 'drive-status error';
-        statusDiv.textContent = 'クライアントIDとAPIキーは必須です';
-        statusDiv.style.display = 'block';
-        return;
-    }
-
-    // localStorageに保存
-    localStorage.setItem('google_drive_client_id', clientId);
-    localStorage.setItem('google_drive_api_key', apiKey);
-    if (folderId) {
-        localStorage.setItem('google_drive_folder_id', folderId);
-    }
-
-    statusDiv.className = 'drive-status info';
-    statusDiv.textContent = '設定を保存しています...';
-    statusDiv.style.display = 'block';
-
-    // Google Drive APIを再初期化
-    if (typeof googleDriveAPI !== 'undefined') {
-        googleDriveAPI.setCredentials(clientId, apiKey);
-        if (folderId) {
-            googleDriveAPI.TARGET_FOLDER_ID = folderId;
-        }
-
-        try {
-            driveInitialized = await googleDriveAPI.initialize();
-            if (driveInitialized) {
-                statusDiv.className = 'drive-status success';
-                statusDiv.textContent = '設定が保存されました。Google Drive連携が有効になりました。';
-                updateDriveStatusIndicator();
-
-                // 2秒後にモーダルを閉じる
-                setTimeout(() => {
-                    closeDriveSettingsModal();
-                }, 2000);
-            } else {
-                statusDiv.className = 'drive-status error';
-                statusDiv.textContent = '設定は保存されましたが、APIの初期化に失敗しました。認証情報を確認してください。';
-            }
-        } catch (error) {
-            statusDiv.className = 'drive-status error';
-            statusDiv.textContent = `エラー: ${error.message}`;
-        }
-    } else {
-        statusDiv.className = 'drive-status success';
-        statusDiv.textContent = '設定が保存されました。ページを再読み込みしてください。';
-        updateDriveStatusIndicator();
     }
 }
 
 // ページロード時にGoogle Drive APIを初期化
 document.addEventListener('DOMContentLoaded', initGoogleDrive);
-
-// モーダル外クリックで閉じる
-document.addEventListener('click', function(e) {
-    const modal = document.getElementById('driveSettingsModal');
-    if (e.target === modal) {
-        closeDriveSettingsModal();
-    }
-});
 
 document.getElementById('assessmentForm').addEventListener('submit', async function(e) {
     e.preventDefault();
