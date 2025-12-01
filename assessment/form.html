@@ -7,7 +7,50 @@
     <link rel="stylesheet" href="form.css">
 </head>
 <body>
+    <!-- Google Drive設定モーダル -->
+    <div id="driveSettingsModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Google Drive 設定</h3>
+                <button type="button" class="modal-close" onclick="closeDriveSettingsModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-description">アセスメントシートをGoogle Driveに自動保存するための設定です。<br>Google Cloud Consoleで取得した認証情報を入力してください。</p>
+
+                <div class="modal-form-group">
+                    <label for="driveClientId">OAuth 2.0 クライアントID</label>
+                    <input type="text" id="driveClientId" placeholder="xxxxx.apps.googleusercontent.com">
+                </div>
+
+                <div class="modal-form-group">
+                    <label for="driveApiKey">APIキー</label>
+                    <input type="text" id="driveApiKey" placeholder="AIzaSy...">
+                </div>
+
+                <div class="modal-form-group">
+                    <label for="driveFolderId">保存先フォルダID（オプション）</label>
+                    <input type="text" id="driveFolderId" placeholder="Google DriveのフォルダIDを入力">
+                    <small>空欄の場合はデフォルトフォルダに保存されます</small>
+                </div>
+
+                <div id="driveStatus" class="drive-status"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="modal-btn modal-btn-secondary" onclick="closeDriveSettingsModal()">キャンセル</button>
+                <button type="button" class="modal-btn modal-btn-primary" onclick="saveDriveSettings()">保存</button>
+            </div>
+        </div>
+    </div>
+
     <div class="container">
+        <!-- Google Drive設定ボタン -->
+        <button type="button" id="driveSettingsBtn" class="drive-settings-btn" onclick="openDriveSettingsModal()" title="Google Drive設定">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12.01 1.485c-2.082 0-3.754.02-3.743.047.01.02 1.708 3.001 3.774 6.62l3.76 6.574h3.76c2.081 0 3.753-.02 3.742-.047-.01-.02-1.708-3.001-3.774-6.62l-3.76-6.574h-3.76zm-4.76 1.73a789.828 789.828 0 0 0-3.63 6.319L0 15.868l1.89 3.298 1.885 3.296 3.76-.007 3.76-.007.098-.17c.054-.092 1.691-2.95 3.638-6.343l3.54-6.17-1.89-3.296a1379.758 1379.758 0 0 0-1.904-3.303c-.017-.007-1.713 2.923-3.766 6.51-2.053 3.588-3.758 6.537-3.79 6.554-.03.018-1.774-3.046-3.873-6.805l-3.82-6.833-.107.187z"/>
+            </svg>
+            <span id="driveStatusIndicator" class="status-indicator"></span>
+        </button>
+
         <header>
             <h1>カラーズFC お子様の特性に関するアンケート</h1>
             <p class="description">
