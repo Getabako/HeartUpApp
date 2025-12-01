@@ -4,15 +4,16 @@
 let driveInitialized = false;
 
 async function initGoogleDrive() {
+    console.log('Google Drive API 初期化開始...');
     if (typeof googleDriveAPI !== 'undefined') {
         try {
             driveInitialized = await googleDriveAPI.initialize();
-            if (driveInitialized) {
-                console.log('Google Drive API: 準備完了');
-            }
+            console.log('Google Drive API 初期化結果:', driveInitialized);
         } catch (error) {
-            console.warn('Google Drive API 初期化スキップ:', error);
+            console.error('Google Drive API 初期化エラー:', error);
         }
+    } else {
+        console.warn('googleDriveAPI が定義されていません');
     }
 }
 
@@ -70,25 +71,36 @@ document.getElementById('assessmentForm').addEventListener('submit', async funct
 
         // Google Driveへ自動保存
         let driveResult = null;
-        if (driveInitialized && googleDriveAPI.isInitialized()) {
+        if (typeof googleDriveAPI !== 'undefined') {
             submitButton.textContent = 'Google Driveに保存中...';
+            console.log('Google Drive保存開始...', { driveInitialized, isInit: googleDriveAPI.isInitialized() });
             try {
-                driveResult = await googleDriveAPI.saveAssessmentToDrive(fileName, assessmentHTML, data);
-                if (driveResult.success) {
-                    console.log('Google Drive保存成功:', driveResult);
+                // 初期化されていなければ再度初期化を試みる
+                if (!driveInitialized) {
+                    console.log('Google Drive API 再初期化中...');
+                    driveInitialized = await googleDriveAPI.initialize();
+                }
+
+                if (driveInitialized) {
+                    driveResult = await googleDriveAPI.saveAssessmentToDrive(fileName, assessmentHTML, data);
+                    console.log('Google Drive保存結果:', driveResult);
+                } else {
+                    console.warn('Google Drive API が初期化されていません');
                 }
             } catch (driveError) {
-                console.warn('Google Drive保存エラー（ローカル保存は成功）:', driveError);
+                console.error('Google Drive保存エラー:', driveError);
             }
+        } else {
+            console.warn('googleDriveAPI が利用できません');
         }
 
         // Show success message
-        let successMessage = `✓ アセスメントシートが作成されました！\n\nファイル名: ${fileName}\n保存先: temp/assessmentSheet/`;
+        let successMessage = `✓ アセスメントシートが作成されました！\n\nファイル名: ${fileName}`;
 
         if (driveResult && driveResult.success) {
             successMessage += `\n\n✓ Google Driveにも保存されました！\nリンク: ${driveResult.html.webViewLink}`;
-        } else if (driveInitialized) {
-            successMessage += `\n\n※ Google Driveへの保存は行われませんでした`;
+        } else {
+            successMessage += `\n\n※ Google Driveへの保存はスキップされました`;
         }
 
         successMessage += `\n\nこのメッセージを閉じると支援計画作成画面に移動します。`;

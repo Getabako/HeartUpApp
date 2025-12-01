@@ -22,43 +22,82 @@ class GoogleDriveAPI {
      * Google API ライブラリをロード
      */
     async loadGoogleAPIs() {
+        console.log('Google APIs ロード開始...');
         return new Promise((resolve, reject) => {
+            let gapiLoaded = document.getElementById('gapi-script') !== null;
+            let gisLoaded = document.getElementById('gis-script') !== null;
+
             // GAPI (Google API Client) をロード
-            if (!document.getElementById('gapi-script')) {
+            if (!gapiLoaded) {
                 const gapiScript = document.createElement('script');
                 gapiScript.id = 'gapi-script';
                 gapiScript.src = 'https://apis.google.com/js/api.js';
                 gapiScript.async = true;
                 gapiScript.defer = true;
                 gapiScript.onload = () => {
+                    console.log('GAPI スクリプト ロード完了');
                     gapi.load('client', async () => {
-                        await this.initializeGapiClient();
-                        this.gapiInited = true;
-                        this.maybeEnableAPI(resolve);
+                        try {
+                            await this.initializeGapiClient();
+                            this.gapiInited = true;
+                            console.log('GAPI クライアント初期化完了');
+                            this.maybeEnableAPI(resolve);
+                        } catch (err) {
+                            console.error('GAPI クライアント初期化エラー:', err);
+                            reject(err);
+                        }
                     });
                 };
-                gapiScript.onerror = reject;
+                gapiScript.onerror = (err) => {
+                    console.error('GAPI スクリプト ロードエラー:', err);
+                    reject(err);
+                };
                 document.head.appendChild(gapiScript);
+            } else if (!this.gapiInited && typeof gapi !== 'undefined') {
+                // 既にスクリプトはあるが初期化されていない
+                gapi.load('client', async () => {
+                    try {
+                        await this.initializeGapiClient();
+                        this.gapiInited = true;
+                        console.log('GAPI クライアント初期化完了 (再初期化)');
+                        this.maybeEnableAPI(resolve);
+                    } catch (err) {
+                        console.error('GAPI クライアント初期化エラー:', err);
+                        reject(err);
+                    }
+                });
             }
 
             // GIS (Google Identity Services) をロード
-            if (!document.getElementById('gis-script')) {
+            if (!gisLoaded) {
                 const gisScript = document.createElement('script');
                 gisScript.id = 'gis-script';
                 gisScript.src = 'https://accounts.google.com/gsi/client';
                 gisScript.async = true;
                 gisScript.defer = true;
                 gisScript.onload = () => {
+                    console.log('GIS スクリプト ロード完了');
                     this.initializeGisClient();
                     this.gisInited = true;
+                    console.log('GIS クライアント初期化完了');
                     this.maybeEnableAPI(resolve);
                 };
-                gisScript.onerror = reject;
+                gisScript.onerror = (err) => {
+                    console.error('GIS スクリプト ロードエラー:', err);
+                    reject(err);
+                };
                 document.head.appendChild(gisScript);
+            } else if (!this.gisInited && typeof google !== 'undefined') {
+                // 既にスクリプトはあるが初期化されていない
+                this.initializeGisClient();
+                this.gisInited = true;
+                console.log('GIS クライアント初期化完了 (再初期化)');
+                this.maybeEnableAPI(resolve);
             }
 
-            // 既にロード済みの場合
+            // 既に両方ロード済みの場合
             if (this.gapiInited && this.gisInited) {
+                console.log('Google APIs 既に初期化済み');
                 resolve();
             }
         });
