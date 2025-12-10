@@ -960,14 +960,31 @@ function showPlanForm() {
 // 成長振り返りフォームを表示
 function showReviewForm() {
     const container = document.getElementById('reviewToolContent');
-    
+
+    // localStorageからアセスメント一覧を取得（生徒選択用）
+    const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
+    const studentNames = [...new Set(Object.values(assessments).map(a => a.data?.childName).filter(Boolean))];
+
+    let studentOptions = '<option value="">選択してください</option>';
+    studentNames.forEach(name => {
+        studentOptions += `<option value="${name}">${name}</option>`;
+    });
+
     container.innerHTML = `
         <form onsubmit="generateReview(event)">
             <div class="form-group">
                 <label>対象児童名</label>
-                <input type="text" id="reviewChildName" placeholder="例: 山田太郎" required>
+                <select id="reviewChildName" required onchange="loadStudentDataForReview(this.value)">
+                    ${studentOptions}
+                    <option value="__manual__">手動で入力</option>
+                </select>
+                <input type="text" id="reviewChildNameManual" placeholder="児童名を入力" style="display: none; margin-top: 0.5rem;">
             </div>
-            
+
+            <div id="driveDataStatus" style="display: none; margin-bottom: 1rem; padding: 1rem; background: #e3f2fd; border-radius: 8px;">
+                <strong>📁 Google Driveからデータを読み込み中...</strong>
+            </div>
+
             <div class="form-group">
                 <label>評価期間</label>
                 <div style="display: flex; gap: 1rem; align-items: center;">
@@ -976,34 +993,37 @@ function showReviewForm() {
                     <input type="date" id="endDate" required value="${new Date().toISOString().split('T')[0]}">
                 </div>
             </div>
-            
+
             <div class="form-group">
                 <label>設定していた目標</label>
                 <textarea id="goals" placeholder="例: ボールを正確に蹴れるようになる、友達とパス交換ができる" required></textarea>
             </div>
-            
+
             <div class="form-group">
                 <label>期間中の主な活動記録</label>
-                <textarea id="activities" placeholder="例: 週2回の個別練習、月1回のミニゲーム参加" required></textarea>
+                <textarea id="activities" placeholder="例: 週2回の個別練習、月1回のミニゲーム参加（Google Driveから自動取得されます）" required></textarea>
             </div>
-            
+
             <div class="form-group">
                 <label>観察された変化</label>
                 <textarea id="changes" placeholder="例: ボールコントロールが向上、積極的に参加するようになった" required></textarea>
             </div>
-            
+
+            <input type="hidden" id="driveAssessmentData" value="">
+            <input type="hidden" id="driveRecordsData" value="">
+
             <div style="display: flex; gap: 1rem;">
                 <button type="submit" class="btn-primary">振り返りを生成</button>
                 <button type="button" class="btn-secondary" onclick="closeToolDetail()">キャンセル</button>
             </div>
         </form>
-        
+
         <div id="generatedReview" style="margin-top: 2rem; display: none;">
             <h3 style="color: #2e7d32; margin-bottom: 1rem;">成長の振り返りレポート</h3>
             <div style="padding: 1.5rem; background: #f8f9fa; border-radius: 10px;" id="reviewContent"></div>
             <div style="margin-top: 1rem; display: flex; gap: 1rem;">
-                <button class="btn-primary" onclick="alert('デモ版のため、保存機能は実装されていません。')">💾 保存</button>
-                <button class="btn-secondary" onclick="alert('デモ版のため、共有機能は実装されていません。')">📤 共有</button>
+                <button class="btn-primary" onclick="saveReviewManually()">💾 保存</button>
+                <button class="btn-secondary" onclick="printReview()">🖨️ 印刷</button>
             </div>
 
             <div style="margin-top: 2rem; padding-top: 2rem; border-top: 2px solid #e0e0e0;">
@@ -1017,6 +1037,124 @@ function showReviewForm() {
     `;
 }
 
+// 生徒選択時にGoogle Driveからデータを読み込む
+async function loadStudentDataForReview(studentName) {
+    const manualInput = document.getElementById('reviewChildNameManual');
+
+    if (studentName === '__manual__') {
+        manualInput.style.display = 'block';
+        manualInput.required = true;
+        return;
+    } else {
+        manualInput.style.display = 'none';
+        manualInput.required = false;
+    }
+
+    if (!studentName) return;
+
+    const statusDiv = document.getElementById('driveDataStatus');
+
+    // Google Drive APIが利用可能な場合、データを取得
+    if (typeof googleDriveAPI !== 'undefined') {
+        try {
+            statusDiv.style.display = 'block';
+            statusDiv.innerHTML = '<strong>📁 Google Driveからデータを読み込み中...</strong>';
+
+            // 初期化確認
+            if (!googleDriveAPI.isInitialized()) {
+                await googleDriveAPI.initialize();
+            }
+
+            // 生徒フォルダからデータを取得
+            const studentData = await googleDriveAPI.getStudentDataForReview(studentName);
+
+            if (studentData.success) {
+                // アセスメントデータを保存
+                if (studentData.assessments.length > 0) {
+                    document.getElementById('driveAssessmentData').value = JSON.stringify(studentData.assessments);
+                }
+
+                // 記録データを保存
+                if (studentData.records.length > 0) {
+                    document.getElementById('driveRecordsData').value = JSON.stringify(studentData.records);
+
+                    // 活動記録を自動入力
+                    const activitiesSummary = studentData.records.map(r => {
+                        const date = r.data?.date || r.createdAt?.split('T')[0] || '';
+                        const activity = r.data?.activityType || '';
+                        return `${date}: ${activity}`;
+                    }).join('\n');
+
+                    document.getElementById('activities').value = activitiesSummary;
+                }
+
+                statusDiv.innerHTML = `<strong>✓ データを読み込みました</strong><br>
+                    アセスメント: ${studentData.assessments.length}件、記録: ${studentData.records.length}件`;
+                statusDiv.style.background = '#e8f5e9';
+            } else {
+                statusDiv.innerHTML = '<strong>⚠️ データの取得に失敗しました</strong>';
+                statusDiv.style.background = '#fff3e0';
+            }
+        } catch (error) {
+            console.error('Google Driveデータ取得エラー:', error);
+            statusDiv.innerHTML = '<strong>⚠️ Google Driveに接続できません（手動入力をご利用ください）</strong>';
+            statusDiv.style.background = '#fff3e0';
+        }
+    } else {
+        // localStorageからデータを取得
+        const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
+        const matchingAssessment = Object.values(assessments).find(a => a.data?.childName === studentName);
+
+        if (matchingAssessment) {
+            document.getElementById('driveAssessmentData').value = JSON.stringify([{ data: matchingAssessment.data }]);
+            statusDiv.style.display = 'block';
+            statusDiv.innerHTML = '<strong>✓ ローカルデータを読み込みました</strong>';
+            statusDiv.style.background = '#e8f5e9';
+        }
+    }
+}
+
+// 振り返りレポートを印刷
+function printReview() {
+    const reviewContent = document.getElementById('reviewContent').innerHTML;
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>振り返りレポート</title>
+            <style>
+                body { font-family: 'Hiragino Kaku Gothic ProN', sans-serif; padding: 40px; }
+            </style>
+        </head>
+        <body>
+            ${reviewContent}
+            <script>window.print(); window.close();</script>
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+}
+
+// 振り返りレポートを手動保存
+async function saveReviewManually() {
+    if (!lastGeneratedReview || !lastReviewData) {
+        alert('先に振り返りレポートを生成してください');
+        return;
+    }
+
+    const childName = lastReviewData.childName;
+    const endDate = lastReviewData.endDate;
+
+    try {
+        await saveReviewToDrive(childName, endDate, lastGeneratedReview, lastReviewData);
+        alert('振り返りレポートを保存しました');
+    } catch (error) {
+        console.error('保存エラー:', error);
+        alert('保存に失敗しました: ' + error.message);
+    }
+}
+
 // ツール詳細を閉じる（現在は使用していないが、互換性のため残す）
 function closeToolDetail() {
     // タブ形式になったため、この関数は不要だが互換性のため残す
@@ -1025,24 +1163,24 @@ function closeToolDetail() {
 // 記録を生成
 async function generateRecord(event) {
     event.preventDefault();
-    
+
     const date = document.getElementById('recordDate').value;
     const childName = document.getElementById('childName').value;
     const activityType = document.getElementById('activityType').value;
     const observation = document.getElementById('observation').value;
     const notes = document.getElementById('notes').value;
-    
+
     const activityLabels = {
         'individual': '個別練習',
         'group': 'グループ活動',
         'game': 'ミニゲーム',
         'skill': 'スキル練習'
     };
-    
+
     // ローディング表示
     document.getElementById('recordContent').innerHTML = '<div style="text-align: center; padding: 2rem;">🔄 AIが記録を生成中...</div>';
     document.getElementById('generatedRecord').style.display = 'block';
-    
+
     try {
         // 支援計画データを取得
         const supportPlanDataJson = document.getElementById('supportPlanDataJson')?.value;
@@ -1055,6 +1193,8 @@ async function generateRecord(event) {
             }
         }
 
+        let generatedText = '';
+
         // Gemini APIを使用して生成
         if (geminiAPI.isInitialized()) {
             const recordData = {
@@ -1066,7 +1206,7 @@ async function generateRecord(event) {
                 supportPlan: supportPlanData  // 支援計画データを追加
             };
 
-            const generatedText = await geminiAPI.generateRecord(recordData);
+            generatedText = await geminiAPI.generateRecord(recordData);
             document.getElementById('recordContent').innerHTML = convertMarkdownToHTML(generatedText);
 
             // 修正用に保存
@@ -1074,7 +1214,7 @@ async function generateRecord(event) {
             lastRecordData = recordData;
         } else {
             // APIが設定されていない場合はデフォルトのテキストを使用
-            const recordText = `【活動記録】
+            generatedText = `【活動記録】
 
 日付: ${date}
 対象児童: ${childName}
@@ -1097,9 +1237,15 @@ ${notes ? `特に、${notes}という点が印象的でした。` : ''}
 記録者: ＿＿＿＿＿＿
 
 ※ Gemini APIを設定すると、より詳細な記録が自動生成されます`;
-            
-            document.getElementById('recordContent').textContent = recordText;
+
+            document.getElementById('recordContent').textContent = generatedText;
+            lastGeneratedRecord = generatedText;
+            lastRecordData = { date, childName, activityType: activityLabels[activityType], observation, notes };
         }
+
+        // Google Driveに保存
+        await saveRecordToDrive(childName, date, generatedText, lastRecordData);
+
     } catch (error) {
         console.error('記録生成エラー:', error);
         document.getElementById('recordContent').innerHTML = `
@@ -1109,6 +1255,143 @@ ${notes ? `特に、${notes}という点が印象的でした。` : ''}
             </div>
         `;
     }
+}
+
+// 記録をGoogle Driveに保存
+async function saveRecordToDrive(childName, date, content, recordData) {
+    if (typeof googleDriveAPI === 'undefined') {
+        console.warn('googleDriveAPI が利用できません');
+        return null;
+    }
+
+    try {
+        // Google Drive APIの初期化確認
+        if (!googleDriveAPI.isInitialized()) {
+            await googleDriveAPI.initialize();
+        }
+
+        // HTML形式で保存
+        const fileName = `${childName}_記録_${date}.html`;
+        const htmlContent = generateRecordHTML(childName, date, content, recordData);
+
+        const driveResult = await googleDriveAPI.saveRecordToStudentFolder(
+            childName,
+            fileName,
+            htmlContent,
+            recordData
+        );
+
+        if (driveResult.success) {
+            console.log('記録をGoogle Driveに保存しました:', driveResult);
+            // 保存成功メッセージを表示
+            const saveStatus = document.createElement('div');
+            saveStatus.style.cssText = 'margin-top: 1rem; padding: 0.75rem; background: #e8f5e9; border-radius: 8px; color: #2e7d32;';
+            saveStatus.innerHTML = `✓ Google Driveに保存しました（${driveResult.folder.folderName}フォルダ）`;
+            document.getElementById('generatedRecord').appendChild(saveStatus);
+        }
+
+        return driveResult;
+    } catch (error) {
+        console.error('記録のGoogle Drive保存エラー:', error);
+        return null;
+    }
+}
+
+// 記録のHTMLを生成
+function generateRecordHTML(childName, date, content, recordData) {
+    return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${childName} 活動記録 ${date}</title>
+    <style>
+        body {
+            font-family: 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Yu Gothic', 'Meiryo', sans-serif;
+            padding: 40px;
+            background-color: #f5f5f5;
+            line-height: 1.8;
+        }
+        .record-sheet {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #2e7d32;
+        }
+        .header h1 {
+            color: #2e7d32;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        .meta-info {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 8px;
+        }
+        .meta-item {
+            display: flex;
+            gap: 8px;
+        }
+        .meta-label {
+            font-weight: bold;
+            color: #2e7d32;
+        }
+        .content {
+            white-space: pre-wrap;
+            color: #333;
+        }
+        .print-button {
+            display: block;
+            margin: 20px auto;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        @media print {
+            .print-button { display: none; }
+            body { padding: 0; background: white; }
+        }
+    </style>
+</head>
+<body>
+    <div class="record-sheet">
+        <div class="header">
+            <h1>活動記録</h1>
+        </div>
+        <div class="meta-info">
+            <div class="meta-item">
+                <span class="meta-label">日付:</span>
+                <span>${date}</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">児童名:</span>
+                <span>${childName}</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">活動:</span>
+                <span>${recordData.activityType || ''}</span>
+            </div>
+        </div>
+        <div class="content">${content}</div>
+        <button class="print-button" onclick="window.print()">印刷する</button>
+    </div>
+</body>
+</html>`;
 }
 
 // 支援計画を生成
@@ -1238,18 +1521,39 @@ async function generatePlan(event) {
 // 振り返りを生成
 async function generateReview(event) {
     event.preventDefault();
-    
-    const childName = document.getElementById('reviewChildName').value;
+
+    // 手動入力の場合は手動入力フィールドから取得
+    let childName = document.getElementById('reviewChildName').value;
+    if (childName === '__manual__') {
+        childName = document.getElementById('reviewChildNameManual').value;
+    }
+
     const startDate = document.getElementById('startDate').value;
     const endDate = document.getElementById('endDate').value;
     const goals = document.getElementById('goals').value;
     const activities = document.getElementById('activities').value;
     const changes = document.getElementById('changes').value;
-    
+
+    // Google Driveから取得したデータ
+    const driveAssessmentData = document.getElementById('driveAssessmentData')?.value;
+    const driveRecordsData = document.getElementById('driveRecordsData')?.value;
+
+    let assessmentData = null;
+    let recordsData = null;
+
+    try {
+        if (driveAssessmentData) assessmentData = JSON.parse(driveAssessmentData);
+        if (driveRecordsData) recordsData = JSON.parse(driveRecordsData);
+    } catch (e) {
+        console.warn('Drive data parse error:', e);
+    }
+
     // ローディング表示
     document.getElementById('reviewContent').innerHTML = '<div style="text-align: center; padding: 2rem;">🔄 AIが振り返りレポートを生成中...</div>';
     document.getElementById('generatedReview').style.display = 'block';
-    
+
+    let generatedText = '';
+
     try {
         if (geminiAPI.isInitialized()) {
             const reviewData = {
@@ -1258,10 +1562,12 @@ async function generateReview(event) {
                 endDate,
                 goals,
                 activities,
-                changes
+                changes,
+                assessmentData,  // アセスメントデータを追加
+                recordsData      // 記録データを追加
             };
-            
-            const generatedText = await geminiAPI.generateReview(reviewData);
+
+            generatedText = await geminiAPI.generateReview(reviewData);
             document.getElementById('reviewContent').innerHTML = convertMarkdownToHTML(generatedText);
 
             // 修正用に保存
@@ -1320,9 +1626,16 @@ async function generateReview(event) {
     <p style="margin-top: 1rem; font-size: 0.85rem; color: #666;">
         ※ Gemini APIを設定すると、より詳細な分析が自動生成されます
     </p>`;
-            
+
             document.getElementById('reviewContent').innerHTML = reviewHTML;
+            generatedText = reviewHTML;
+            lastGeneratedReview = generatedText;
+            lastReviewData = { childName, startDate, endDate, goals, activities, changes };
         }
+
+        // Google Driveに自動保存
+        await saveReviewToDrive(childName, endDate, generatedText, lastReviewData);
+
     } catch (error) {
         console.error('振り返り生成エラー:', error);
         document.getElementById('reviewContent').innerHTML = `
@@ -1332,6 +1645,139 @@ async function generateReview(event) {
             </div>
         `;
     }
+}
+
+// 振り返りレポートをGoogle Driveに保存
+async function saveReviewToDrive(childName, endDate, content, reviewData) {
+    if (typeof googleDriveAPI === 'undefined') {
+        console.warn('googleDriveAPI が利用できません');
+        return null;
+    }
+
+    try {
+        // Google Drive APIの初期化確認
+        if (!googleDriveAPI.isInitialized()) {
+            await googleDriveAPI.initialize();
+        }
+
+        // HTML形式で保存
+        const fileName = `${childName}_振り返りレポート_${endDate}.html`;
+        const htmlContent = generateReviewHTML(childName, reviewData, content);
+
+        const driveResult = await googleDriveAPI.saveReviewToStudentFolder(
+            childName,
+            fileName,
+            htmlContent,
+            reviewData
+        );
+
+        if (driveResult.success) {
+            console.log('振り返りレポートをGoogle Driveに保存しました:', driveResult);
+            // 保存成功メッセージを表示
+            const saveStatus = document.createElement('div');
+            saveStatus.style.cssText = 'margin-top: 1rem; padding: 0.75rem; background: #e8f5e9; border-radius: 8px; color: #2e7d32;';
+            saveStatus.innerHTML = `✓ Google Driveに保存しました（${driveResult.folder.folderName}フォルダ）`;
+            document.getElementById('generatedReview').appendChild(saveStatus);
+        }
+
+        return driveResult;
+    } catch (error) {
+        console.error('振り返りレポートのGoogle Drive保存エラー:', error);
+        return null;
+    }
+}
+
+// 振り返りレポートのHTMLを生成
+function generateReviewHTML(childName, reviewData, content) {
+    return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${childName} 振り返りレポート ${reviewData.endDate || ''}</title>
+    <style>
+        body {
+            font-family: 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Yu Gothic', 'Meiryo', sans-serif;
+            padding: 40px;
+            background-color: #f5f5f5;
+            line-height: 1.8;
+        }
+        .review-sheet {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #2e7d32;
+        }
+        .header h1 {
+            color: #2e7d32;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        .meta-info {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 8px;
+        }
+        .meta-item {
+            display: flex;
+            gap: 8px;
+        }
+        .meta-label {
+            font-weight: bold;
+            color: #2e7d32;
+        }
+        .content {
+            color: #333;
+        }
+        .print-button {
+            display: block;
+            margin: 20px auto;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        @media print {
+            .print-button { display: none; }
+            body { padding: 0; background: white; }
+        }
+    </style>
+</head>
+<body>
+    <div class="review-sheet">
+        <div class="header">
+            <h1>成長の振り返りレポート</h1>
+        </div>
+        <div class="meta-info">
+            <div class="meta-item">
+                <span class="meta-label">児童名:</span>
+                <span>${childName}</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">評価期間:</span>
+                <span>${reviewData.startDate || ''} 〜 ${reviewData.endDate || ''}</span>
+            </div>
+        </div>
+        <div class="content">${content}</div>
+        <button class="print-button" onclick="window.print()">印刷する</button>
+    </div>
+</body>
+</html>`;
 }
 
 // モーダル外クリックで閉じる

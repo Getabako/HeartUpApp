@@ -370,6 +370,273 @@ class GoogleDriveAPI {
             throw error;
         }
     }
+
+    /**
+     * 生徒名フォルダを検索または作成
+     * @param {string} studentName - 生徒名
+     * @param {string} parentFolderId - 親フォルダID（省略時はデフォルトフォルダ）
+     * @returns {Promise<{folderId: string, folderName: string, isNew: boolean}>}
+     */
+    async getOrCreateStudentFolder(studentName, parentFolderId = null) {
+        if (!this.isSignedIn) {
+            await this.authorize();
+        }
+
+        const targetParentFolderId = parentFolderId || this.TARGET_FOLDER_ID;
+        const folderName = studentName;
+
+        try {
+            // まず既存のフォルダを検索
+            const searchResponse = await gapi.client.drive.files.list({
+                q: `name = '${folderName}' and '${targetParentFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+                fields: 'files(id, name)'
+            });
+
+            if (searchResponse.result.files && searchResponse.result.files.length > 0) {
+                // 既存のフォルダが見つかった
+                const existingFolder = searchResponse.result.files[0];
+                console.log('既存の生徒フォルダを発見:', existingFolder.name);
+                return {
+                    folderId: existingFolder.id,
+                    folderName: existingFolder.name,
+                    isNew: false
+                };
+            }
+
+            // フォルダが存在しない場合は作成
+            const folderMetadata = {
+                name: folderName,
+                mimeType: 'application/vnd.google-apps.folder',
+                parents: [targetParentFolderId]
+            };
+
+            const createResponse = await gapi.client.drive.files.create({
+                resource: folderMetadata,
+                fields: 'id, name'
+            });
+
+            console.log('新しい生徒フォルダを作成:', createResponse.result.name);
+            return {
+                folderId: createResponse.result.id,
+                folderName: createResponse.result.name,
+                isNew: true
+            };
+        } catch (error) {
+            console.error('生徒フォルダ作成/取得エラー:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * 生徒フォルダ内のファイル一覧を取得
+     * @param {string} studentName - 生徒名
+     * @returns {Promise<{success: boolean, files: Array, folderId: string}>}
+     */
+    async listStudentFiles(studentName) {
+        try {
+            const folderInfo = await this.getOrCreateStudentFolder(studentName);
+            const files = await this.listFiles(folderInfo.folderId);
+            return {
+                success: true,
+                files: files.files,
+                folderId: folderInfo.folderId
+            };
+        } catch (error) {
+            console.error('生徒ファイル一覧取得エラー:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * アセスメントシートを生徒フォルダに保存
+     * @param {string} studentName - 生徒名
+     * @param {string} fileName - ファイル名
+     * @param {string} htmlContent - HTMLコンテンツ
+     * @param {object} assessmentData - アセスメントデータ
+     */
+    async saveAssessmentToStudentFolder(studentName, fileName, htmlContent, assessmentData) {
+        const results = {
+            html: null,
+            json: null,
+            folder: null,
+            success: false
+        };
+
+        try {
+            // 生徒フォルダを取得または作成
+            const folderInfo = await this.getOrCreateStudentFolder(studentName);
+            results.folder = folderInfo;
+
+            // HTMLファイルをアップロード
+            results.html = await this.uploadHTMLFile(fileName, htmlContent, folderInfo.folderId);
+
+            // JSONメタデータをアップロード
+            const jsonFileName = fileName.replace('.html', '.json');
+            const metadata = {
+                type: 'assessment',
+                fileName,
+                studentName,
+                data: assessmentData,
+                createdAt: new Date().toISOString(),
+                driveFileId: results.html.fileId,
+                folderId: folderInfo.folderId
+            };
+            results.json = await this.uploadJSONFile(jsonFileName, metadata, folderInfo.folderId);
+
+            results.success = true;
+            console.log('アセスメントシートを生徒フォルダに保存完了:', studentName);
+            return results;
+        } catch (error) {
+            console.error('生徒フォルダへのアセスメント保存エラー:', error);
+            results.error = error.message;
+            return results;
+        }
+    }
+
+    /**
+     * 記録を生徒フォルダに保存
+     * @param {string} studentName - 生徒名
+     * @param {string} fileName - ファイル名
+     * @param {string} htmlContent - HTMLコンテンツ
+     * @param {object} recordData - 記録データ
+     */
+    async saveRecordToStudentFolder(studentName, fileName, htmlContent, recordData) {
+        const results = {
+            html: null,
+            json: null,
+            folder: null,
+            success: false
+        };
+
+        try {
+            // 生徒フォルダを取得または作成
+            const folderInfo = await this.getOrCreateStudentFolder(studentName);
+            results.folder = folderInfo;
+
+            // HTMLファイルをアップロード
+            results.html = await this.uploadHTMLFile(fileName, htmlContent, folderInfo.folderId);
+
+            // JSONメタデータをアップロード
+            const jsonFileName = fileName.replace('.html', '.json');
+            const metadata = {
+                type: 'record',
+                fileName,
+                studentName,
+                data: recordData,
+                createdAt: new Date().toISOString(),
+                driveFileId: results.html.fileId,
+                folderId: folderInfo.folderId
+            };
+            results.json = await this.uploadJSONFile(jsonFileName, metadata, folderInfo.folderId);
+
+            results.success = true;
+            console.log('記録を生徒フォルダに保存完了:', studentName);
+            return results;
+        } catch (error) {
+            console.error('生徒フォルダへの記録保存エラー:', error);
+            results.error = error.message;
+            return results;
+        }
+    }
+
+    /**
+     * 振り返りレポートを生徒フォルダに保存
+     * @param {string} studentName - 生徒名
+     * @param {string} fileName - ファイル名
+     * @param {string} htmlContent - HTMLコンテンツ
+     * @param {object} reviewData - 振り返りデータ
+     */
+    async saveReviewToStudentFolder(studentName, fileName, htmlContent, reviewData) {
+        const results = {
+            html: null,
+            json: null,
+            folder: null,
+            success: false
+        };
+
+        try {
+            // 生徒フォルダを取得または作成
+            const folderInfo = await this.getOrCreateStudentFolder(studentName);
+            results.folder = folderInfo;
+
+            // HTMLファイルをアップロード
+            results.html = await this.uploadHTMLFile(fileName, htmlContent, folderInfo.folderId);
+
+            // JSONメタデータをアップロード
+            const jsonFileName = fileName.replace('.html', '.json');
+            const metadata = {
+                type: 'review',
+                fileName,
+                studentName,
+                data: reviewData,
+                createdAt: new Date().toISOString(),
+                driveFileId: results.html.fileId,
+                folderId: folderInfo.folderId
+            };
+            results.json = await this.uploadJSONFile(jsonFileName, metadata, folderInfo.folderId);
+
+            results.success = true;
+            console.log('振り返りレポートを生徒フォルダに保存完了:', studentName);
+            return results;
+        } catch (error) {
+            console.error('生徒フォルダへの振り返り保存エラー:', error);
+            results.error = error.message;
+            return results;
+        }
+    }
+
+    /**
+     * 生徒フォルダからアセスメントと記録データを取得（振り返り用）
+     * @param {string} studentName - 生徒名
+     * @returns {Promise<{assessments: Array, records: Array}>}
+     */
+    async getStudentDataForReview(studentName) {
+        try {
+            const folderInfo = await this.getOrCreateStudentFolder(studentName);
+
+            // JSONファイルのみを取得
+            const response = await gapi.client.drive.files.list({
+                q: `'${folderInfo.folderId}' in parents and mimeType = 'application/json' and trashed = false`,
+                fields: 'files(id, name, createdTime)',
+                orderBy: 'createdTime desc'
+            });
+
+            const assessments = [];
+            const records = [];
+
+            // 各JSONファイルの内容を取得
+            for (const file of response.result.files || []) {
+                try {
+                    const fileContent = await gapi.client.drive.files.get({
+                        fileId: file.id,
+                        alt: 'media'
+                    });
+
+                    const data = typeof fileContent.body === 'string'
+                        ? JSON.parse(fileContent.body)
+                        : fileContent.result;
+
+                    if (data.type === 'assessment') {
+                        assessments.push(data);
+                    } else if (data.type === 'record') {
+                        records.push(data);
+                    }
+                } catch (e) {
+                    console.warn('ファイル読み込みエラー:', file.name, e);
+                }
+            }
+
+            return {
+                success: true,
+                assessments,
+                records,
+                folderId: folderInfo.folderId
+            };
+        } catch (error) {
+            console.error('生徒データ取得エラー:', error);
+            throw error;
+        }
+    }
 }
 
 // グローバルインスタンスを作成

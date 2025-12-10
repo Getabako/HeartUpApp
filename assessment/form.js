@@ -69,7 +69,7 @@ document.getElementById('assessmentForm').addEventListener('submit', async funct
         const fileName = `${data.childName}_アセスメントシート.html`;
         await saveAssessmentSheet(fileName, assessmentHTML, data);
 
-        // Google Driveへ自動保存
+        // Google Driveへ自動保存（生徒名フォルダに保存）
         let driveResult = null;
         if (typeof googleDriveAPI !== 'undefined') {
             submitButton.textContent = 'Google Driveに保存中...';
@@ -82,7 +82,13 @@ document.getElementById('assessmentForm').addEventListener('submit', async funct
                 }
 
                 if (driveInitialized) {
-                    driveResult = await googleDriveAPI.saveAssessmentToDrive(fileName, assessmentHTML, data);
+                    // 生徒名フォルダに保存（フォルダがなければ自動作成）
+                    driveResult = await googleDriveAPI.saveAssessmentToStudentFolder(
+                        data.childName,
+                        fileName,
+                        assessmentHTML,
+                        data
+                    );
                     console.log('Google Drive保存結果:', driveResult);
                 } else {
                     console.warn('Google Drive API が初期化されていません');
@@ -98,7 +104,10 @@ document.getElementById('assessmentForm').addEventListener('submit', async funct
         let successMessage = `✓ アセスメントシートが作成されました！\n\nファイル名: ${fileName}`;
 
         if (driveResult && driveResult.success) {
-            successMessage += `\n\n✓ Google Driveにも保存されました！\nリンク: ${driveResult.html.webViewLink}`;
+            const folderStatus = driveResult.folder.isNew ? '（新規作成）' : '（既存）';
+            successMessage += `\n\n✓ Google Driveに保存されました！`;
+            successMessage += `\n📁 保存先フォルダ: ${driveResult.folder.folderName} ${folderStatus}`;
+            successMessage += `\n📄 ファイルリンク: ${driveResult.html.webViewLink}`;
         } else {
             successMessage += `\n\n※ Google Driveへの保存はスキップされました`;
         }
