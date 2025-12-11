@@ -1917,3 +1917,147 @@ async function refineReview() {
         `;
     }
 }
+
+// ========================================
+// API設定モーダル関連の関数
+// ========================================
+
+// API設定モーダルを開く
+function openApiSettingsModal() {
+    const modal = document.getElementById('apiSettingsModal');
+    modal.classList.remove('hidden');
+
+    // 現在のステータスを更新
+    updateApiStatus();
+
+    // 保存済みのAPIキーがあれば入力欄に表示（マスク）
+    const savedKey = localStorage.getItem('gemini_api_key');
+    if (savedKey) {
+        document.getElementById('geminiApiKeyInput').value = savedKey;
+    }
+}
+
+// API設定モーダルを閉じる
+function closeApiSettingsModal() {
+    const modal = document.getElementById('apiSettingsModal');
+    modal.classList.add('hidden');
+}
+
+// APIステータスを更新
+function updateApiStatus() {
+    const statusDiv = document.getElementById('apiStatus');
+    const isConfigured = geminiAPI.isInitialized();
+
+    if (isConfigured) {
+        statusDiv.innerHTML = `
+            <div style="padding: 1rem; background: #e8f5e9; border-radius: 8px; margin-bottom: 1rem; color: #2e7d32;">
+                ✅ <strong>APIキーが設定されています</strong><br>
+                <small>AI機能が利用可能です</small>
+            </div>
+        `;
+    } else {
+        statusDiv.innerHTML = `
+            <div style="padding: 1rem; background: #fff3e0; border-radius: 8px; margin-bottom: 1rem; color: #e65100;">
+                ⚠️ <strong>APIキーが未設定です</strong><br>
+                <small>AI機能を使用するにはAPIキーを設定してください</small>
+            </div>
+        `;
+    }
+}
+
+// APIキーを保存
+function saveApiKey() {
+    const apiKeyInput = document.getElementById('geminiApiKeyInput');
+    const apiKey = apiKeyInput.value.trim();
+
+    if (!apiKey) {
+        alert('APIキーを入力してください');
+        return;
+    }
+
+    if (!apiKey.startsWith('AIza')) {
+        alert('無効なAPIキー形式です。Gemini APIキーは「AIza」で始まります。');
+        return;
+    }
+
+    // APIキーを設定
+    const success = geminiAPI.setApiKey(apiKey);
+
+    if (success) {
+        updateApiStatus();
+        alert('APIキーを保存しました');
+    } else {
+        alert('APIキーの保存に失敗しました');
+    }
+}
+
+// APIキーをテスト
+async function testApiKey() {
+    const apiKeyInput = document.getElementById('geminiApiKeyInput');
+    const apiKey = apiKeyInput.value.trim();
+
+    if (!apiKey) {
+        alert('APIキーを入力してください');
+        return;
+    }
+
+    const statusDiv = document.getElementById('apiStatus');
+    statusDiv.innerHTML = `
+        <div style="padding: 1rem; background: #e3f2fd; border-radius: 8px; margin-bottom: 1rem; color: #1565c0;">
+            🔄 <strong>APIキーをテスト中...</strong>
+        </div>
+    `;
+
+    try {
+        // 一時的にAPIキーを設定してテスト
+        const originalKey = geminiAPI.apiKey;
+        geminiAPI.apiKey = apiKey;
+        geminiAPI.initialized = true;
+
+        const testResult = await geminiAPI.generateContent('こんにちは、テストです。「OK」と返答してください。');
+
+        // テスト成功
+        statusDiv.innerHTML = `
+            <div style="padding: 1rem; background: #e8f5e9; border-radius: 8px; margin-bottom: 1rem; color: #2e7d32;">
+                ✅ <strong>APIキーは有効です！</strong><br>
+                <small>テスト応答: ${testResult.substring(0, 50)}...</small>
+            </div>
+        `;
+
+        // 元に戻す（保存は別途行う）
+        if (!originalKey) {
+            geminiAPI.apiKey = originalKey;
+            geminiAPI.initialized = false;
+        }
+
+    } catch (error) {
+        console.error('APIテストエラー:', error);
+        statusDiv.innerHTML = `
+            <div style="padding: 1rem; background: #ffebee; border-radius: 8px; margin-bottom: 1rem; color: #c62828;">
+                ❌ <strong>APIキーが無効です</strong><br>
+                <small>${error.message}</small>
+            </div>
+        `;
+    }
+}
+
+// APIキーを削除
+function clearApiKey() {
+    if (confirm('APIキーを削除しますか？AI機能が使用できなくなります。')) {
+        localStorage.removeItem('gemini_api_key');
+        geminiAPI.apiKey = null;
+        geminiAPI.initialized = false;
+
+        document.getElementById('geminiApiKeyInput').value = '';
+        updateApiStatus();
+        alert('APIキーを削除しました');
+    }
+}
+
+// モーダル外クリックで閉じる（API設定モーダル用）
+document.addEventListener('click', function(event) {
+    const apiModal = document.getElementById('apiSettingsModal');
+    if (event.target === apiModal) {
+        closeApiSettingsModal();
+    }
+});

@@ -25,35 +25,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Generate config.js from secret
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: |
-          cat > config.js << EOF
-          // Gemini API設定ファイル
-          // このファイルは自動生成されます
-
-          const API_CONFIG = {
-              // Gemini APIキー（GitHub Secretsから注入）
-              GEMINI_API_KEY: '${GEMINI_API_KEY}',
-
-              // 使用するモデル
-              MODEL_NAME: 'gemini-2.0-flash-exp'
-          };
-
-          // Google Drive API設定
-          const DRIVE_CONFIG = {
-              // OAuth 2.0 クライアントID
-              CLIENT_ID: '537186649664-12ft0p2d5a3jkbkpvjoquugfgpoiov86.apps.googleusercontent.com',
-
-              // APIキー
-              API_KEY: 'AIzaSyDen7M5YfihnQYaiHtigRvNewb4f6utUbo',
-
-              // 保存先フォルダID
-              TARGET_FOLDER_ID: '1KvbKykAiUK6BKoqsFQQhyRqYQp7NQm77'
-          };
-          EOF
-
       - name: Setup Pages
         uses: actions/configure-pages@v4
 

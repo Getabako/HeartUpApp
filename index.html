@@ -14,6 +14,9 @@
                 <h1>HeartUp</h1>
             </div>
             <p class="subtitle">サッカー療育支援システム - デモ版</p>
+            <button class="settings-button" onclick="openApiSettingsModal()" title="API設定">
+                ⚙️ 設定
+            </button>
         </div>
     </header>
 
@@ -147,6 +150,47 @@
             <span class="close-button" onclick="closeModal()">&times;</span>
             <div id="modalBody">
                 <!-- モーダルの内容がここに表示されます -->
+            </div>
+        </div>
+    </div>
+
+    <!-- API設定モーダル -->
+    <div id="apiSettingsModal" class="modal hidden">
+        <div class="modal-content" style="max-width: 500px;">
+            <span class="close-button" onclick="closeApiSettingsModal()">&times;</span>
+            <div class="api-settings-content">
+                <h2 style="color: #2e7d32; margin-bottom: 1.5rem;">⚙️ API設定</h2>
+
+                <div class="api-status" id="apiStatus">
+                    <!-- ステータスがここに表示されます -->
+                </div>
+
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label for="geminiApiKeyInput" style="display: block; margin-bottom: 0.5rem; font-weight: bold;">
+                        Gemini APIキー
+                    </label>
+                    <input type="password" id="geminiApiKeyInput"
+                           placeholder="AIzaSy..."
+                           style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem;">
+                    <small style="color: #666; display: block; margin-top: 0.5rem;">
+                        APIキーは<a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: #2e7d32;">Google AI Studio</a>で取得できます
+                    </small>
+                </div>
+
+                <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                    <button class="btn-primary" onclick="saveApiKey()" style="flex: 1;">
+                        💾 保存
+                    </button>
+                    <button class="btn-secondary" onclick="testApiKey()" style="flex: 1;">
+                        🔍 テスト
+                    </button>
+                </div>
+
+                <div style="border-top: 1px solid #eee; padding-top: 1rem; margin-top: 1rem;">
+                    <button class="btn-secondary" onclick="clearApiKey()" style="width: 100%; background: #ffebee; color: #c62828; border-color: #ffcdd2;">
+                        🗑️ APIキーを削除
+                    </button>
+                </div>
             </div>
         </div>
     </div>

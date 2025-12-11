@@ -1,6 +1,7 @@
 # 環境変数
 .env
-config.js
+# config.js は空のテンプレートとしてコミット済み
+# ローカルで編集する場合は git update-index --assume-unchanged config.js を実行
 
 # OS generated files
 .DS_Store
