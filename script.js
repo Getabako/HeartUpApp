@@ -842,9 +842,10 @@ function showRecordForm() {
             <h3 style="color: #2e7d32; margin-bottom: 1rem;">生成された記録</h3>
             <div style="padding: 1.5rem; background: #f8f9fa; border-radius: 10px;" id="recordContent"></div>
             <div style="margin-top: 1rem; display: flex; gap: 1rem;">
-                <button class="btn-primary" onclick="alert('デモ版のため、保存機能は実装されていません。')">💾 保存</button>
-                <button class="btn-secondary" onclick="alert('デモ版のため、エクスポート機能は実装されていません。')">📥 PDF出力</button>
+                <button class="btn-primary" onclick="saveRecordManually()">💾 保存</button>
+                <button class="btn-secondary" onclick="printRecord()">📥 PDF出力</button>
             </div>
+            <div id="recordSaveStatus" style="margin-top: 0.5rem;"></div>
 
             <div style="margin-top: 2rem; padding-top: 2rem; border-top: 2px solid #e0e0e0;">
                 <h4 style="color: #2e7d32; margin-bottom: 1rem;">📝 修正・追加要望</h4>
@@ -942,9 +943,10 @@ function showPlanForm() {
             <h3 style="color: #2e7d32; margin-bottom: 1rem;">生成された支援計画</h3>
             <div style="padding: 1.5rem; background: #f8f9fa; border-radius: 10px;" id="planContent"></div>
             <div style="margin-top: 1rem; display: flex; gap: 1rem;">
-                <button class="btn-primary" onclick="alert('デモ版のため、保存機能は実装されていません。')">💾 保存</button>
-                <button class="btn-secondary" onclick="alert('デモ版のため、エクスポート機能は実装されていません。')">📥 PDF出力</button>
+                <button class="btn-primary" onclick="saveSupportPlanManually()">💾 保存</button>
+                <button class="btn-secondary" onclick="printSupportPlan()">📥 PDF出力</button>
             </div>
+            <div id="planSaveStatus" style="margin-top: 0.5rem;"></div>
 
             <div style="margin-top: 2rem; padding-top: 2rem; border-top: 2px solid #e0e0e0;">
                 <h4 style="color: #2e7d32; margin-bottom: 1rem;">📝 修正・追加要望</h4>
@@ -1392,6 +1394,56 @@ function generateRecordHTML(childName, date, content, recordData) {
     </div>
 </body>
 </html>`;
+}
+
+// 記録を手動保存
+async function saveRecordManually() {
+    if (!lastGeneratedRecord || !lastRecordData) {
+        alert('先に記録を生成してください');
+        return;
+    }
+
+    const childName = lastRecordData.childName;
+    const date = lastRecordData.date;
+    const statusDiv = document.getElementById('recordSaveStatus');
+
+    try {
+        statusDiv.innerHTML = '<div style="padding: 0.5rem; background: #e3f2fd; border-radius: 8px; color: #1565c0;">📤 Google Driveに保存中...</div>';
+
+        const result = await saveRecordToDrive(childName, date, lastGeneratedRecord, lastRecordData);
+
+        if (result && result.success) {
+            statusDiv.innerHTML = `<div style="padding: 0.75rem; background: #e8f5e9; border-radius: 8px; color: #2e7d32;">✓ Google Driveに保存しました（${result.folder.folderName}フォルダ）</div>`;
+        } else {
+            statusDiv.innerHTML = '<div style="padding: 0.5rem; background: #fff3e0; border-radius: 8px; color: #e65100;">⚠️ 保存に失敗しました</div>';
+        }
+    } catch (error) {
+        console.error('記録保存エラー:', error);
+        statusDiv.innerHTML = `<div style="padding: 0.5rem; background: #ffebee; border-radius: 8px; color: #c62828;">❌ エラー: ${error.message}</div>`;
+    }
+}
+
+// 記録を印刷
+function printRecord() {
+    const recordContent = document.getElementById('recordContent').innerHTML;
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>活動記録</title>
+            <style>
+                body { font-family: 'Hiragino Kaku Gothic ProN', sans-serif; padding: 40px; line-height: 1.8; }
+            </style>
+        </head>
+        <body>
+            <h1 style="color: #2e7d32; text-align: center; border-bottom: 3px solid #2e7d32; padding-bottom: 10px;">活動記録</h1>
+            ${recordContent}
+            <script>window.print(); window.close();</script>
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
 }
 
 // 支援計画を生成
@@ -1875,6 +1927,200 @@ async function refinePlan() {
             </div>
         `;
     }
+}
+
+// 支援計画を手動保存
+async function saveSupportPlanManually() {
+    if (!lastGeneratedPlan || !lastPlanData) {
+        alert('先に支援計画を生成してください');
+        return;
+    }
+
+    const childName = lastPlanData.childName;
+    const statusDiv = document.getElementById('planSaveStatus');
+
+    try {
+        statusDiv.innerHTML = '<div style="padding: 0.5rem; background: #e3f2fd; border-radius: 8px; color: #1565c0;">📤 Google Driveに保存中...</div>';
+
+        const result = await saveSupportPlanToDrive(childName, lastGeneratedPlan, lastPlanData);
+
+        if (result && result.success) {
+            statusDiv.innerHTML = `<div style="padding: 0.75rem; background: #e8f5e9; border-radius: 8px; color: #2e7d32;">✓ Google Driveに保存しました（${result.folder.folderName}フォルダ）</div>`;
+        } else {
+            statusDiv.innerHTML = '<div style="padding: 0.5rem; background: #fff3e0; border-radius: 8px; color: #e65100;">⚠️ 保存に失敗しました。ローカルには保存されています。</div>';
+        }
+    } catch (error) {
+        console.error('支援計画保存エラー:', error);
+        statusDiv.innerHTML = `<div style="padding: 0.5rem; background: #ffebee; border-radius: 8px; color: #c62828;">❌ エラー: ${error.message}</div>`;
+    }
+}
+
+// 支援計画をGoogle Driveに保存
+async function saveSupportPlanToDrive(childName, content, planData) {
+    if (typeof googleDriveAPI === 'undefined') {
+        console.warn('googleDriveAPI が利用できません');
+        return null;
+    }
+
+    try {
+        // Google Drive APIの初期化確認
+        if (!googleDriveAPI.isInitialized()) {
+            await googleDriveAPI.initialize();
+        }
+
+        // HTML形式で保存
+        const today = new Date().toISOString().split('T')[0];
+        const fileName = `${childName}_支援計画_${today}.html`;
+        const htmlContent = generateSupportPlanHTML(childName, planData, content);
+
+        const driveResult = await googleDriveAPI.saveSupportPlanToStudentFolder(
+            childName,
+            fileName,
+            htmlContent,
+            planData
+        );
+
+        if (driveResult.success) {
+            console.log('支援計画をGoogle Driveに保存しました:', driveResult);
+
+            // localStorageにも保存
+            const supportPlans = JSON.parse(localStorage.getItem('supportPlans') || '{}');
+            supportPlans[fileName] = {
+                html: htmlContent,
+                data: planData,
+                content: content,
+                createdAt: new Date().toISOString(),
+                driveFileId: driveResult.html.fileId
+            };
+            localStorage.setItem('supportPlans', JSON.stringify(supportPlans));
+        }
+
+        return driveResult;
+    } catch (error) {
+        console.error('支援計画のGoogle Drive保存エラー:', error);
+        return null;
+    }
+}
+
+// 支援計画のHTMLを生成
+function generateSupportPlanHTML(childName, planData, content) {
+    return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${childName} 支援計画</title>
+    <style>
+        body {
+            font-family: 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Yu Gothic', 'Meiryo', sans-serif;
+            padding: 40px;
+            background-color: #f5f5f5;
+            line-height: 1.8;
+        }
+        .plan-sheet {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #2e7d32;
+        }
+        .header h1 {
+            color: #2e7d32;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        .meta-info {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 8px;
+        }
+        .meta-item {
+            display: flex;
+            gap: 8px;
+        }
+        .meta-label {
+            font-weight: bold;
+            color: #2e7d32;
+        }
+        .content {
+            color: #333;
+            white-space: pre-wrap;
+        }
+        .print-button {
+            display: block;
+            margin: 20px auto;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        @media print {
+            .print-button { display: none; }
+            body { padding: 0; background: white; }
+        }
+    </style>
+</head>
+<body>
+    <div class="plan-sheet">
+        <div class="header">
+            <h1>個別支援計画</h1>
+        </div>
+        <div class="meta-info">
+            <div class="meta-item">
+                <span class="meta-label">児童名:</span>
+                <span>${childName}</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">年齢:</span>
+                <span>${planData.age || ''}歳</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">作成日:</span>
+                <span>${new Date().toLocaleDateString('ja-JP')}</span>
+            </div>
+        </div>
+        <div class="content">${content}</div>
+        <button class="print-button" onclick="window.print()">印刷する</button>
+    </div>
+</body>
+</html>`;
+}
+
+// 支援計画を印刷
+function printSupportPlan() {
+    const planContent = document.getElementById('planContent').innerHTML;
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>支援計画</title>
+            <style>
+                body { font-family: 'Hiragino Kaku Gothic ProN', sans-serif; padding: 40px; line-height: 1.8; }
+            </style>
+        </head>
+        <body>
+            <h1 style="color: #2e7d32; text-align: center; border-bottom: 3px solid #2e7d32; padding-bottom: 10px;">個別支援計画</h1>
+            ${planContent}
+            <script>window.print(); window.close();</script>
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
 }
 
 // 振り返りの修正を依頼

@@ -540,6 +540,52 @@ class GoogleDriveAPI {
     }
 
     /**
+     * 支援計画を生徒フォルダに保存
+     * @param {string} studentName - 生徒名
+     * @param {string} fileName - ファイル名
+     * @param {string} htmlContent - HTMLコンテンツ
+     * @param {object} planData - 支援計画データ
+     */
+    async saveSupportPlanToStudentFolder(studentName, fileName, htmlContent, planData) {
+        const results = {
+            html: null,
+            json: null,
+            folder: null,
+            success: false
+        };
+
+        try {
+            // 生徒フォルダを取得または作成
+            const folderInfo = await this.getOrCreateStudentFolder(studentName);
+            results.folder = folderInfo;
+
+            // HTMLファイルをアップロード
+            results.html = await this.uploadHTMLFile(fileName, htmlContent, folderInfo.folderId);
+
+            // JSONメタデータをアップロード
+            const jsonFileName = fileName.replace('.html', '.json');
+            const metadata = {
+                type: 'supportPlan',
+                fileName,
+                studentName,
+                data: planData,
+                createdAt: new Date().toISOString(),
+                driveFileId: results.html.fileId,
+                folderId: folderInfo.folderId
+            };
+            results.json = await this.uploadJSONFile(jsonFileName, metadata, folderInfo.folderId);
+
+            results.success = true;
+            console.log('支援計画を生徒フォルダに保存完了:', studentName);
+            return results;
+        } catch (error) {
+            console.error('生徒フォルダへの支援計画保存エラー:', error);
+            results.error = error.message;
+            return results;
+        }
+    }
+
+    /**
      * 振り返りレポートを生徒フォルダに保存
      * @param {string} studentName - 生徒名
      * @param {string} fileName - ファイル名
