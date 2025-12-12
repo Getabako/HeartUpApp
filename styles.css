@@ -527,6 +527,29 @@ main {
     min-height: 100px;
 }
 
+/* 生徒選択コンテナ */
+.student-select-container {
+    display: flex;
+    flex-direction: column;
+}
+
+.student-select-container input[type="text"] {
+    padding: 0.6rem 0.8rem;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    transition: border-color 0.3s ease;
+}
+
+.student-select-container input[type="text"]:focus {
+    outline: none;
+    border-color: #4caf50;
+}
+
+.student-select-container input[type="text"]::placeholder {
+    color: #aaa;
+}
+
 /* ボタン */
 .btn-primary {
     padding: 1rem 2rem;

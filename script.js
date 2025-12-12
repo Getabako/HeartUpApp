@@ -767,37 +767,18 @@ function closeModal() {
 function showRecordForm() {
     const container = document.getElementById('recordToolContent');
 
-    // localStorageから最新のアセスメントと支援計画を取得
+    // localStorageからアセスメント一覧を取得（生徒選択用）
     const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
     const supportPlans = JSON.parse(localStorage.getItem('supportPlans') || '{}');
+    const studentNames = [...new Set(Object.values(assessments).map(a => a.data?.childName).filter(Boolean))];
 
-    // 最新のアセスメントデータを取得（作成日時でソート）
-    let latestAssessment = null;
-    let latestChildName = '';
-    const assessmentEntries = Object.entries(assessments);
-    if (assessmentEntries.length > 0) {
-        const sorted = assessmentEntries.sort((a, b) => {
-            const dateA = new Date(a[1].createdAt || 0);
-            const dateB = new Date(b[1].createdAt || 0);
-            return dateB - dateA;
-        });
-        latestAssessment = sorted[0][1].data;
-        latestChildName = latestAssessment?.childName || '';
-    }
-
-    // 対応する支援計画を取得
-    let supportPlanData = null;
-    if (latestChildName) {
-        for (const [key, plan] of Object.entries(supportPlans)) {
-            if (plan.childName === latestChildName) {
-                supportPlanData = plan;
-                break;
-            }
-        }
-    }
+    // 生徒選択オプションを生成
+    let studentOptions = '<option value="">選択してください</option>';
+    studentNames.forEach(name => {
+        studentOptions += `<option value="${name}">${name}</option>`;
+    });
 
     container.innerHTML = `
-        ${latestChildName ? '<div style="background: #e8f5e9; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;"><strong>最新のアセスメント情報を読み込みました:</strong> ' + latestChildName + '</div>' : ''}
         <form onsubmit="generateRecord(event)">
             <div class="form-group">
                 <label>日付</label>
@@ -806,10 +787,19 @@ function showRecordForm() {
 
             <div class="form-group">
                 <label>対象児童名</label>
-                <input type="text" id="childName" placeholder="例: 山田太郎" value="${latestChildName}" required>
+                <div class="student-select-container">
+                    <input type="text" id="childNameSearch" placeholder="名前で検索..." oninput="filterRecordStudentOptions(this.value)" style="margin-bottom: 0.5rem;">
+                    <select id="childNameSelect" required onchange="onRecordStudentSelect(this.value)">
+                        ${studentOptions}
+                        <option value="__manual__">手動で入力</option>
+                    </select>
+                    <input type="text" id="childName" placeholder="児童名を入力" style="display: none; margin-top: 0.5rem;">
+                </div>
             </div>
 
-            <input type="hidden" id="supportPlanDataJson" value='${supportPlanData ? JSON.stringify(supportPlanData).replace(/'/g, "&apos;") : ''}'>
+            <div id="recordAssessmentInfo" style="display: none; background: #e8f5e9; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;"></div>
+
+            <input type="hidden" id="supportPlanDataJson" value=''>
             
             <div class="form-group">
                 <label>活動内容</label>
@@ -865,43 +855,37 @@ function showPlanForm() {
     // URLパラメータまたはlocalStorageからアセスメントデータを取得
     const urlParams = new URLSearchParams(window.location.search);
     const childNameParam = urlParams.get('childName');
-    let assessmentData = null;
 
-    // localStorageからアセスメントデータを探す
-    if (childNameParam) {
-        const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
-        for (const [fileName, assessment] of Object.entries(assessments)) {
-            if (assessment.data && assessment.data.childName === childNameParam) {
-                assessmentData = assessment.data;
-                break;
-            }
-        }
-    }
+    // localStorageからアセスメント一覧を取得（生徒選択用）
+    const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
+    const studentNames = [...new Set(Object.values(assessments).map(a => a.data?.childName).filter(Boolean))];
 
-    // 生年月日から年齢を計算
-    let calculatedAge = '';
-    if (assessmentData?.birthDate) {
-        const birthDate = new Date(assessmentData.birthDate);
-        const today = new Date();
-        let age = today.getFullYear() - birthDate.getFullYear();
-        const monthDiff = today.getMonth() - birthDate.getMonth();
-        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-            age--;
-        }
-        calculatedAge = age.toString();
-    }
+    // 生徒選択オプションを生成
+    let studentOptions = '<option value="">選択してください</option>';
+    studentNames.forEach(name => {
+        const selected = (name === childNameParam) ? 'selected' : '';
+        studentOptions += `<option value="${name}" ${selected}>${name}</option>`;
+    });
 
     container.innerHTML = `
-        ${assessmentData ? '<div style="background: #e8f5e9; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;"><strong>アセスメント情報を読み込みました:</strong> ' + assessmentData.childName + (calculatedAge ? ' （' + calculatedAge + '歳）' : '') + '</div>' : ''}
         <form onsubmit="generatePlan(event)">
             <div class="form-group">
                 <label>対象児童名</label>
-                <input type="text" id="planChildName" placeholder="例: 山田太郎" value="${assessmentData?.childName || childNameParam || ''}" required>
+                <div class="student-select-container">
+                    <input type="text" id="planChildNameSearch" placeholder="名前で検索..." oninput="filterPlanStudentOptions(this.value)" style="margin-bottom: 0.5rem;">
+                    <select id="planChildNameSelect" required onchange="onPlanStudentSelect(this.value)">
+                        ${studentOptions}
+                        <option value="__manual__">手動で入力</option>
+                    </select>
+                    <input type="text" id="planChildName" placeholder="児童名を入力" style="display: none; margin-top: 0.5rem;">
+                </div>
             </div>
+
+            <div id="planAssessmentInfo" style="display: none; background: #e8f5e9; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;"></div>
 
             <div class="form-group">
                 <label>年齢</label>
-                <input type="number" id="childAge" min="3" max="18" placeholder="例: 8" value="${calculatedAge}" required>
+                <input type="number" id="childAge" min="3" max="18" placeholder="例: 8" required>
             </div>
 
             <div class="form-group">
@@ -931,7 +915,7 @@ function showPlanForm() {
                 <textarea id="parentRequest" placeholder="例: 友達と協力できるようになってほしい"></textarea>
             </div>
 
-            <input type="hidden" id="assessmentDataJson" value='${assessmentData ? JSON.stringify(assessmentData).replace(/'/g, "&apos;") : ''}'>
+            <input type="hidden" id="assessmentDataJson" value=''>
 
             <div style="display: flex; gap: 1rem;">
                 <button type="submit" class="btn-primary">計画を生成</button>
@@ -957,6 +941,13 @@ function showPlanForm() {
             </div>
         </div>
     `;
+
+    // URLパラメータで生徒名が指定されている場合、自動選択
+    if (childNameParam) {
+        setTimeout(() => {
+            onPlanStudentSelect(childNameParam);
+        }, 100);
+    }
 }
 
 // 成長振り返りフォームを表示
@@ -1167,7 +1158,11 @@ async function generateRecord(event) {
     event.preventDefault();
 
     const date = document.getElementById('recordDate').value;
-    const childName = document.getElementById('childName').value;
+    // プルダウンまたは手動入力から生徒名を取得
+    const selectValue = document.getElementById('childNameSelect').value;
+    const childName = (selectValue === '__manual__')
+        ? document.getElementById('childName').value
+        : selectValue;
     const activityType = document.getElementById('activityType').value;
     const observation = document.getElementById('observation').value;
     const notes = document.getElementById('notes').value;
@@ -1450,7 +1445,11 @@ function printRecord() {
 async function generatePlan(event) {
     event.preventDefault();
 
-    const childName = document.getElementById('planChildName').value;
+    // プルダウンまたは手動入力から生徒名を取得
+    const selectValue = document.getElementById('planChildNameSelect').value;
+    const childName = (selectValue === '__manual__')
+        ? document.getElementById('planChildName').value
+        : selectValue;
     const age = document.getElementById('childAge').value;
     const priorityArea = document.getElementById('priorityArea').value;
     const issues = document.getElementById('currentIssues').value;
@@ -2307,3 +2306,201 @@ document.addEventListener('click', function(event) {
         closeApiSettingsModal();
     }
 });
+
+// ============================================
+// 記録作成フォーム用の生徒選択機能
+// ============================================
+
+// 記録作成用の生徒選択肢をフィルタリング
+function filterRecordStudentOptions(searchText) {
+    const select = document.getElementById('childNameSelect');
+    const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
+    const allNames = [...new Set(Object.values(assessments).map(a => a.data?.childName).filter(Boolean))];
+
+    // 検索テキストで絞り込み
+    const filtered = searchText
+        ? allNames.filter(name => name.includes(searchText))
+        : allNames;
+
+    // オプションを再構築
+    let options = '<option value="">選択してください</option>';
+    filtered.forEach(name => {
+        options += `<option value="${name}">${name}</option>`;
+    });
+    options += '<option value="__manual__">手動で入力</option>';
+
+    select.innerHTML = options;
+}
+
+// 記録作成用の生徒選択時の処理
+function onRecordStudentSelect(value) {
+    const manualInput = document.getElementById('childName');
+    const infoDiv = document.getElementById('recordAssessmentInfo');
+    const supportPlanJson = document.getElementById('supportPlanDataJson');
+
+    if (value === '__manual__') {
+        // 手動入力モード
+        manualInput.style.display = 'block';
+        manualInput.required = true;
+        document.getElementById('childNameSelect').required = false;
+        infoDiv.style.display = 'none';
+        supportPlanJson.value = '';
+    } else if (value) {
+        // 生徒を選択
+        manualInput.style.display = 'none';
+        manualInput.required = false;
+        manualInput.value = value;
+        document.getElementById('childNameSelect').required = true;
+
+        // アセスメント情報を読み込み
+        const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
+        const supportPlans = JSON.parse(localStorage.getItem('supportPlans') || '{}');
+
+        let assessmentData = null;
+        for (const [key, assessment] of Object.entries(assessments)) {
+            if (assessment.data?.childName === value) {
+                assessmentData = assessment.data;
+                break;
+            }
+        }
+
+        // 支援計画を取得
+        let supportPlanData = null;
+        for (const [key, plan] of Object.entries(supportPlans)) {
+            if (plan.childName === value) {
+                supportPlanData = plan;
+                break;
+            }
+        }
+
+        if (assessmentData || supportPlanData) {
+            let info = '<strong>読み込まれた情報:</strong><br>';
+            if (assessmentData) {
+                info += `• アセスメント: ${assessmentData.childName}`;
+                if (assessmentData.birthDate) {
+                    const age = calculateAge(assessmentData.birthDate);
+                    info += ` (${age}歳)`;
+                }
+                info += '<br>';
+            }
+            if (supportPlanData) {
+                info += `• 支援計画あり（目標連携可能）<br>`;
+            }
+            infoDiv.innerHTML = info;
+            infoDiv.style.display = 'block';
+        } else {
+            infoDiv.style.display = 'none';
+        }
+
+        // 支援計画データを保存
+        if (supportPlanData) {
+            supportPlanJson.value = JSON.stringify(supportPlanData).replace(/'/g, "&apos;");
+        } else {
+            supportPlanJson.value = '';
+        }
+    } else {
+        manualInput.style.display = 'none';
+        manualInput.required = false;
+        infoDiv.style.display = 'none';
+        supportPlanJson.value = '';
+    }
+}
+
+// ============================================
+// 支援計画フォーム用の生徒選択機能
+// ============================================
+
+// 支援計画用の生徒選択肢をフィルタリング
+function filterPlanStudentOptions(searchText) {
+    const select = document.getElementById('planChildNameSelect');
+    const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
+    const allNames = [...new Set(Object.values(assessments).map(a => a.data?.childName).filter(Boolean))];
+
+    // 検索テキストで絞り込み
+    const filtered = searchText
+        ? allNames.filter(name => name.includes(searchText))
+        : allNames;
+
+    // オプションを再構築
+    let options = '<option value="">選択してください</option>';
+    filtered.forEach(name => {
+        options += `<option value="${name}">${name}</option>`;
+    });
+    options += '<option value="__manual__">手動で入力</option>';
+
+    select.innerHTML = options;
+}
+
+// 支援計画用の生徒選択時の処理
+function onPlanStudentSelect(value) {
+    const manualInput = document.getElementById('planChildName');
+    const infoDiv = document.getElementById('planAssessmentInfo');
+    const ageInput = document.getElementById('childAge');
+    const assessmentJson = document.getElementById('assessmentDataJson');
+
+    if (value === '__manual__') {
+        // 手動入力モード
+        manualInput.style.display = 'block';
+        manualInput.required = true;
+        document.getElementById('planChildNameSelect').required = false;
+        infoDiv.style.display = 'none';
+        assessmentJson.value = '';
+        ageInput.value = '';
+    } else if (value) {
+        // 生徒を選択
+        manualInput.style.display = 'none';
+        manualInput.required = false;
+        manualInput.value = value;
+        document.getElementById('planChildNameSelect').required = true;
+
+        // アセスメント情報を読み込み
+        const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
+
+        let assessmentData = null;
+        for (const [key, assessment] of Object.entries(assessments)) {
+            if (assessment.data?.childName === value) {
+                assessmentData = assessment.data;
+                break;
+            }
+        }
+
+        if (assessmentData) {
+            let info = '<strong>アセスメント情報を読み込みました:</strong> ' + assessmentData.childName;
+
+            // 年齢を計算して自動入力
+            if (assessmentData.birthDate) {
+                const age = calculateAge(assessmentData.birthDate);
+                info += ` (${age}歳)`;
+                ageInput.value = age;
+            }
+
+            infoDiv.innerHTML = info;
+            infoDiv.style.display = 'block';
+
+            // アセスメントデータを保存
+            assessmentJson.value = JSON.stringify(assessmentData).replace(/'/g, "&apos;");
+        } else {
+            infoDiv.style.display = 'none';
+            assessmentJson.value = '';
+            ageInput.value = '';
+        }
+    } else {
+        manualInput.style.display = 'none';
+        manualInput.required = false;
+        infoDiv.style.display = 'none';
+        assessmentJson.value = '';
+        ageInput.value = '';
+    }
+}
+
+// 年齢計算ヘルパー関数
+function calculateAge(birthDateStr) {
+    const birthDate = new Date(birthDateStr);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+    }
+    return age;
+}
