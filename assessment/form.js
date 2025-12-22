@@ -27,76 +27,51 @@ document.addEventListener('DOMContentLoaded', initGoogleDrive);
  * @returns {Promise<Blob>} PDFのBlob
  */
 async function generateAssessmentPDF(htmlContent, fileName) {
-    // HTMLからbody内のコンテンツとスタイルを抽出
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(htmlContent, 'text/html');
+    // 印刷ボタンを除去したHTMLを作成
+    let cleanHTML = htmlContent.replace(/<button[^>]*class="print-button"[^>]*>.*?<\/button>/gi, '');
+    cleanHTML = cleanHTML.replace(/<button[^>]*onclick="window\.print\(\)"[^>]*>.*?<\/button>/gi, '');
 
-    // スタイルを取得
-    const styles = doc.querySelectorAll('style');
-    const styleContent = Array.from(styles).map(s => s.innerHTML).join('\n');
-
-    // シートコンテナを取得
-    const sheetElement = doc.querySelector('.assessment-sheet') || doc.body;
-
-    // 印刷ボタンを非表示
-    const printBtn = sheetElement.querySelector('.print-button, button');
-    if (printBtn) {
-        printBtn.remove();
-    }
-
-    // 一時的なコンテナを作成
-    const container = document.createElement('div');
-    container.style.position = 'absolute';
-    container.style.left = '-9999px';
-    container.style.top = '0';
-    container.style.width = '800px';
-    container.style.backgroundColor = 'white';
-
-    // スタイルを追加
-    const styleEl = document.createElement('style');
-    styleEl.innerHTML = styleContent;
-    container.appendChild(styleEl);
-
-    // コンテンツをクローン
-    const clonedSheet = sheetElement.cloneNode(true);
-    clonedSheet.style.boxShadow = 'none';
-    clonedSheet.style.margin = '0';
-    container.appendChild(clonedSheet);
-
-    document.body.appendChild(container);
+    // 一時的なdivを作成
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = cleanHTML;
+    tempDiv.style.position = 'absolute';
+    tempDiv.style.left = '-9999px';
+    tempDiv.style.width = '210mm';  // A4幅
+    document.body.appendChild(tempDiv);
 
     // レンダリングを待つ
-    await new Promise(resolve => setTimeout(resolve, 300));
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     // PDF生成オプション
     const opt = {
-        margin: [10, 10, 10, 10],
+        margin: 10,
         filename: `${fileName}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
+        image: { type: 'jpeg', quality: 0.95 },
         html2canvas: {
             scale: 2,
             useCORS: true,
-            logging: false,
-            backgroundColor: '#ffffff'
+            logging: true,  // デバッグ用
+            allowTaint: true,
+            backgroundColor: '#ffffff',
+            windowWidth: 800
         },
         jsPDF: {
             unit: 'mm',
             format: 'a4',
             orientation: 'portrait'
-        },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+        }
     };
 
     try {
         // PDFをBlobとして生成
-        const pdfBlob = await html2pdf().set(opt).from(clonedSheet).outputPdf('blob');
+        const pdfBlob = await html2pdf().set(opt).from(tempDiv).outputPdf('blob');
 
-        // コンテナを削除
-        document.body.removeChild(container);
+        // 一時divを削除
+        document.body.removeChild(tempDiv);
 
         return pdfBlob;
     } catch (error) {
-        document.body.removeChild(container);
+        document.body.removeChild(tempDiv);
         console.error('PDF生成エラー:', error);
         throw error;
     }
