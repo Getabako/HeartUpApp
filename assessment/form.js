@@ -160,13 +160,13 @@ document.getElementById('assessmentForm').addEventListener('submit', async funct
         }
 
         // Show success message
-        let successMessage = `✓ アセスメントシートが作成されました！\n\nファイル名: ${fileName}`;
+        let successMessage = `アセスメントシートが作成されました！\n\nファイル名: ${fileName}`;
 
         if (driveResult && driveResult.success) {
             const folderStatus = driveResult.folder.isNew ? '（新規作成）' : '（既存）';
-            successMessage += `\n\n✓ Google Driveに保存されました！`;
-            successMessage += `\n📁 保存先フォルダ: ${driveResult.folder.folderName} ${folderStatus}`;
-            successMessage += `\n📄 ファイルリンク: ${driveResult.html.webViewLink}`;
+            successMessage += `\n\nGoogle Driveに保存されました！`;
+            successMessage += `\n保存先フォルダ: ${driveResult.folder.folderName} ${folderStatus}`;
+            successMessage += `\nファイルリンク: ${driveResult.html.webViewLink}`;
         } else {
             successMessage += `\n\n※ Google Driveへの保存はスキップされました`;
         }

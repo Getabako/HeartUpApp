@@ -634,7 +634,7 @@ function displayResources() {
             <h3>${resource.title}</h3>
             <p>${resource.description}</p>
             <div style="margin-top: 1rem; font-size: 0.85rem; color: #999;">
-                📅 ${resource.date}
+                ${resource.date}
             </div>
         `;
         
@@ -691,7 +691,7 @@ function displayPracticeMenus() {
             <h3>${menu.title}</h3>
             <p>${menu.description}</p>
             <div class="practice-footer">
-                <span class="view-pdf-btn">📄 PDFを見る</span>
+                <span class="view-pdf-btn">PDFを見る</span>
             </div>
         `;
 
@@ -768,21 +768,21 @@ function openResourceModal(resource) {
 
     // 資料を開くボタンの処理
     const openButtonHTML = resource.hasFile
-        ? `<button class="btn-primary" onclick="openResourcePDF('${resource.filename}')">📄 資料を開く</button>`
-        : `<button class="btn-primary" onclick="alert('この資料のPDFファイルはまだ追加されていません。')">📄 資料を開く</button>`;
+        ? `<button class="btn-primary" onclick="openResourcePDF('${resource.filename}')">資料を開く</button>`
+        : `<button class="btn-primary" onclick="alert('この資料のPDFファイルはまだ追加されていません。')">資料を開く</button>`;
 
     modalBody.innerHTML = `
         <h2 style="color: #2e7d32; margin-bottom: 1rem;">${resource.title}</h2>
         <div style="margin-bottom: 1.5rem;">
             <span class="resource-type">${getCategoryLabel(resource.category)}</span>
-            <span style="margin-left: 1rem; color: #666;">📅 ${resource.date}</span>
+            <span style="margin-left: 1rem; color: #666;">${resource.date}</span>
         </div>
         <div style="margin-bottom: 1.5rem;">
             ${resource.tags.map(tag => `<span style="display: inline-block; padding: 0.3rem 0.8rem; background: #e8f5e9; color: #2e7d32; border-radius: 15px; margin-right: 0.5rem; margin-bottom: 0.5rem; font-size: 0.9rem;">#${tag}</span>`).join('')}
         </div>
         <p style="line-height: 1.8; color: #333; margin-bottom: 1.5rem;">${resource.description}</p>
         <div style="padding: 1.5rem; background: #f8f9fa; border-radius: 10px; margin-bottom: 1.5rem;">
-            <h3 style="color: #2e7d32; margin-bottom: 1rem;">📚 資料について</h3>
+            <h3 style="color: #2e7d32; margin-bottom: 1rem;">資料について</h3>
             <p style="color: #666; line-height: 1.6;">
                 この資料では、${resource.title}について詳しく解説しています。
                 実際の指導現場で活用できる具体的な方法や、注意すべきポイントなどを
@@ -889,17 +889,17 @@ function showRecordForm() {
             <h3 style="color: #2e7d32; margin-bottom: 1rem;">生成された記録</h3>
             <div style="padding: 1.5rem; background: #f8f9fa; border-radius: 10px;" id="recordContent"></div>
             <div style="margin-top: 1rem; display: flex; gap: 1rem;">
-                <button class="btn-primary" onclick="saveRecordManually()">💾 保存</button>
-                <button class="btn-secondary" onclick="printRecord()">📥 PDF出力</button>
+                <button class="btn-primary" onclick="saveRecordManually()">保存</button>
+                <button class="btn-secondary" onclick="printRecord()">PDF出力</button>
             </div>
             <div id="recordSaveStatus" style="margin-top: 0.5rem;"></div>
 
             <div style="margin-top: 2rem; padding-top: 2rem; border-top: 2px solid #e0e0e0;">
-                <h4 style="color: #2e7d32; margin-bottom: 1rem;">📝 修正・追加要望</h4>
+                <h4 style="color: #2e7d32; margin-bottom: 1rem;">修正・追加要望</h4>
                 <div class="form-group">
                     <textarea id="recordRefinementRequest" placeholder="例: もっと具体的な表現にしてください、保護者向けに優しい言葉で書き直してください、5領域の評価をより詳しく記載してください" style="min-height: 100px;"></textarea>
                 </div>
-                <button class="btn-primary" onclick="refineRecord()">🔄 修正を依頼</button>
+                <button class="btn-primary" onclick="refineRecord()">修正を依頼</button>
             </div>
         </div>
     `;
@@ -984,17 +984,17 @@ function showPlanForm() {
             <h3 style="color: #2e7d32; margin-bottom: 1rem;">生成された支援計画</h3>
             <div style="padding: 1.5rem; background: #f8f9fa; border-radius: 10px;" id="planContent"></div>
             <div style="margin-top: 1rem; display: flex; gap: 1rem;">
-                <button class="btn-primary" onclick="saveSupportPlanManually()">💾 保存</button>
-                <button class="btn-secondary" onclick="printSupportPlan()">📥 PDF出力</button>
+                <button class="btn-primary" onclick="saveSupportPlanManually()">保存</button>
+                <button class="btn-secondary" onclick="printSupportPlan()">PDF出力</button>
             </div>
             <div id="planSaveStatus" style="margin-top: 0.5rem;"></div>
 
             <div style="margin-top: 2rem; padding-top: 2rem; border-top: 2px solid #e0e0e0;">
-                <h4 style="color: #2e7d32; margin-bottom: 1rem;">📝 修正・追加要望</h4>
+                <h4 style="color: #2e7d32; margin-bottom: 1rem;">修正・追加要望</h4>
                 <div class="form-group">
                     <textarea id="planRefinementRequest" placeholder="例: 短期目標をもっと具体的にしてください、家族支援計画を充実させてください、優先課題領域に焦点を当ててください" style="min-height: 100px;"></textarea>
                 </div>
-                <button class="btn-primary" onclick="refinePlan()">🔄 修正を依頼</button>
+                <button class="btn-primary" onclick="refinePlan()">修正を依頼</button>
             </div>
         </div>
     `;
@@ -1032,7 +1032,7 @@ function showReviewForm() {
             </div>
 
             <div id="driveDataStatus" style="display: none; margin-bottom: 1rem; padding: 1rem; background: #e3f2fd; border-radius: 8px;">
-                <strong>📁 Google Driveからデータを読み込み中...</strong>
+                <strong>Google Driveからデータを読み込み中...</strong>
             </div>
 
             <div class="form-group">
@@ -1072,16 +1072,16 @@ function showReviewForm() {
             <h3 style="color: #2e7d32; margin-bottom: 1rem;">成長の振り返りレポート</h3>
             <div style="padding: 1.5rem; background: #f8f9fa; border-radius: 10px;" id="reviewContent"></div>
             <div style="margin-top: 1rem; display: flex; gap: 1rem;">
-                <button class="btn-primary" onclick="saveReviewManually()">💾 保存</button>
-                <button class="btn-secondary" onclick="printReview()">🖨️ 印刷</button>
+                <button class="btn-primary" onclick="saveReviewManually()">保存</button>
+                <button class="btn-secondary" onclick="printReview()">印刷</button>
             </div>
 
             <div style="margin-top: 2rem; padding-top: 2rem; border-top: 2px solid #e0e0e0;">
-                <h4 style="color: #2e7d32; margin-bottom: 1rem;">📝 修正・追加要望</h4>
+                <h4 style="color: #2e7d32; margin-bottom: 1rem;">修正・追加要望</h4>
                 <div class="form-group">
                     <textarea id="reviewRefinementRequest" placeholder="例: 各領域の成長をもっと詳しく分析してください、保護者へのメッセージを充実させてください、具体的な数値や事例を追加してください" style="min-height: 100px;"></textarea>
                 </div>
-                <button class="btn-primary" onclick="refineReview()">🔄 修正を依頼</button>
+                <button class="btn-primary" onclick="refineReview()">修正を依頼</button>
             </div>
         </div>
     `;
@@ -1108,7 +1108,7 @@ async function loadStudentDataForReview(studentName) {
     if (typeof googleDriveAPI !== 'undefined') {
         try {
             statusDiv.style.display = 'block';
-            statusDiv.innerHTML = '<strong>📁 Google Driveからデータを読み込み中...</strong>';
+            statusDiv.innerHTML = '<strong>Google Driveからデータを読み込み中...</strong>';
 
             // 初期化確認
             if (!googleDriveAPI.isInitialized()) {
@@ -1138,16 +1138,16 @@ async function loadStudentDataForReview(studentName) {
                     document.getElementById('activities').value = activitiesSummary;
                 }
 
-                statusDiv.innerHTML = `<strong>✓ データを読み込みました</strong><br>
+                statusDiv.innerHTML = `<strong>データを読み込みました</strong><br>
                     アセスメント: ${studentData.assessments.length}件、記録: ${studentData.records.length}件`;
                 statusDiv.style.background = '#e8f5e9';
             } else {
-                statusDiv.innerHTML = '<strong>⚠️ データの取得に失敗しました</strong>';
+                statusDiv.innerHTML = '<strong>データの取得に失敗しました</strong>';
                 statusDiv.style.background = '#fff3e0';
             }
         } catch (error) {
             console.error('Google Driveデータ取得エラー:', error);
-            statusDiv.innerHTML = '<strong>⚠️ Google Driveに接続できません（手動入力をご利用ください）</strong>';
+            statusDiv.innerHTML = '<strong>Google Driveに接続できません（手動入力をご利用ください）</strong>';
             statusDiv.style.background = '#fff3e0';
         }
     } else {
@@ -1158,7 +1158,7 @@ async function loadStudentDataForReview(studentName) {
         if (matchingAssessment) {
             document.getElementById('driveAssessmentData').value = JSON.stringify([{ data: matchingAssessment.data }]);
             statusDiv.style.display = 'block';
-            statusDiv.innerHTML = '<strong>✓ ローカルデータを読み込みました</strong>';
+            statusDiv.innerHTML = '<strong>ローカルデータを読み込みました</strong>';
             statusDiv.style.background = '#e8f5e9';
         }
     }
@@ -1232,7 +1232,7 @@ async function generateRecord(event) {
     };
 
     // ローディング表示
-    document.getElementById('recordContent').innerHTML = '<div style="text-align: center; padding: 2rem;">🔄 AIが記録を生成中...</div>';
+    document.getElementById('recordContent').innerHTML = '<div class="ai-loading"><img src="soccerball.png" alt="読み込み中" class="ai-loading-ball"><span class="ai-loading-text">AIが記録を生成中...</span></div>';
     document.getElementById('generatedRecord').style.display = 'block';
 
     try {
@@ -1340,7 +1340,7 @@ async function saveRecordToDrive(childName, date, content, recordData) {
             // 保存成功メッセージを表示
             const saveStatus = document.createElement('div');
             saveStatus.style.cssText = 'margin-top: 1rem; padding: 0.75rem; background: #e8f5e9; border-radius: 8px; color: #2e7d32;';
-            saveStatus.innerHTML = `✓ Google Driveに保存しました（${driveResult.folder.folderName}フォルダ）`;
+            saveStatus.innerHTML = `Google Driveに保存しました（${driveResult.folder.folderName}フォルダ）`;
             document.getElementById('generatedRecord').appendChild(saveStatus);
         }
 
@@ -1500,18 +1500,18 @@ async function saveRecordManually() {
     const statusDiv = document.getElementById('recordSaveStatus');
 
     try {
-        statusDiv.innerHTML = '<div style="padding: 0.5rem; background: #e3f2fd; border-radius: 8px; color: #1565c0;">📤 Google Driveに保存中...</div>';
+        statusDiv.innerHTML = '<div style="padding: 0.5rem; background: #e3f2fd; border-radius: 8px; color: #1565c0;">Google Driveに保存中...</div>';
 
         const result = await saveRecordToDrive(childName, date, lastGeneratedRecord, lastRecordData);
 
         if (result && result.success) {
-            statusDiv.innerHTML = `<div style="padding: 0.75rem; background: #e8f5e9; border-radius: 8px; color: #2e7d32;">✓ Google Driveに保存しました（${result.folder.folderName}フォルダ）</div>`;
+            statusDiv.innerHTML = `<div style="padding: 0.75rem; background: #e8f5e9; border-radius: 8px; color: #2e7d32;">Google Driveに保存しました（${result.folder.folderName}フォルダ）</div>`;
         } else {
-            statusDiv.innerHTML = '<div style="padding: 0.5rem; background: #fff3e0; border-radius: 8px; color: #e65100;">⚠️ 保存に失敗しました</div>';
+            statusDiv.innerHTML = '<div style="padding: 0.5rem; background: #fff3e0; border-radius: 8px; color: #e65100;">保存に失敗しました</div>';
         }
     } catch (error) {
         console.error('記録保存エラー:', error);
-        statusDiv.innerHTML = `<div style="padding: 0.5rem; background: #ffebee; border-radius: 8px; color: #c62828;">❌ エラー: ${error.message}</div>`;
+        statusDiv.innerHTML = `<div style="padding: 0.5rem; background: #ffebee; border-radius: 8px; color: #c62828;">エラー: ${error.message}</div>`;
     }
 }
 
@@ -1565,7 +1565,7 @@ async function generatePlan(event) {
     }
 
     // ローディング表示
-    document.getElementById('planContent').innerHTML = '<div style="text-align: center; padding: 2rem;">🔄 AIが支援計画を生成中...</div>';
+    document.getElementById('planContent').innerHTML = '<div class="ai-loading"><img src="soccerball.png" alt="読み込み中" class="ai-loading-ball"><span class="ai-loading-text">AIが支援計画を生成中...</span></div>';
     document.getElementById('generatedPlan').style.display = 'block';
 
     try {
@@ -1613,7 +1613,7 @@ async function generatePlan(event) {
         </div>
         
         <div style="margin-bottom: 1.5rem;">
-            <h5 style="color: #ff9800; margin-bottom: 0.5rem;">📌 短期目標（1-3ヶ月）</h5>
+            <h5 style="color: #ff9800; margin-bottom: 0.5rem;">短期目標（1-3ヶ月）</h5>
             <ul style="line-height: 1.8;">
                 <li>基本的なボールタッチに慣れる</li>
                 <li>指示を聞いて行動できる機会を増やす</li>
@@ -1622,7 +1622,7 @@ async function generatePlan(event) {
         </div>
         
         <div style="margin-bottom: 1.5rem;">
-            <h5 style="color: #ff9800; margin-bottom: 0.5rem;">📌 中期目標（3-6ヶ月）</h5>
+            <h5 style="color: #ff9800; margin-bottom: 0.5rem;">中期目標（3-6ヶ月）</h5>
             <ul style="line-height: 1.8;">
                 <li>${issues}の改善に向けた段階的な練習</li>
                 <li>ペアやグループでの協力活動への参加</li>
@@ -1631,7 +1631,7 @@ async function generatePlan(event) {
         </div>
         
         <div style="margin-bottom: 1.5rem;">
-            <h5 style="color: #ff9800; margin-bottom: 0.5rem;">📌 長期目標（1年）</h5>
+            <h5 style="color: #ff9800; margin-bottom: 0.5rem;">長期目標（1年）</h5>
             <ul style="line-height: 1.8;">
                 <li>チーム活動への積極的な参加</li>
                 <li>自己効力感の向上と社会性の発達</li>
@@ -1640,7 +1640,7 @@ async function generatePlan(event) {
         </div>
         
         <div style="margin-bottom: 1.5rem;">
-            <h5 style="color: #2e7d32; margin-bottom: 0.5rem;">🔧 支援方法</h5>
+            <h5 style="color: #2e7d32; margin-bottom: 0.5rem;">支援方法</h5>
             <p style="line-height: 1.8;">
                 ・スモールステップでの目標設定<br>
                 ・${strengths}を活用した活動設計<br>
@@ -1697,7 +1697,7 @@ async function generateReview(event) {
     }
 
     // ローディング表示
-    document.getElementById('reviewContent').innerHTML = '<div style="text-align: center; padding: 2rem;">🔄 AIが振り返りレポートを生成中...</div>';
+    document.getElementById('reviewContent').innerHTML = '<div class="ai-loading"><img src="soccerball.png" alt="読み込み中" class="ai-loading-ball"><span class="ai-loading-text">AIが振り返りレポートを生成中...</span></div>';
     document.getElementById('generatedReview').style.display = 'block';
 
     let generatedText = '';
@@ -1732,7 +1732,7 @@ async function generateReview(event) {
         </div>
         
         <div style="margin-bottom: 1.5rem; padding: 1rem; background: #e8f5e9; border-radius: 10px;">
-            <h5 style="color: #2e7d32; margin-bottom: 0.5rem;">📈 達成度評価</h5>
+            <h5 style="color: #2e7d32; margin-bottom: 0.5rem;">達成度評価</h5>
             <div style="margin-bottom: 0.5rem;">
                 <strong>設定目標:</strong> ${goals}
             </div>
@@ -1746,7 +1746,7 @@ async function generateReview(event) {
         </div>
         
         <div style="margin-bottom: 1.5rem;">
-            <h5 style="color: #ff9800; margin-bottom: 0.5rem;">✨ 観察された成長</h5>
+            <h5 style="color: #ff9800; margin-bottom: 0.5rem;">観察された成長</h5>
             <p style="line-height: 1.8;">
                 ${changes}<br><br>
                 期間中の活動（${activities}）を通じて、着実な成長が見られました。
@@ -1754,7 +1754,7 @@ async function generateReview(event) {
         </div>
         
         <div style="margin-bottom: 1.5rem;">
-            <h5 style="color: #2e7d32; margin-bottom: 0.5rem;">💪 強みと課題</h5>
+            <h5 style="color: #2e7d32; margin-bottom: 0.5rem;">強みと課題</h5>
             <p style="line-height: 1.8;">
                 <strong>強み:</strong> 継続的な参加姿勢、向上心の高さ<br>
                 <strong>課題:</strong> より複雑な動作の習得、集中力の持続
@@ -1762,7 +1762,7 @@ async function generateReview(event) {
         </div>
         
         <div style="margin-bottom: 1.5rem;">
-            <h5 style="color: #2e7d32; margin-bottom: 0.5rem;">🎯 今後の方向性</h5>
+            <h5 style="color: #2e7d32; margin-bottom: 0.5rem;">今後の方向性</h5>
             <p style="line-height: 1.8;">
                 これまでの成長を踏まえ、次の段階として以下の支援を推奨します：<br>
                 1. 成功体験を活かした、より発展的な課題への挑戦<br>
@@ -1824,7 +1824,7 @@ async function saveReviewToDrive(childName, endDate, content, reviewData) {
             // 保存成功メッセージを表示
             const saveStatus = document.createElement('div');
             saveStatus.style.cssText = 'margin-top: 1rem; padding: 0.75rem; background: #e8f5e9; border-radius: 8px; color: #2e7d32;';
-            saveStatus.innerHTML = `✓ Google Driveに保存しました（${driveResult.folder.folderName}フォルダ）`;
+            saveStatus.innerHTML = `Google Driveに保存しました（${driveResult.folder.folderName}フォルダ）`;
             document.getElementById('generatedReview').appendChild(saveStatus);
         }
 
@@ -1984,7 +1984,7 @@ async function refineRecord() {
     }
 
     // ローディング表示
-    document.getElementById('recordContent').innerHTML = '<div style="text-align: center; padding: 2rem;">🔄 AIが記録を修正中...</div>';
+    document.getElementById('recordContent').innerHTML = '<div class="ai-loading"><img src="soccerball.png" alt="読み込み中" class="ai-loading-ball"><span class="ai-loading-text">AIが記録を修正中...</span></div>';
 
     try {
         if (geminiAPI.isInitialized()) {
@@ -2025,7 +2025,7 @@ async function refinePlan() {
     }
 
     // ローディング表示
-    document.getElementById('planContent').innerHTML = '<div style="text-align: center; padding: 2rem;">🔄 AIが支援計画を修正中...</div>';
+    document.getElementById('planContent').innerHTML = '<div class="ai-loading"><img src="soccerball.png" alt="読み込み中" class="ai-loading-ball"><span class="ai-loading-text">AIが支援計画を修正中...</span></div>';
 
     try {
         if (geminiAPI.isInitialized()) {
@@ -2062,18 +2062,18 @@ async function saveSupportPlanManually() {
     const statusDiv = document.getElementById('planSaveStatus');
 
     try {
-        statusDiv.innerHTML = '<div style="padding: 0.5rem; background: #e3f2fd; border-radius: 8px; color: #1565c0;">📤 Google Driveに保存中...</div>';
+        statusDiv.innerHTML = '<div style="padding: 0.5rem; background: #e3f2fd; border-radius: 8px; color: #1565c0;">Google Driveに保存中...</div>';
 
         const result = await saveSupportPlanToDrive(childName, lastGeneratedPlan, lastPlanData);
 
         if (result && result.success) {
-            statusDiv.innerHTML = `<div style="padding: 0.75rem; background: #e8f5e9; border-radius: 8px; color: #2e7d32;">✓ Google Driveに保存しました（${result.folder.folderName}フォルダ）</div>`;
+            statusDiv.innerHTML = `<div style="padding: 0.75rem; background: #e8f5e9; border-radius: 8px; color: #2e7d32;">Google Driveに保存しました（${result.folder.folderName}フォルダ）</div>`;
         } else {
-            statusDiv.innerHTML = '<div style="padding: 0.5rem; background: #fff3e0; border-radius: 8px; color: #e65100;">⚠️ 保存に失敗しました。ローカルには保存されています。</div>';
+            statusDiv.innerHTML = '<div style="padding: 0.5rem; background: #fff3e0; border-radius: 8px; color: #e65100;">保存に失敗しました。ローカルには保存されています。</div>';
         }
     } catch (error) {
         console.error('支援計画保存エラー:', error);
-        statusDiv.innerHTML = `<div style="padding: 0.5rem; background: #ffebee; border-radius: 8px; color: #c62828;">❌ エラー: ${error.message}</div>`;
+        statusDiv.innerHTML = `<div style="padding: 0.5rem; background: #ffebee; border-radius: 8px; color: #c62828;">エラー: ${error.message}</div>`;
     }
 }
 
@@ -2285,7 +2285,7 @@ async function refineReview() {
     }
 
     // ローディング表示
-    document.getElementById('reviewContent').innerHTML = '<div style="text-align: center; padding: 2rem;">🔄 AIが振り返りレポートを修正中...</div>';
+    document.getElementById('reviewContent').innerHTML = '<div class="ai-loading"><img src="soccerball.png" alt="読み込み中" class="ai-loading-ball"><span class="ai-loading-text">AIが振り返りレポートを修正中...</span></div>';
 
     try {
         if (geminiAPI.isInitialized()) {
@@ -2344,14 +2344,14 @@ function updateApiStatus() {
     if (isConfigured) {
         statusDiv.innerHTML = `
             <div style="padding: 1rem; background: #e8f5e9; border-radius: 8px; margin-bottom: 1rem; color: #2e7d32;">
-                ✅ <strong>APIキーが設定されています</strong><br>
+                <strong>APIキーが設定されています</strong><br>
                 <small>AI機能が利用可能です</small>
             </div>
         `;
     } else {
         statusDiv.innerHTML = `
             <div style="padding: 1rem; background: #fff3e0; border-radius: 8px; margin-bottom: 1rem; color: #e65100;">
-                ⚠️ <strong>APIキーが未設定です</strong><br>
+                <strong>APIキーが未設定です</strong><br>
                 <small>AI機能を使用するにはAPIキーを設定してください</small>
             </div>
         `;
@@ -2397,7 +2397,7 @@ async function testApiKey() {
     const statusDiv = document.getElementById('apiStatus');
     statusDiv.innerHTML = `
         <div style="padding: 1rem; background: #e3f2fd; border-radius: 8px; margin-bottom: 1rem; color: #1565c0;">
-            🔄 <strong>APIキーをテスト中...</strong>
+            <strong>APIキーをテスト中...</strong>
         </div>
     `;
 
@@ -2412,7 +2412,7 @@ async function testApiKey() {
         // テスト成功
         statusDiv.innerHTML = `
             <div style="padding: 1rem; background: #e8f5e9; border-radius: 8px; margin-bottom: 1rem; color: #2e7d32;">
-                ✅ <strong>APIキーは有効です！</strong><br>
+                <strong>APIキーは有効です！</strong><br>
                 <small>テスト応答: ${testResult.substring(0, 50)}...</small>
             </div>
         `;
@@ -2427,7 +2427,7 @@ async function testApiKey() {
         console.error('APIテストエラー:', error);
         statusDiv.innerHTML = `
             <div style="padding: 1rem; background: #ffebee; border-radius: 8px; margin-bottom: 1rem; color: #c62828;">
-                ❌ <strong>APIキーが無効です</strong><br>
+                <strong>APIキーが無効です</strong><br>
                 <small>${error.message}</small>
             </div>
         `;
