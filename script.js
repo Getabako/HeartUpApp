@@ -281,21 +281,50 @@ let lastReviewData = null;
  * @returns {Promise<Blob>} PDFのBlob
  */
 async function generatePDFFromHTML(htmlContent, fileName) {
-    // 一時的なiframeを作成してHTMLをレンダリング
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'absolute';
-    iframe.style.left = '-9999px';
-    iframe.style.width = '800px';
-    iframe.style.height = '1200px';
-    document.body.appendChild(iframe);
+    // HTMLからbody内のコンテンツとスタイルを抽出
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlContent, 'text/html');
 
-    // HTMLを書き込み
-    iframe.contentDocument.open();
-    iframe.contentDocument.write(htmlContent);
-    iframe.contentDocument.close();
+    // スタイルを取得
+    const styles = doc.querySelectorAll('style');
+    const styleContent = Array.from(styles).map(s => s.innerHTML).join('\n');
+
+    // シートコンテナを取得
+    const sheetElement = doc.querySelector('.record-sheet, .plan-sheet, .review-sheet');
+
+    if (!sheetElement) {
+        throw new Error('シート要素が見つかりません');
+    }
+
+    // 印刷ボタンを非表示
+    const printBtn = sheetElement.querySelector('.print-button');
+    if (printBtn) {
+        printBtn.remove();
+    }
+
+    // 一時的なコンテナを作成
+    const container = document.createElement('div');
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
+    container.style.top = '0';
+    container.style.width = '800px';
+    container.style.backgroundColor = 'white';
+
+    // スタイルを追加
+    const styleEl = document.createElement('style');
+    styleEl.innerHTML = styleContent;
+    container.appendChild(styleEl);
+
+    // コンテンツをクローン
+    const clonedSheet = sheetElement.cloneNode(true);
+    clonedSheet.style.boxShadow = 'none';
+    clonedSheet.style.margin = '0';
+    container.appendChild(clonedSheet);
+
+    document.body.appendChild(container);
 
     // レンダリングを待つ
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 300));
 
     // PDF生成オプション
     const opt = {
@@ -305,7 +334,8 @@ async function generatePDFFromHTML(htmlContent, fileName) {
         html2canvas: {
             scale: 2,
             useCORS: true,
-            logging: false
+            logging: false,
+            backgroundColor: '#ffffff'
         },
         jsPDF: {
             unit: 'mm',
@@ -316,28 +346,15 @@ async function generatePDFFromHTML(htmlContent, fileName) {
     };
 
     try {
-        // シートコンテナを取得（.record-sheet, .plan-sheet, .review-sheet）
-        const sheetElement = iframe.contentDocument.querySelector('.record-sheet, .plan-sheet, .review-sheet');
-
-        if (!sheetElement) {
-            throw new Error('シート要素が見つかりません');
-        }
-
-        // 印刷ボタンを非表示
-        const printBtn = sheetElement.querySelector('.print-button');
-        if (printBtn) {
-            printBtn.style.display = 'none';
-        }
-
         // PDFをBlobとして生成
-        const pdfBlob = await html2pdf().set(opt).from(sheetElement).outputPdf('blob');
+        const pdfBlob = await html2pdf().set(opt).from(clonedSheet).outputPdf('blob');
 
-        // iframeを削除
-        document.body.removeChild(iframe);
+        // コンテナを削除
+        document.body.removeChild(container);
 
         return pdfBlob;
     } catch (error) {
-        document.body.removeChild(iframe);
+        document.body.removeChild(container);
         console.error('PDF生成エラー:', error);
         throw error;
     }
