@@ -255,6 +255,87 @@ class GoogleDriveAPI {
     }
 
     /**
+     * PDFファイルをGoogle Driveにアップロード
+     * @param {string} fileName - ファイル名（.pdf拡張子）
+     * @param {Blob} pdfBlob - PDFのBlobデータ
+     * @param {string} folderId - 保存先フォルダID（省略時はデフォルトフォルダ）
+     */
+    async uploadPDFFile(fileName, pdfBlob, folderId = null) {
+        if (!this.isSignedIn) {
+            await this.authorize();
+        }
+
+        const targetFolderId = folderId || this.TARGET_FOLDER_ID;
+
+        // ファイルメタデータ
+        const fileMetadata = {
+            name: fileName,
+            mimeType: 'application/pdf',
+            parents: [targetFolderId]
+        };
+
+        // BlobをBase64に変換
+        const base64Data = await this.blobToBase64(pdfBlob);
+
+        // マルチパートリクエストのboundary
+        const boundary = '-------314159265358979323846';
+        const delimiter = "\r\n--" + boundary + "\r\n";
+        const closeDelim = "\r\n--" + boundary + "--";
+
+        // リクエストボディを構築
+        const multipartRequestBody =
+            delimiter +
+            'Content-Type: application/json\r\n\r\n' +
+            JSON.stringify(fileMetadata) +
+            delimiter +
+            'Content-Type: application/pdf\r\n' +
+            'Content-Transfer-Encoding: base64\r\n\r\n' +
+            base64Data +
+            closeDelim;
+
+        try {
+            const response = await gapi.client.request({
+                path: '/upload/drive/v3/files',
+                method: 'POST',
+                params: { uploadType: 'multipart' },
+                headers: {
+                    'Content-Type': 'multipart/related; boundary="' + boundary + '"'
+                },
+                body: multipartRequestBody
+            });
+
+            console.log('Google Drive PDFアップロード成功:', response.result);
+            return {
+                success: true,
+                fileId: response.result.id,
+                fileName: response.result.name,
+                webViewLink: `https://drive.google.com/file/d/${response.result.id}/view`
+            };
+        } catch (error) {
+            console.error('Google Drive PDFアップロードエラー:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * BlobをBase64文字列に変換
+     * @param {Blob} blob - 変換するBlob
+     * @returns {Promise<string>} Base64文字列
+     */
+    blobToBase64(blob) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                // data:application/pdf;base64, の部分を除去
+                const base64 = reader.result.split(',')[1];
+                resolve(base64);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    }
+
+    /**
      * JSONファイルをGoogle Driveにアップロード
      * @param {string} fileName - ファイル名
      * @param {object} jsonData - JSONデータ

@@ -274,6 +274,75 @@ let lastPlanData = null;
 let lastGeneratedReview = '';
 let lastReviewData = null;
 
+/**
+ * HTMLコンテンツからPDFを生成
+ * @param {string} htmlContent - 完全なHTMLドキュメント
+ * @param {string} fileName - ファイル名（拡張子なし）
+ * @returns {Promise<Blob>} PDFのBlob
+ */
+async function generatePDFFromHTML(htmlContent, fileName) {
+    // 一時的なiframeを作成してHTMLをレンダリング
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'absolute';
+    iframe.style.left = '-9999px';
+    iframe.style.width = '800px';
+    iframe.style.height = '1200px';
+    document.body.appendChild(iframe);
+
+    // HTMLを書き込み
+    iframe.contentDocument.open();
+    iframe.contentDocument.write(htmlContent);
+    iframe.contentDocument.close();
+
+    // レンダリングを待つ
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // PDF生成オプション
+    const opt = {
+        margin: [10, 10, 10, 10],
+        filename: `${fileName}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+            scale: 2,
+            useCORS: true,
+            logging: false
+        },
+        jsPDF: {
+            unit: 'mm',
+            format: 'a4',
+            orientation: 'portrait'
+        },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+    };
+
+    try {
+        // シートコンテナを取得（.record-sheet, .plan-sheet, .review-sheet）
+        const sheetElement = iframe.contentDocument.querySelector('.record-sheet, .plan-sheet, .review-sheet');
+
+        if (!sheetElement) {
+            throw new Error('シート要素が見つかりません');
+        }
+
+        // 印刷ボタンを非表示
+        const printBtn = sheetElement.querySelector('.print-button');
+        if (printBtn) {
+            printBtn.style.display = 'none';
+        }
+
+        // PDFをBlobとして生成
+        const pdfBlob = await html2pdf().set(opt).from(sheetElement).outputPdf('blob');
+
+        // iframeを削除
+        document.body.removeChild(iframe);
+
+        return pdfBlob;
+    } catch (error) {
+        document.body.removeChild(iframe);
+        console.error('PDF生成エラー:', error);
+        throw error;
+    }
+}
+
 // マークダウンをHTMLに変換する関数
 function convertMarkdownToHTML(markdown) {
     let html = markdown;
@@ -1254,7 +1323,7 @@ ${notes ? `特に、${notes}という点が印象的でした。` : ''}
     }
 }
 
-// 記録をGoogle Driveに保存
+// 記録をGoogle Driveに保存（PDF形式）
 async function saveRecordToDrive(childName, date, content, recordData) {
     if (typeof googleDriveAPI === 'undefined') {
         console.warn('googleDriveAPI が利用できません');
@@ -1267,23 +1336,48 @@ async function saveRecordToDrive(childName, date, content, recordData) {
             await googleDriveAPI.initialize();
         }
 
-        // HTML形式で保存
-        const fileName = `${childName}_記録_${date}.html`;
+        // HTMLを生成
         const htmlContent = generateRecordHTML(childName, date, content, recordData);
 
-        const driveResult = await googleDriveAPI.saveRecordToStudentFolder(
-            childName,
-            fileName,
-            htmlContent,
-            recordData
+        // PDFを生成
+        const pdfFileName = `${childName}_記録_${date}`;
+        const pdfBlob = await generatePDFFromHTML(htmlContent, pdfFileName);
+
+        // 生徒フォルダを取得または作成
+        const folderInfo = await googleDriveAPI.getOrCreateStudentFolder(childName);
+
+        // PDFをアップロード
+        const pdfResult = await googleDriveAPI.uploadPDFFile(
+            `${pdfFileName}.pdf`,
+            pdfBlob,
+            folderInfo.folderId
         );
 
+        // JSONメタデータもアップロード
+        const jsonFileName = `${childName}_記録_${date}.json`;
+        const metadata = {
+            type: 'record',
+            fileName: `${pdfFileName}.pdf`,
+            studentName: childName,
+            data: recordData,
+            createdAt: new Date().toISOString(),
+            driveFileId: pdfResult.fileId,
+            folderId: folderInfo.folderId
+        };
+        await googleDriveAPI.uploadJSONFile(jsonFileName, metadata, folderInfo.folderId);
+
+        const driveResult = {
+            success: true,
+            pdf: pdfResult,
+            folder: folderInfo
+        };
+
         if (driveResult.success) {
-            console.log('記録をGoogle Driveに保存しました:', driveResult);
+            console.log('記録をGoogle Driveに保存しました（PDF）:', driveResult);
             // 保存成功メッセージを表示
             const saveStatus = document.createElement('div');
             saveStatus.style.cssText = 'margin-top: 1rem; padding: 0.75rem; background: #e8f5e9; border-radius: 8px; color: #2e7d32;';
-            saveStatus.innerHTML = `✓ Google Driveに保存しました（${driveResult.folder.folderName}フォルダ）`;
+            saveStatus.innerHTML = `✓ Google DriveにPDFで保存しました（${driveResult.folder.folderName}フォルダ）`;
             document.getElementById('generatedRecord').appendChild(saveStatus);
         }
 
@@ -1296,6 +1390,7 @@ async function saveRecordToDrive(childName, date, content, recordData) {
 
 // 記録のHTMLを生成
 function generateRecordHTML(childName, date, content, recordData) {
+    const formattedContent = convertMarkdownToHTML(content);
     return `<!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -1308,6 +1403,7 @@ function generateRecordHTML(childName, date, content, recordData) {
             padding: 40px;
             background-color: #f5f5f5;
             line-height: 1.8;
+            color: #333;
         }
         .record-sheet {
             max-width: 800px;
@@ -1325,32 +1421,65 @@ function generateRecordHTML(childName, date, content, recordData) {
         }
         .header h1 {
             color: #2e7d32;
-            font-size: 24px;
+            font-size: 28px;
             margin-bottom: 10px;
         }
         .meta-info {
             display: flex;
+            flex-wrap: wrap;
             gap: 20px;
-            margin-bottom: 20px;
-            padding: 15px;
-            background: #f9f9f9;
-            border-radius: 8px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%);
+            border-radius: 12px;
+            border-left: 4px solid #2e7d32;
         }
         .meta-item {
             display: flex;
             gap: 8px;
+            align-items: center;
         }
         .meta-label {
             font-weight: bold;
             color: #2e7d32;
         }
         .content {
-            white-space: pre-wrap;
             color: #333;
+        }
+        .content h1, .content h2, .content h3, .content h4 {
+            color: #2e7d32;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+        }
+        .content h2 {
+            font-size: 1.4rem;
+            border-bottom: 2px solid #4caf50;
+            padding-bottom: 0.5rem;
+            margin-top: 2.5rem;
+        }
+        .content h3 {
+            font-size: 1.2rem;
+            border-left: 4px solid #4caf50;
+            padding-left: 12px;
+            margin-top: 2rem;
+        }
+        .section-box {
+            background: #fafafa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 1.5rem 0;
+            border: 1px solid #e0e0e0;
+        }
+        .highlight-box {
+            background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%);
+            border-radius: 8px;
+            padding: 15px 20px;
+            margin: 1rem 0;
+            border-left: 4px solid #ff9800;
         }
         .print-button {
             display: block;
-            margin: 20px auto;
+            margin: 30px auto;
             padding: 12px 30px;
             background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
             color: white;
@@ -1359,9 +1488,14 @@ function generateRecordHTML(childName, date, content, recordData) {
             font-size: 16px;
             cursor: pointer;
         }
+        .print-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+        }
         @media print {
             .print-button { display: none; }
             body { padding: 0; background: white; }
+            .record-sheet { box-shadow: none; }
         }
     </style>
 </head>
@@ -1384,7 +1518,7 @@ function generateRecordHTML(childName, date, content, recordData) {
                 <span>${recordData.activityType || ''}</span>
             </div>
         </div>
-        <div class="content">${content}</div>
+        <div class="content">${formattedContent}</div>
         <button class="print-button" onclick="window.print()">印刷する</button>
     </div>
 </body>
@@ -1698,7 +1832,7 @@ async function generateReview(event) {
     }
 }
 
-// 振り返りレポートをGoogle Driveに保存
+// 振り返りレポートをGoogle Driveに保存（PDF形式）
 async function saveReviewToDrive(childName, endDate, content, reviewData) {
     if (typeof googleDriveAPI === 'undefined') {
         console.warn('googleDriveAPI が利用できません');
@@ -1711,23 +1845,48 @@ async function saveReviewToDrive(childName, endDate, content, reviewData) {
             await googleDriveAPI.initialize();
         }
 
-        // HTML形式で保存
-        const fileName = `${childName}_振り返りレポート_${endDate}.html`;
+        // HTMLを生成
         const htmlContent = generateReviewHTML(childName, reviewData, content);
 
-        const driveResult = await googleDriveAPI.saveReviewToStudentFolder(
-            childName,
-            fileName,
-            htmlContent,
-            reviewData
+        // PDFを生成
+        const pdfFileName = `${childName}_振り返りレポート_${endDate}`;
+        const pdfBlob = await generatePDFFromHTML(htmlContent, pdfFileName);
+
+        // 生徒フォルダを取得または作成
+        const folderInfo = await googleDriveAPI.getOrCreateStudentFolder(childName);
+
+        // PDFをアップロード
+        const pdfResult = await googleDriveAPI.uploadPDFFile(
+            `${pdfFileName}.pdf`,
+            pdfBlob,
+            folderInfo.folderId
         );
 
+        // JSONメタデータもアップロード
+        const jsonFileName = `${childName}_振り返りレポート_${endDate}.json`;
+        const metadata = {
+            type: 'review',
+            fileName: `${pdfFileName}.pdf`,
+            studentName: childName,
+            data: reviewData,
+            createdAt: new Date().toISOString(),
+            driveFileId: pdfResult.fileId,
+            folderId: folderInfo.folderId
+        };
+        await googleDriveAPI.uploadJSONFile(jsonFileName, metadata, folderInfo.folderId);
+
+        const driveResult = {
+            success: true,
+            pdf: pdfResult,
+            folder: folderInfo
+        };
+
         if (driveResult.success) {
-            console.log('振り返りレポートをGoogle Driveに保存しました:', driveResult);
+            console.log('振り返りレポートをGoogle Driveに保存しました（PDF）:', driveResult);
             // 保存成功メッセージを表示
             const saveStatus = document.createElement('div');
             saveStatus.style.cssText = 'margin-top: 1rem; padding: 0.75rem; background: #e8f5e9; border-radius: 8px; color: #2e7d32;';
-            saveStatus.innerHTML = `✓ Google Driveに保存しました（${driveResult.folder.folderName}フォルダ）`;
+            saveStatus.innerHTML = `✓ Google DriveにPDFで保存しました（${driveResult.folder.folderName}フォルダ）`;
             document.getElementById('generatedReview').appendChild(saveStatus);
         }
 
@@ -1740,6 +1899,7 @@ async function saveReviewToDrive(childName, endDate, content, reviewData) {
 
 // 振り返りレポートのHTMLを生成
 function generateReviewHTML(childName, reviewData, content) {
+    const formattedContent = convertMarkdownToHTML(content);
     return `<!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -1752,6 +1912,7 @@ function generateReviewHTML(childName, reviewData, content) {
             padding: 40px;
             background-color: #f5f5f5;
             line-height: 1.8;
+            color: #333;
         }
         .review-sheet {
             max-width: 800px;
@@ -1769,21 +1930,23 @@ function generateReviewHTML(childName, reviewData, content) {
         }
         .header h1 {
             color: #2e7d32;
-            font-size: 24px;
+            font-size: 28px;
             margin-bottom: 10px;
         }
         .meta-info {
             display: flex;
             flex-wrap: wrap;
             gap: 20px;
-            margin-bottom: 20px;
-            padding: 15px;
-            background: #f9f9f9;
-            border-radius: 8px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%);
+            border-radius: 12px;
+            border-left: 4px solid #2e7d32;
         }
         .meta-item {
             display: flex;
             gap: 8px;
+            align-items: center;
         }
         .meta-label {
             font-weight: bold;
@@ -1792,9 +1955,26 @@ function generateReviewHTML(childName, reviewData, content) {
         .content {
             color: #333;
         }
+        .content h1, .content h2, .content h3, .content h4 {
+            color: #2e7d32;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+        }
+        .content h2 {
+            font-size: 1.4rem;
+            border-bottom: 2px solid #4caf50;
+            padding-bottom: 0.5rem;
+            margin-top: 2.5rem;
+        }
+        .content h3 {
+            font-size: 1.2rem;
+            border-left: 4px solid #4caf50;
+            padding-left: 12px;
+            margin-top: 2rem;
+        }
         .print-button {
             display: block;
-            margin: 20px auto;
+            margin: 30px auto;
             padding: 12px 30px;
             background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
             color: white;
@@ -1803,9 +1983,14 @@ function generateReviewHTML(childName, reviewData, content) {
             font-size: 16px;
             cursor: pointer;
         }
+        .print-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+        }
         @media print {
             .print-button { display: none; }
             body { padding: 0; background: white; }
+            .review-sheet { box-shadow: none; }
         }
     </style>
 </head>
@@ -1824,7 +2009,7 @@ function generateReviewHTML(childName, reviewData, content) {
                 <span>${reviewData.startDate || ''} 〜 ${reviewData.endDate || ''}</span>
             </div>
         </div>
-        <div class="content">${content}</div>
+        <div class="content">${formattedContent}</div>
         <button class="print-button" onclick="window.print()">印刷する</button>
     </div>
 </body>
@@ -1954,7 +2139,7 @@ async function saveSupportPlanManually() {
     }
 }
 
-// 支援計画をGoogle Driveに保存
+// 支援計画をGoogle Driveに保存（PDF形式）
 async function saveSupportPlanToDrive(childName, content, planData) {
     if (typeof googleDriveAPI === 'undefined') {
         console.warn('googleDriveAPI が利用できません');
@@ -1967,29 +2152,53 @@ async function saveSupportPlanToDrive(childName, content, planData) {
             await googleDriveAPI.initialize();
         }
 
-        // HTML形式で保存
+        // HTMLを生成
         const today = new Date().toISOString().split('T')[0];
-        const fileName = `${childName}_支援計画_${today}.html`;
         const htmlContent = generateSupportPlanHTML(childName, planData, content);
 
-        const driveResult = await googleDriveAPI.saveSupportPlanToStudentFolder(
-            childName,
-            fileName,
-            htmlContent,
-            planData
+        // PDFを生成
+        const pdfFileName = `${childName}_支援計画_${today}`;
+        const pdfBlob = await generatePDFFromHTML(htmlContent, pdfFileName);
+
+        // 生徒フォルダを取得または作成
+        const folderInfo = await googleDriveAPI.getOrCreateStudentFolder(childName);
+
+        // PDFをアップロード
+        const pdfResult = await googleDriveAPI.uploadPDFFile(
+            `${pdfFileName}.pdf`,
+            pdfBlob,
+            folderInfo.folderId
         );
 
+        // JSONメタデータもアップロード
+        const jsonFileName = `${childName}_支援計画_${today}.json`;
+        const metadata = {
+            type: 'supportPlan',
+            fileName: `${pdfFileName}.pdf`,
+            studentName: childName,
+            data: planData,
+            createdAt: new Date().toISOString(),
+            driveFileId: pdfResult.fileId,
+            folderId: folderInfo.folderId
+        };
+        await googleDriveAPI.uploadJSONFile(jsonFileName, metadata, folderInfo.folderId);
+
+        const driveResult = {
+            success: true,
+            pdf: pdfResult,
+            folder: folderInfo
+        };
+
         if (driveResult.success) {
-            console.log('支援計画をGoogle Driveに保存しました:', driveResult);
+            console.log('支援計画をGoogle Driveに保存しました（PDF）:', driveResult);
 
             // localStorageにも保存
             const supportPlans = JSON.parse(localStorage.getItem('supportPlans') || '{}');
-            supportPlans[fileName] = {
-                html: htmlContent,
+            supportPlans[`${pdfFileName}.pdf`] = {
                 data: planData,
                 content: content,
                 createdAt: new Date().toISOString(),
-                driveFileId: driveResult.html.fileId
+                driveFileId: pdfResult.fileId
             };
             localStorage.setItem('supportPlans', JSON.stringify(supportPlans));
         }
@@ -2003,6 +2212,7 @@ async function saveSupportPlanToDrive(childName, content, planData) {
 
 // 支援計画のHTMLを生成
 function generateSupportPlanHTML(childName, planData, content) {
+    const formattedContent = convertMarkdownToHTML(content);
     return `<!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -2015,6 +2225,7 @@ function generateSupportPlanHTML(childName, planData, content) {
             padding: 40px;
             background-color: #f5f5f5;
             line-height: 1.8;
+            color: #333;
         }
         .plan-sheet {
             max-width: 800px;
@@ -2032,21 +2243,23 @@ function generateSupportPlanHTML(childName, planData, content) {
         }
         .header h1 {
             color: #2e7d32;
-            font-size: 24px;
+            font-size: 28px;
             margin-bottom: 10px;
         }
         .meta-info {
             display: flex;
             flex-wrap: wrap;
             gap: 20px;
-            margin-bottom: 20px;
-            padding: 15px;
-            background: #f9f9f9;
-            border-radius: 8px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%);
+            border-radius: 12px;
+            border-left: 4px solid #2e7d32;
         }
         .meta-item {
             display: flex;
             gap: 8px;
+            align-items: center;
         }
         .meta-label {
             font-weight: bold;
@@ -2054,11 +2267,27 @@ function generateSupportPlanHTML(childName, planData, content) {
         }
         .content {
             color: #333;
-            white-space: pre-wrap;
+        }
+        .content h1, .content h2, .content h3, .content h4 {
+            color: #2e7d32;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+        }
+        .content h2 {
+            font-size: 1.4rem;
+            border-bottom: 2px solid #4caf50;
+            padding-bottom: 0.5rem;
+            margin-top: 2.5rem;
+        }
+        .content h3 {
+            font-size: 1.2rem;
+            border-left: 4px solid #4caf50;
+            padding-left: 12px;
+            margin-top: 2rem;
         }
         .print-button {
             display: block;
-            margin: 20px auto;
+            margin: 30px auto;
             padding: 12px 30px;
             background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
             color: white;
@@ -2067,9 +2296,14 @@ function generateSupportPlanHTML(childName, planData, content) {
             font-size: 16px;
             cursor: pointer;
         }
+        .print-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+        }
         @media print {
             .print-button { display: none; }
             body { padding: 0; background: white; }
+            .plan-sheet { box-shadow: none; }
         }
     </style>
 </head>
@@ -2092,7 +2326,7 @@ function generateSupportPlanHTML(childName, planData, content) {
                 <span>${new Date().toLocaleDateString('ja-JP')}</span>
             </div>
         </div>
-        <div class="content">${content}</div>
+        <div class="content">${formattedContent}</div>
         <button class="print-button" onclick="window.print()">印刷する</button>
     </div>
 </body>
