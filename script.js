@@ -1311,7 +1311,7 @@ ${notes ? `特に、${notes}という点が印象的でした。` : ''}
     }
 }
 
-// 記録をGoogle Driveに保存（PDF形式）
+// 記録をGoogle Driveに保存（HTML形式）
 async function saveRecordToDrive(childName, date, content, recordData) {
     if (typeof googleDriveAPI === 'undefined') {
         console.warn('googleDriveAPI が利用できません');
@@ -1324,48 +1324,23 @@ async function saveRecordToDrive(childName, date, content, recordData) {
             await googleDriveAPI.initialize();
         }
 
-        // HTMLを生成
+        // HTML形式で保存
+        const fileName = `${childName}_記録_${date}.html`;
         const htmlContent = generateRecordHTML(childName, date, content, recordData);
 
-        // PDFを生成
-        const pdfFileName = `${childName}_記録_${date}`;
-        const pdfBlob = await generatePDFFromHTML(htmlContent, pdfFileName);
-
-        // 生徒フォルダを取得または作成
-        const folderInfo = await googleDriveAPI.getOrCreateStudentFolder(childName);
-
-        // PDFをアップロード
-        const pdfResult = await googleDriveAPI.uploadPDFFile(
-            `${pdfFileName}.pdf`,
-            pdfBlob,
-            folderInfo.folderId
+        const driveResult = await googleDriveAPI.saveRecordToStudentFolder(
+            childName,
+            fileName,
+            htmlContent,
+            recordData
         );
 
-        // JSONメタデータもアップロード
-        const jsonFileName = `${childName}_記録_${date}.json`;
-        const metadata = {
-            type: 'record',
-            fileName: `${pdfFileName}.pdf`,
-            studentName: childName,
-            data: recordData,
-            createdAt: new Date().toISOString(),
-            driveFileId: pdfResult.fileId,
-            folderId: folderInfo.folderId
-        };
-        await googleDriveAPI.uploadJSONFile(jsonFileName, metadata, folderInfo.folderId);
-
-        const driveResult = {
-            success: true,
-            pdf: pdfResult,
-            folder: folderInfo
-        };
-
         if (driveResult.success) {
-            console.log('記録をGoogle Driveに保存しました（PDF）:', driveResult);
+            console.log('記録をGoogle Driveに保存しました:', driveResult);
             // 保存成功メッセージを表示
             const saveStatus = document.createElement('div');
             saveStatus.style.cssText = 'margin-top: 1rem; padding: 0.75rem; background: #e8f5e9; border-radius: 8px; color: #2e7d32;';
-            saveStatus.innerHTML = `✓ Google DriveにPDFで保存しました（${driveResult.folder.folderName}フォルダ）`;
+            saveStatus.innerHTML = `✓ Google Driveに保存しました（${driveResult.folder.folderName}フォルダ）`;
             document.getElementById('generatedRecord').appendChild(saveStatus);
         }
 
@@ -1820,7 +1795,7 @@ async function generateReview(event) {
     }
 }
 
-// 振り返りレポートをGoogle Driveに保存（PDF形式）
+// 振り返りレポートをGoogle Driveに保存（HTML形式）
 async function saveReviewToDrive(childName, endDate, content, reviewData) {
     if (typeof googleDriveAPI === 'undefined') {
         console.warn('googleDriveAPI が利用できません');
@@ -1833,48 +1808,23 @@ async function saveReviewToDrive(childName, endDate, content, reviewData) {
             await googleDriveAPI.initialize();
         }
 
-        // HTMLを生成
+        // HTML形式で保存
+        const fileName = `${childName}_振り返りレポート_${endDate}.html`;
         const htmlContent = generateReviewHTML(childName, reviewData, content);
 
-        // PDFを生成
-        const pdfFileName = `${childName}_振り返りレポート_${endDate}`;
-        const pdfBlob = await generatePDFFromHTML(htmlContent, pdfFileName);
-
-        // 生徒フォルダを取得または作成
-        const folderInfo = await googleDriveAPI.getOrCreateStudentFolder(childName);
-
-        // PDFをアップロード
-        const pdfResult = await googleDriveAPI.uploadPDFFile(
-            `${pdfFileName}.pdf`,
-            pdfBlob,
-            folderInfo.folderId
+        const driveResult = await googleDriveAPI.saveReviewToStudentFolder(
+            childName,
+            fileName,
+            htmlContent,
+            reviewData
         );
 
-        // JSONメタデータもアップロード
-        const jsonFileName = `${childName}_振り返りレポート_${endDate}.json`;
-        const metadata = {
-            type: 'review',
-            fileName: `${pdfFileName}.pdf`,
-            studentName: childName,
-            data: reviewData,
-            createdAt: new Date().toISOString(),
-            driveFileId: pdfResult.fileId,
-            folderId: folderInfo.folderId
-        };
-        await googleDriveAPI.uploadJSONFile(jsonFileName, metadata, folderInfo.folderId);
-
-        const driveResult = {
-            success: true,
-            pdf: pdfResult,
-            folder: folderInfo
-        };
-
         if (driveResult.success) {
-            console.log('振り返りレポートをGoogle Driveに保存しました（PDF）:', driveResult);
+            console.log('振り返りレポートをGoogle Driveに保存しました:', driveResult);
             // 保存成功メッセージを表示
             const saveStatus = document.createElement('div');
             saveStatus.style.cssText = 'margin-top: 1rem; padding: 0.75rem; background: #e8f5e9; border-radius: 8px; color: #2e7d32;';
-            saveStatus.innerHTML = `✓ Google DriveにPDFで保存しました（${driveResult.folder.folderName}フォルダ）`;
+            saveStatus.innerHTML = `✓ Google Driveに保存しました（${driveResult.folder.folderName}フォルダ）`;
             document.getElementById('generatedReview').appendChild(saveStatus);
         }
 
@@ -2127,7 +2077,7 @@ async function saveSupportPlanManually() {
     }
 }
 
-// 支援計画をGoogle Driveに保存（PDF形式）
+// 支援計画をGoogle Driveに保存（HTML形式）
 async function saveSupportPlanToDrive(childName, content, planData) {
     if (typeof googleDriveAPI === 'undefined') {
         console.warn('googleDriveAPI が利用できません');
@@ -2140,53 +2090,29 @@ async function saveSupportPlanToDrive(childName, content, planData) {
             await googleDriveAPI.initialize();
         }
 
-        // HTMLを生成
+        // HTML形式で保存
         const today = new Date().toISOString().split('T')[0];
+        const fileName = `${childName}_支援計画_${today}.html`;
         const htmlContent = generateSupportPlanHTML(childName, planData, content);
 
-        // PDFを生成
-        const pdfFileName = `${childName}_支援計画_${today}`;
-        const pdfBlob = await generatePDFFromHTML(htmlContent, pdfFileName);
-
-        // 生徒フォルダを取得または作成
-        const folderInfo = await googleDriveAPI.getOrCreateStudentFolder(childName);
-
-        // PDFをアップロード
-        const pdfResult = await googleDriveAPI.uploadPDFFile(
-            `${pdfFileName}.pdf`,
-            pdfBlob,
-            folderInfo.folderId
+        const driveResult = await googleDriveAPI.saveSupportPlanToStudentFolder(
+            childName,
+            fileName,
+            htmlContent,
+            planData
         );
 
-        // JSONメタデータもアップロード
-        const jsonFileName = `${childName}_支援計画_${today}.json`;
-        const metadata = {
-            type: 'supportPlan',
-            fileName: `${pdfFileName}.pdf`,
-            studentName: childName,
-            data: planData,
-            createdAt: new Date().toISOString(),
-            driveFileId: pdfResult.fileId,
-            folderId: folderInfo.folderId
-        };
-        await googleDriveAPI.uploadJSONFile(jsonFileName, metadata, folderInfo.folderId);
-
-        const driveResult = {
-            success: true,
-            pdf: pdfResult,
-            folder: folderInfo
-        };
-
         if (driveResult.success) {
-            console.log('支援計画をGoogle Driveに保存しました（PDF）:', driveResult);
+            console.log('支援計画をGoogle Driveに保存しました:', driveResult);
 
             // localStorageにも保存
             const supportPlans = JSON.parse(localStorage.getItem('supportPlans') || '{}');
-            supportPlans[`${pdfFileName}.pdf`] = {
+            supportPlans[fileName] = {
+                html: htmlContent,
                 data: planData,
                 content: content,
                 createdAt: new Date().toISOString(),
-                driveFileId: pdfResult.fileId
+                driveFileId: driveResult.html.fileId
             };
             localStorage.setItem('supportPlans', JSON.stringify(supportPlans));
         }

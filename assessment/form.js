@@ -141,40 +141,14 @@ document.getElementById('assessmentForm').addEventListener('submit', async funct
                 if (driveInitialized) {
                     submitButton.textContent = 'Google Driveに保存中...';
 
-                    // PDFを生成
-                    const pdfFileName = `${data.childName}_アセスメントシート`;
-                    const pdfBlob = await generateAssessmentPDF(assessmentHTML, pdfFileName);
-
-                    // 生徒フォルダを取得または作成
-                    const folderInfo = await googleDriveAPI.getOrCreateStudentFolder(data.childName);
-
-                    // PDFをアップロード
-                    const pdfResult = await googleDriveAPI.uploadPDFFile(
-                        `${pdfFileName}.pdf`,
-                        pdfBlob,
-                        folderInfo.folderId
+                    // 生徒名フォルダに保存（フォルダがなければ自動作成）
+                    driveResult = await googleDriveAPI.saveAssessmentToStudentFolder(
+                        data.childName,
+                        fileName,
+                        assessmentHTML,
+                        data
                     );
-
-                    // JSONメタデータもアップロード
-                    const jsonFileName = `${data.childName}_アセスメントシート.json`;
-                    const metadata = {
-                        type: 'assessment',
-                        fileName: `${pdfFileName}.pdf`,
-                        studentName: data.childName,
-                        data: data,
-                        createdAt: new Date().toISOString(),
-                        driveFileId: pdfResult.fileId,
-                        folderId: folderInfo.folderId
-                    };
-                    await googleDriveAPI.uploadJSONFile(jsonFileName, metadata, folderInfo.folderId);
-
-                    driveResult = {
-                        success: true,
-                        html: pdfResult,  // 互換性のため
-                        pdf: pdfResult,
-                        folder: folderInfo
-                    };
-                    console.log('Google Drive保存結果（PDF）:', driveResult);
+                    console.log('Google Drive保存結果:', driveResult);
                 } else {
                     console.warn('Google Drive API が初期化されていません');
                 }
