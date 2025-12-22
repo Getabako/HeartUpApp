@@ -20,6 +20,72 @@ async function initGoogleDrive() {
 // ページロード時にGoogle Drive APIを初期化
 document.addEventListener('DOMContentLoaded', initGoogleDrive);
 
+/**
+ * HTMLコンテンツからPDFを生成（アセスメント用）
+ * @param {string} htmlContent - 完全なHTMLドキュメント
+ * @param {string} fileName - ファイル名（拡張子なし）
+ * @returns {Promise<Blob>} PDFのBlob
+ */
+async function generateAssessmentPDF(htmlContent, fileName) {
+    // 一時的なiframeを作成してHTMLをレンダリング
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'absolute';
+    iframe.style.left = '-9999px';
+    iframe.style.width = '800px';
+    iframe.style.height = '2000px';
+    document.body.appendChild(iframe);
+
+    // HTMLを書き込み
+    iframe.contentDocument.open();
+    iframe.contentDocument.write(htmlContent);
+    iframe.contentDocument.close();
+
+    // レンダリングを待つ
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // PDF生成オプション
+    const opt = {
+        margin: [10, 10, 10, 10],
+        filename: `${fileName}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+            scale: 2,
+            useCORS: true,
+            logging: false
+        },
+        jsPDF: {
+            unit: 'mm',
+            format: 'a4',
+            orientation: 'portrait'
+        },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+    };
+
+    try {
+        // シートコンテナを取得
+        const sheetElement = iframe.contentDocument.querySelector('.assessment-sheet') ||
+                            iframe.contentDocument.body;
+
+        // 印刷ボタンを非表示
+        const printBtn = sheetElement.querySelector('.print-button, button');
+        if (printBtn) {
+            printBtn.style.display = 'none';
+        }
+
+        // PDFをBlobとして生成
+        const pdfBlob = await html2pdf().set(opt).from(sheetElement).outputPdf('blob');
+
+        // iframeを削除
+        document.body.removeChild(iframe);
+
+        return pdfBlob;
+    } catch (error) {
+        document.body.removeChild(iframe);
+        console.error('PDF生成エラー:', error);
+        throw error;
+    }
+}
+
 document.getElementById('assessmentForm').addEventListener('submit', async function(e) {
     e.preventDefault();
 
@@ -69,10 +135,10 @@ document.getElementById('assessmentForm').addEventListener('submit', async funct
         const fileName = `${data.childName}_アセスメントシート.html`;
         await saveAssessmentSheet(fileName, assessmentHTML, data);
 
-        // Google Driveへ自動保存（生徒名フォルダに保存）
+        // Google Driveへ自動保存（PDF形式、生徒名フォルダに保存）
         let driveResult = null;
         if (typeof googleDriveAPI !== 'undefined') {
-            submitButton.textContent = 'Google Driveに保存中...';
+            submitButton.textContent = 'PDFを生成中...';
             console.log('Google Drive保存開始...', { driveInitialized, isInit: googleDriveAPI.isInitialized() });
             try {
                 // 初期化されていなければ再度初期化を試みる
@@ -82,14 +148,42 @@ document.getElementById('assessmentForm').addEventListener('submit', async funct
                 }
 
                 if (driveInitialized) {
-                    // 生徒名フォルダに保存（フォルダがなければ自動作成）
-                    driveResult = await googleDriveAPI.saveAssessmentToStudentFolder(
-                        data.childName,
-                        fileName,
-                        assessmentHTML,
-                        data
+                    submitButton.textContent = 'Google Driveに保存中...';
+
+                    // PDFを生成
+                    const pdfFileName = `${data.childName}_アセスメントシート`;
+                    const pdfBlob = await generateAssessmentPDF(assessmentHTML, pdfFileName);
+
+                    // 生徒フォルダを取得または作成
+                    const folderInfo = await googleDriveAPI.getOrCreateStudentFolder(data.childName);
+
+                    // PDFをアップロード
+                    const pdfResult = await googleDriveAPI.uploadPDFFile(
+                        `${pdfFileName}.pdf`,
+                        pdfBlob,
+                        folderInfo.folderId
                     );
-                    console.log('Google Drive保存結果:', driveResult);
+
+                    // JSONメタデータもアップロード
+                    const jsonFileName = `${data.childName}_アセスメントシート.json`;
+                    const metadata = {
+                        type: 'assessment',
+                        fileName: `${pdfFileName}.pdf`,
+                        studentName: data.childName,
+                        data: data,
+                        createdAt: new Date().toISOString(),
+                        driveFileId: pdfResult.fileId,
+                        folderId: folderInfo.folderId
+                    };
+                    await googleDriveAPI.uploadJSONFile(jsonFileName, metadata, folderInfo.folderId);
+
+                    driveResult = {
+                        success: true,
+                        html: pdfResult,  // 互換性のため
+                        pdf: pdfResult,
+                        folder: folderInfo
+                    };
+                    console.log('Google Drive保存結果（PDF）:', driveResult);
                 } else {
                     console.warn('Google Drive API が初期化されていません');
                 }
