@@ -22,12 +22,42 @@ const sampleResources = [
     },
     {
         id: 3,
-        title: "ケーススタディ",
+        title: "ABC分析ケーススタディ",
         category: "case",
-        description: "実際にサッカー療育で成長した子どもたちの事例を紹介します。具体的な支援内容、経過、成果を詳しく解説した実践的なケーススタディ集。",
+        description: "ABC分析を活用した具体的な事例を紹介します。実際の支援場面でのABC分析の適用方法と成果を詳しく解説。",
         date: "2024-09-18",
-        tags: ["事例研究", "ケーススタディ", "成功例", "実践"],
-        filename: "ケーススタディ.pdf",
+        tags: ["ABC分析", "事例研究", "ケーススタディ", "実践"],
+        filename: "ABC分析ケーススタディ.pdf",
+        hasFile: true
+    },
+    {
+        id: 4,
+        title: "知能検査",
+        category: "aba",
+        description: "知能検査の基礎知識と活用方法について解説します。検査結果の読み取り方や支援への活かし方を学びます。",
+        date: "2024-10-27",
+        tags: ["知能検査", "アセスメント", "発達評価", "支援方法"],
+        filename: "知能検査.pdf",
+        hasFile: true
+    },
+    {
+        id: 5,
+        title: "知能検査ケーススタディ",
+        category: "case",
+        description: "知能検査を活用した具体的な支援事例を紹介します。検査結果に基づく個別支援計画の立て方と実践例。",
+        date: "2024-12-17",
+        tags: ["知能検査", "事例研究", "ケーススタディ", "個別支援"],
+        filename: "知能検査ケーススタディ.pdf",
+        hasFile: true
+    },
+    {
+        id: 6,
+        title: "AI講座",
+        category: "aba",
+        description: "AIを活用した療育支援について学びます。最新のAI技術と療育現場での活用方法を解説。",
+        date: "2024-12-22",
+        tags: ["AI", "テクノロジー", "療育支援", "最新技術"],
+        filename: "AI講座.pdf",
         hasFile: true
     }
 ];
