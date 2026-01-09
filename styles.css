@@ -633,12 +633,13 @@ main {
    ============================================ */
 .header-right {
     position: absolute;
-    right: 0;
+    right: 2rem;
     top: 50%;
     transform: translateY(-50%);
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 1rem;
+    gap: 0.5rem;
 }
 
 .version-badge {
