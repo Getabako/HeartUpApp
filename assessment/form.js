@@ -3,6 +3,19 @@
 // Google Drive API初期化
 let driveInitialized = false;
 
+// ユーザー設定をlocalStorageから読み込み
+function loadUserSettings() {
+    try {
+        const saved = localStorage.getItem('userSettings');
+        if (saved) {
+            return JSON.parse(saved);
+        }
+    } catch (e) {
+        console.error('設定読み込みエラー:', e);
+    }
+    return { email: '', folderId: '', folderName: '' };
+}
+
 async function initGoogleDrive() {
     console.log('Google Drive API 初期化開始...');
     if (typeof googleDriveAPI !== 'undefined') {
@@ -10,13 +23,11 @@ async function initGoogleDrive() {
             driveInitialized = await googleDriveAPI.initialize();
             console.log('Google Drive API 初期化結果:', driveInitialized);
 
-            // アクティブプロファイルのフォルダIDを設定
-            if (typeof profileManager !== 'undefined') {
-                const activeProfile = profileManager.getActiveProfile();
-                if (activeProfile && activeProfile.folderId) {
-                    googleDriveAPI.setTargetFolderId(activeProfile.folderId);
-                    console.log('アクティブプロファイルのフォルダIDを設定:', activeProfile.folderId);
-                }
+            // 保存されたフォルダIDを設定
+            const settings = loadUserSettings();
+            if (settings.folderId) {
+                googleDriveAPI.setTargetFolderId(settings.folderId);
+                console.log('保存先フォルダIDを設定:', settings.folderId);
             }
         } catch (error) {
             console.error('Google Drive API 初期化エラー:', error);
