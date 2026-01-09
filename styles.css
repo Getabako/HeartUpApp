@@ -632,9 +632,17 @@ main {
    ヘッダー右側エリア
    ============================================ */
 .header-right {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
     display: flex;
     align-items: center;
-    gap: 0.8rem;
+    gap: 1rem;
+}
+
+.version-badge {
+    white-space: nowrap;
 }
 
 .settings-button {
@@ -648,6 +656,7 @@ main {
     justify-content: center;
     transition: all 0.3s ease;
     color: white;
+    flex-shrink: 0;
 }
 
 .settings-button:hover {
