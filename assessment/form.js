@@ -9,6 +9,15 @@ async function initGoogleDrive() {
         try {
             driveInitialized = await googleDriveAPI.initialize();
             console.log('Google Drive API 初期化結果:', driveInitialized);
+
+            // アクティブプロファイルのフォルダIDを設定
+            if (typeof profileManager !== 'undefined') {
+                const activeProfile = profileManager.getActiveProfile();
+                if (activeProfile && activeProfile.folderId) {
+                    googleDriveAPI.setTargetFolderId(activeProfile.folderId);
+                    console.log('アクティブプロファイルのフォルダIDを設定:', activeProfile.folderId);
+                }
+            }
         } catch (error) {
             console.error('Google Drive API 初期化エラー:', error);
         }

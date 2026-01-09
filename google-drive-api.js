@@ -6,16 +6,41 @@ class GoogleDriveAPI {
         // Google API設定（固定値）
         this.CLIENT_ID = '537186649664-12ft0p2d5a3jkbkpvjoquugfgpoiov86.apps.googleusercontent.com';
         this.API_KEY = 'AIzaSyDen7M5YfihnQYaiHtigRvNewb4f6utUbo';
-        this.SCOPES = 'https://www.googleapis.com/auth/drive.file';
+        // drive.file + ユーザー情報取得用スコープ
+        this.SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email';
         this.DISCOVERY_DOCS = ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'];
 
-        // 保存先フォルダID（指定されたフォルダ）
-        this.TARGET_FOLDER_ID = '1KvbKykAiUK6BKoqsFQQhyRqYQp7NQm77';
+        // 保存先フォルダID（デフォルト値、プロファイルで上書き可能）
+        this.DEFAULT_FOLDER_ID = '1KvbKykAiUK6BKoqsFQQhyRqYQp7NQm77';
+        this.TARGET_FOLDER_ID = this.DEFAULT_FOLDER_ID;
 
         this.tokenClient = null;
         this.gapiInited = false;
         this.gisInited = false;
+        this.pickerInited = false;
         this.isSignedIn = false;
+        this.currentUserEmail = null;
+    }
+
+    /**
+     * ターゲットフォルダIDを設定
+     * @param {string} folderId - フォルダID
+     */
+    setTargetFolderId(folderId) {
+        if (folderId) {
+            this.TARGET_FOLDER_ID = folderId;
+            console.log('ターゲットフォルダIDを設定:', folderId);
+        } else {
+            this.TARGET_FOLDER_ID = this.DEFAULT_FOLDER_ID;
+            console.log('ターゲットフォルダIDをデフォルトにリセット');
+        }
+    }
+
+    /**
+     * 現在のターゲットフォルダIDを取得
+     */
+    getTargetFolderId() {
+        return this.TARGET_FOLDER_ID;
     }
 
     /**
@@ -36,11 +61,13 @@ class GoogleDriveAPI {
                 gapiScript.defer = true;
                 gapiScript.onload = () => {
                     console.log('GAPI スクリプト ロード完了');
-                    gapi.load('client', async () => {
+                    // client と picker の両方をロード
+                    gapi.load('client:picker', async () => {
                         try {
                             await this.initializeGapiClient();
                             this.gapiInited = true;
-                            console.log('GAPI クライアント初期化完了');
+                            this.pickerInited = true;
+                            console.log('GAPI クライアント + Picker 初期化完了');
                             this.maybeEnableAPI(resolve);
                         } catch (err) {
                             console.error('GAPI クライアント初期化エラー:', err);
@@ -55,11 +82,12 @@ class GoogleDriveAPI {
                 document.head.appendChild(gapiScript);
             } else if (!this.gapiInited && typeof gapi !== 'undefined') {
                 // 既にスクリプトはあるが初期化されていない
-                gapi.load('client', async () => {
+                gapi.load('client:picker', async () => {
                     try {
                         await this.initializeGapiClient();
                         this.gapiInited = true;
-                        console.log('GAPI クライアント初期化完了 (再初期化)');
+                        this.pickerInited = true;
+                        console.log('GAPI クライアント + Picker 初期化完了 (再初期化)');
                         this.maybeEnableAPI(resolve);
                     } catch (err) {
                         console.error('GAPI クライアント初期化エラー:', err);
@@ -192,6 +220,118 @@ class GoogleDriveAPI {
             google.accounts.oauth2.revoke(token.access_token);
             gapi.client.setToken('');
             this.isSignedIn = false;
+            this.currentUserEmail = null;
+        }
+    }
+
+    /**
+     * 認証済みユーザーのメールアドレスを取得
+     * @returns {Promise<string|null>} メールアドレスまたはnull
+     */
+    async getCurrentUserEmail() {
+        if (!this.isSignedIn) {
+            return null;
+        }
+
+        // キャッシュがあればそれを返す
+        if (this.currentUserEmail) {
+            return this.currentUserEmail;
+        }
+
+        try {
+            const token = gapi.client.getToken();
+            if (!token) {
+                return null;
+            }
+
+            // userinfo APIを呼び出してメールアドレスを取得
+            const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+                headers: {
+                    'Authorization': `Bearer ${token.access_token}`
+                }
+            });
+
+            if (response.ok) {
+                const userInfo = await response.json();
+                this.currentUserEmail = userInfo.email;
+                console.log('ユーザーメールアドレス取得:', this.currentUserEmail);
+                return this.currentUserEmail;
+            }
+            return null;
+        } catch (error) {
+            console.error('ユーザー情報取得エラー:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Google Picker でフォルダを選択
+     * @param {function} callback - 選択完了時のコールバック (folderId, folderName)
+     */
+    openFolderPicker(callback) {
+        if (!this.pickerInited) {
+            console.error('Picker APIが初期化されていません');
+            if (callback) callback(null, null, 'Picker APIが初期化されていません');
+            return;
+        }
+
+        const token = gapi.client.getToken();
+        if (!token) {
+            console.error('認証が必要です');
+            if (callback) callback(null, null, '認証が必要です');
+            return;
+        }
+
+        try {
+            // フォルダのみを表示するビュー
+            const docsView = new google.picker.DocsView(google.picker.ViewId.FOLDERS)
+                .setSelectFolderEnabled(true)
+                .setIncludeFolders(true)
+                .setMimeTypes('application/vnd.google-apps.folder');
+
+            const picker = new google.picker.PickerBuilder()
+                .addView(docsView)
+                .setOAuthToken(token.access_token)
+                .setDeveloperKey(this.API_KEY)
+                .setCallback((data) => {
+                    if (data[google.picker.Response.ACTION] === google.picker.Action.PICKED) {
+                        const folder = data[google.picker.Response.DOCUMENTS][0];
+                        console.log('フォルダ選択:', folder.name, folder.id);
+                        if (callback) callback(folder.id, folder.name, null);
+                    } else if (data[google.picker.Response.ACTION] === google.picker.Action.CANCEL) {
+                        console.log('フォルダ選択キャンセル');
+                        if (callback) callback(null, null, null);
+                    }
+                })
+                .setTitle('保存先フォルダを選択')
+                .build();
+
+            picker.setVisible(true);
+        } catch (error) {
+            console.error('Picker エラー:', error);
+            if (callback) callback(null, null, error.message);
+        }
+    }
+
+    /**
+     * フォルダ名を取得
+     * @param {string} folderId - フォルダID
+     * @returns {Promise<string|null>} フォルダ名またはnull
+     */
+    async getFolderName(folderId) {
+        if (!this.isSignedIn) {
+            await this.authorize();
+        }
+
+        try {
+            const response = await gapi.client.drive.files.get({
+                fileId: folderId,
+                fields: 'name'
+            });
+            return response.result.name;
+        } catch (error) {
+            console.error('フォルダ名取得エラー:', error);
+            return null;
         }
     }
 
