@@ -968,6 +968,81 @@ main {
     background: #ffcdd2;
 }
 
+/* ============================================
+   シンプル設定モーダル
+   ============================================ */
+.setting-step {
+    display: flex;
+    gap: 1rem;
+    padding: 1.5rem;
+    background: #f8f9fa;
+    border-radius: 12px;
+    margin-bottom: 1rem;
+}
+
+.step-number {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.step-content {
+    flex: 1;
+}
+
+.step-content h3 {
+    color: #2e7d32;
+    font-size: 1rem;
+    margin-bottom: 0.8rem;
+}
+
+.account-display,
+.folder-display {
+    padding: 0.8rem;
+    background: white;
+    border-radius: 8px;
+    margin-bottom: 0.8rem;
+    border: 1px solid #e0e0e0;
+}
+
+.account-status,
+.folder-status {
+    font-size: 0.9rem;
+}
+
+.account-status.not-connected,
+.folder-status.not-selected {
+    color: #999;
+}
+
+.account-status.connected {
+    color: #2e7d32;
+    font-weight: 500;
+}
+
+.folder-status.selected {
+    color: #2e7d32;
+    font-weight: 500;
+}
+
+.setting-complete {
+    text-align: center;
+    padding: 1rem;
+    background: #e8f5e9;
+    border-radius: 8px;
+    color: #2e7d32;
+    font-weight: 500;
+    margin-top: 1rem;
+}
+
 /* レスポンシブデザイン */
 @media (max-width: 768px) {
     .header-content {

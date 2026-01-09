@@ -2684,148 +2684,77 @@ function calculateAge(birthDateStr) {
 }
 
 // ============================================
-// プロファイル設定機能
+// ユーザー設定機能（シンプル版）
 // ============================================
 
-// 新規プロファイル追加用の一時データ
-let newProfileData = {
-    email: '',
-    folderId: '',
-    folderName: ''
-};
+// 設定データのキー
+const USER_SETTINGS_KEY = 'userSettings';
 
-// 編集中プロファイルの一時データ
-let editProfileData = {
-    email: '',
-    folderId: '',
-    folderName: ''
-};
+// 設定データを読み込み
+function loadUserSettings() {
+    try {
+        const saved = localStorage.getItem(USER_SETTINGS_KEY);
+        if (saved) {
+            return JSON.parse(saved);
+        }
+    } catch (e) {
+        console.error('設定読み込みエラー:', e);
+    }
+    return { email: '', folderId: '', folderName: '' };
+}
 
-// プロファイル設定モーダルを開く
+// 設定データを保存
+function saveUserSettings(settings) {
+    try {
+        localStorage.setItem(USER_SETTINGS_KEY, JSON.stringify(settings));
+        console.log('設定を保存しました:', settings);
+    } catch (e) {
+        console.error('設定保存エラー:', e);
+    }
+}
+
+// 設定モーダルを開く
 function openProfileSettingsModal() {
     const modal = document.getElementById('profileSettingsModal');
     modal.classList.remove('hidden');
-    renderProfileList();
-    hideAddProfileForm();
-    hideEditProfileForm();
+    updateSettingsDisplay();
 }
 
-// プロファイル設定モーダルを閉じる
+// 設定モーダルを閉じる
 function closeProfileSettingsModal() {
     const modal = document.getElementById('profileSettingsModal');
     modal.classList.add('hidden');
-    resetNewProfileForm();
 }
 
-// プロファイル一覧を描画
-function renderProfileList() {
-    const container = document.getElementById('profileList');
-    const profiles = profileManager.getProfiles();
-    const activeProfileId = profileManager.getActiveProfileId();
+// 設定表示を更新
+function updateSettingsDisplay() {
+    const settings = loadUserSettings();
 
-    if (profiles.length === 0) {
-        container.innerHTML = `
-            <div class="no-profiles">
-                <p>プロファイルがありません</p>
-                <p class="help-text">新規プロファイルを追加して、Googleアカウントと保存先フォルダを設定してください</p>
-            </div>
-        `;
-        return;
-    }
-
-    container.innerHTML = profiles.map(profile => `
-        <div class="profile-card ${profile.id === activeProfileId ? 'active' : ''}" onclick="selectProfile('${profile.id}')">
-            <div class="profile-radio">
-                <input type="radio" name="activeProfile" ${profile.id === activeProfileId ? 'checked' : ''}>
-            </div>
-            <div class="profile-info">
-                <div class="profile-name">${escapeHtml(profile.name)}</div>
-                <div class="profile-email">${profile.email || '未連携'}</div>
-                <div class="profile-folder">
-                    <span class="folder-icon-small">📁</span>
-                    ${profile.folderName || profile.folderId || 'デフォルトフォルダ'}
-                </div>
-            </div>
-            <button class="btn-edit-profile" onclick="event.stopPropagation(); showEditProfileForm('${profile.id}')">
-                編集
-            </button>
-        </div>
-    `).join('');
-}
-
-// HTMLエスケープ
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-// プロファイルを選択（アクティブに設定）
-async function selectProfile(profileId) {
-    const success = profileManager.setActiveProfile(profileId);
-    if (success) {
-        const profile = profileManager.getActiveProfile();
-        // Google Drive APIのフォルダIDを更新
-        if (profile && profile.folderId) {
-            googleDriveAPI.setTargetFolderId(profile.folderId);
-        } else {
-            googleDriveAPI.setTargetFolderId(null); // デフォルトに戻す
-        }
-        renderProfileList();
-    }
-}
-
-// 新規プロファイル追加フォームを表示
-function showAddProfileForm() {
-    resetNewProfileForm();
-    document.getElementById('addProfileForm').classList.remove('hidden');
-    document.querySelector('.btn-add-profile').style.display = 'none';
-}
-
-// 新規プロファイル追加フォームを非表示
-function hideAddProfileForm() {
-    document.getElementById('addProfileForm').classList.add('hidden');
-    document.querySelector('.btn-add-profile').style.display = 'block';
-    resetNewProfileForm();
-}
-
-// 新規プロファイルフォームをリセット
-function resetNewProfileForm() {
-    newProfileData = { email: '', folderId: '', folderName: '' };
-    document.getElementById('newProfileName').value = '';
-    document.getElementById('newProfileFolderId').value = '';
-    document.getElementById('googleAccountStatus').innerHTML = '<span class="status-text">未連携</span>';
-    document.getElementById('selectedFolderInfo').classList.add('hidden');
-    document.getElementById('showFolderIdInput').checked = false;
-    document.getElementById('folderIdInputGroup').classList.add('hidden');
-}
-
-// フォルダID入力欄の表示切り替え
-function toggleFolderIdInput() {
-    const checkbox = document.getElementById('showFolderIdInput');
-    const inputGroup = document.getElementById('folderIdInputGroup');
-    if (checkbox.checked) {
-        inputGroup.classList.remove('hidden');
+    // Googleアカウント表示
+    const accountDisplay = document.getElementById('googleAccountDisplay');
+    const loginBtnText = document.getElementById('googleLoginBtnText');
+    if (settings.email) {
+        accountDisplay.innerHTML = `<span class="account-status connected">${settings.email}</span>`;
+        loginBtnText.textContent = '別のアカウントでログイン';
     } else {
-        inputGroup.classList.add('hidden');
+        accountDisplay.innerHTML = `<span class="account-status not-connected">未連携</span>`;
+        loginBtnText.textContent = 'Googleでログイン';
     }
-}
 
-// 編集用フォルダID入力欄の表示切り替え
-function toggleEditFolderIdInput() {
-    const checkbox = document.getElementById('editShowFolderIdInput');
-    const inputGroup = document.getElementById('editFolderIdInputGroup');
-    if (checkbox.checked) {
-        inputGroup.classList.remove('hidden');
+    // フォルダ表示
+    const folderDisplay = document.getElementById('folderDisplay');
+    if (settings.folderId) {
+        const displayName = settings.folderName || settings.folderId;
+        folderDisplay.innerHTML = `<span class="folder-status selected">${displayName}</span>`;
     } else {
-        inputGroup.classList.add('hidden');
+        folderDisplay.innerHTML = `<span class="folder-status not-selected">未選択（デフォルトフォルダを使用）</span>`;
     }
 }
 
-// 新規プロファイル用のGoogleログイン
-async function loginForNewProfile() {
+// Googleアカウント連携
+async function connectGoogleAccount() {
     try {
-        // Google Drive API初期化確認
+        // Google Drive API初期化
         if (!googleDriveAPI.isInitialized()) {
             await googleDriveAPI.initialize();
         }
@@ -2836,10 +2765,11 @@ async function loginForNewProfile() {
         // メールアドレス取得
         const email = await googleDriveAPI.getCurrentUserEmail();
         if (email) {
-            newProfileData.email = email;
-            document.getElementById('googleAccountStatus').innerHTML = `
-                <span class="status-text connected">${email}</span>
-            `;
+            const settings = loadUserSettings();
+            settings.email = email;
+            saveUserSettings(settings);
+            updateSettingsDisplay();
+            showSettingComplete();
         }
     } catch (error) {
         console.error('Googleログインエラー:', error);
@@ -2847,22 +2777,22 @@ async function loginForNewProfile() {
     }
 }
 
-// 新規プロファイル用のフォルダ選択
-async function openFolderPickerForNewProfile() {
+// フォルダ選択
+async function selectFolder() {
     try {
-        // Google Drive API初期化・認証確認
+        // Google Drive API初期化・認証
         if (!googleDriveAPI.isInitialized()) {
             await googleDriveAPI.initialize();
         }
         if (!googleDriveAPI.isSignedIn) {
             await googleDriveAPI.authorize();
-            // メールアドレスも取得
+            // メールアドレスも取得して保存
             const email = await googleDriveAPI.getCurrentUserEmail();
             if (email) {
-                newProfileData.email = email;
-                document.getElementById('googleAccountStatus').innerHTML = `
-                    <span class="status-text connected">${email}</span>
-                `;
+                const settings = loadUserSettings();
+                settings.email = email;
+                saveUserSettings(settings);
+                updateSettingsDisplay();
             }
         }
 
@@ -2873,12 +2803,16 @@ async function openFolderPickerForNewProfile() {
                 return;
             }
             if (folderId) {
-                newProfileData.folderId = folderId;
-                newProfileData.folderName = folderName;
-                document.getElementById('selectedFolderInfo').classList.remove('hidden');
-                document.getElementById('selectedFolderName').textContent = folderName;
-                // ID入力欄も更新
-                document.getElementById('newProfileFolderId').value = folderId;
+                const settings = loadUserSettings();
+                settings.folderId = folderId;
+                settings.folderName = folderName;
+                saveUserSettings(settings);
+
+                // Google Drive APIにも設定
+                googleDriveAPI.setTargetFolderId(folderId);
+
+                updateSettingsDisplay();
+                showSettingComplete();
             }
         });
     } catch (error) {
@@ -2887,195 +2821,16 @@ async function openFolderPickerForNewProfile() {
     }
 }
 
-// 新規プロファイルを保存
-function saveNewProfile() {
-    const name = document.getElementById('newProfileName').value.trim();
-
-    if (!name) {
-        alert('表示名を入力してください');
-        return;
-    }
-
-    // フォルダIDの取得（Picker選択 or 直接入力）
-    let folderId = newProfileData.folderId;
-    let folderName = newProfileData.folderName;
-
-    const manualFolderId = document.getElementById('newProfileFolderId').value.trim();
-    if (manualFolderId && manualFolderId !== folderId) {
-        folderId = manualFolderId;
-        folderName = ''; // 直接入力の場合は名前不明
-    }
-
-    // プロファイル追加
-    const profile = profileManager.addProfile({
-        name: name,
-        email: newProfileData.email,
-        folderId: folderId,
-        folderName: folderName
-    });
-
-    // アクティブに設定して適用
-    if (profile && profile.folderId) {
-        googleDriveAPI.setTargetFolderId(profile.folderId);
-    }
-
-    hideAddProfileForm();
-    renderProfileList();
-    alert('プロファイルを追加しました');
+// 設定完了メッセージを表示
+function showSettingComplete() {
+    const completeMsg = document.getElementById('settingComplete');
+    completeMsg.classList.remove('hidden');
+    setTimeout(() => {
+        completeMsg.classList.add('hidden');
+    }, 2000);
 }
 
-// 編集フォームを表示
-function showEditProfileForm(profileId) {
-    const profile = profileManager.getProfileById(profileId);
-    if (!profile) return;
-
-    editProfileData = {
-        email: profile.email || '',
-        folderId: profile.folderId || '',
-        folderName: profile.folderName || ''
-    };
-
-    document.getElementById('editProfileId').value = profileId;
-    document.getElementById('editProfileName').value = profile.name;
-    document.getElementById('editProfileFolderId').value = profile.folderId || '';
-
-    // Googleアカウント状態
-    if (profile.email) {
-        document.getElementById('editGoogleAccountStatus').innerHTML = `
-            <span class="status-text connected">${profile.email}</span>
-        `;
-    } else {
-        document.getElementById('editGoogleAccountStatus').innerHTML = '<span class="status-text">未連携</span>';
-    }
-
-    // フォルダ情報
-    if (profile.folderId) {
-        document.getElementById('editSelectedFolderInfo').classList.remove('hidden');
-        document.getElementById('editSelectedFolderName').textContent = profile.folderName || profile.folderId;
-    } else {
-        document.getElementById('editSelectedFolderInfo').classList.add('hidden');
-    }
-
-    document.getElementById('editProfileForm').classList.remove('hidden');
-    hideAddProfileForm();
-}
-
-// 編集フォームを非表示
-function hideEditProfileForm() {
-    document.getElementById('editProfileForm').classList.add('hidden');
-    editProfileData = { email: '', folderId: '', folderName: '' };
-}
-
-// 編集用Googleログイン
-async function loginForEditProfile() {
-    try {
-        if (!googleDriveAPI.isInitialized()) {
-            await googleDriveAPI.initialize();
-        }
-        await googleDriveAPI.authorize();
-        const email = await googleDriveAPI.getCurrentUserEmail();
-        if (email) {
-            editProfileData.email = email;
-            document.getElementById('editGoogleAccountStatus').innerHTML = `
-                <span class="status-text connected">${email}</span>
-            `;
-        }
-    } catch (error) {
-        console.error('Googleログインエラー:', error);
-        alert('Googleログインに失敗しました: ' + error.message);
-    }
-}
-
-// 編集用フォルダ選択
-async function openFolderPickerForEditProfile() {
-    try {
-        if (!googleDriveAPI.isInitialized()) {
-            await googleDriveAPI.initialize();
-        }
-        if (!googleDriveAPI.isSignedIn) {
-            await googleDriveAPI.authorize();
-        }
-
-        googleDriveAPI.openFolderPicker((folderId, folderName, error) => {
-            if (error) {
-                alert('フォルダ選択エラー: ' + error);
-                return;
-            }
-            if (folderId) {
-                editProfileData.folderId = folderId;
-                editProfileData.folderName = folderName;
-                document.getElementById('editSelectedFolderInfo').classList.remove('hidden');
-                document.getElementById('editSelectedFolderName').textContent = folderName;
-                document.getElementById('editProfileFolderId').value = folderId;
-            }
-        });
-    } catch (error) {
-        console.error('フォルダ選択エラー:', error);
-        alert('フォルダ選択の準備に失敗しました: ' + error.message);
-    }
-}
-
-// プロファイルを更新
-function updateProfile() {
-    const profileId = document.getElementById('editProfileId').value;
-    const name = document.getElementById('editProfileName').value.trim();
-
-    if (!name) {
-        alert('表示名を入力してください');
-        return;
-    }
-
-    let folderId = editProfileData.folderId;
-    let folderName = editProfileData.folderName;
-
-    const manualFolderId = document.getElementById('editProfileFolderId').value.trim();
-    if (manualFolderId && manualFolderId !== folderId) {
-        folderId = manualFolderId;
-        folderName = '';
-    }
-
-    profileManager.updateProfile(profileId, {
-        name: name,
-        email: editProfileData.email,
-        folderId: folderId,
-        folderName: folderName
-    });
-
-    // アクティブプロファイルを更新した場合はフォルダIDも更新
-    if (profileManager.getActiveProfileId() === profileId) {
-        googleDriveAPI.setTargetFolderId(folderId || null);
-    }
-
-    hideEditProfileForm();
-    renderProfileList();
-    alert('プロファイルを更新しました');
-}
-
-// 現在編集中のプロファイルを削除
-function deleteCurrentProfile() {
-    const profileId = document.getElementById('editProfileId').value;
-    const profile = profileManager.getProfileById(profileId);
-
-    if (!confirm(`プロファイル「${profile.name}」を削除しますか？`)) {
-        return;
-    }
-
-    profileManager.deleteProfile(profileId);
-
-    // アクティブプロファイルが変わった可能性があるのでフォルダIDを更新
-    const newActive = profileManager.getActiveProfile();
-    if (newActive && newActive.folderId) {
-        googleDriveAPI.setTargetFolderId(newActive.folderId);
-    } else {
-        googleDriveAPI.setTargetFolderId(null);
-    }
-
-    hideEditProfileForm();
-    renderProfileList();
-    alert('プロファイルを削除しました');
-}
-
-// モーダル外クリックで閉じる（プロファイル設定モーダル用）
+// モーダル外クリックで閉じる
 document.addEventListener('click', function(event) {
     const profileModal = document.getElementById('profileSettingsModal');
     if (event.target === profileModal) {
@@ -3084,17 +2839,17 @@ document.addEventListener('click', function(event) {
 });
 
 // ============================================
-// アプリ起動時のプロファイル初期化
+// アプリ起動時の設定初期化
 // ============================================
-function initializeActiveProfile() {
-    const activeProfile = profileManager.getActiveProfile();
-    if (activeProfile && activeProfile.folderId) {
-        googleDriveAPI.setTargetFolderId(activeProfile.folderId);
-        console.log('アクティブプロファイルのフォルダIDを設定:', activeProfile.folderId);
+function initializeUserSettings() {
+    const settings = loadUserSettings();
+    if (settings.folderId) {
+        googleDriveAPI.setTargetFolderId(settings.folderId);
+        console.log('保存先フォルダIDを設定:', settings.folderId);
     }
 }
 
-// DOMContentLoadedイベントでプロファイル初期化
+// DOMContentLoadedイベントで設定初期化
 document.addEventListener('DOMContentLoaded', function() {
-    initializeActiveProfile();
+    initializeUserSettings();
 });
