@@ -919,9 +919,15 @@ class GoogleDriveAPI {
                                 : fileContent.result;
 
                             // ファイルタイプに応じて振り分け
-                            const key = `${folder.name}_${file.name}`;
+                            // キーはlocalStorageと同じ形式を使用（重複防止）
+                            const key = data.fileName || file.name;
                             if (data.type === 'assessment') {
-                                result.assessments[key] = data;
+                                result.assessments[key] = {
+                                    html: data.html || '',
+                                    data: data.data || data,
+                                    createdAt: data.createdAt,
+                                    filePath: data.filePath || `drive/${file.name}`
+                                };
                             } else if (data.type === 'supportPlan') {
                                 result.supportPlans[key] = data;
                             } else if (data.type === 'record') {

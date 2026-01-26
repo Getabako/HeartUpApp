@@ -398,68 +398,119 @@
             if (!confirm(confirmMsg)) return;
 
             try {
+                // 日付関連の変数
+                const today = new Date();
+                const startDate = today.toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '年').replace(/年(\d+)$/, '月$1日');
+                const endDate = new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000).toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '年').replace(/年(\d+)$/, '月$1日');
+
                 // Generate support plan using Gemini API
                 const prompt = `
-あなたは児童発達支援の専門家です。以下のアセスメント情報を分析し、この児童に合った具体的な個別支援計画を作成してください。
+あなたは放課後等デイサービスの児童発達支援管理責任者です。
+以下のアセスメント情報を分析し、公式様式に準拠した個別支援計画をJSON形式で作成してください。
 
 【重要な指示】
-- 「ー」や「-」などのプレースホルダーは絶対に使用しないでください
-- すべての項目に、アセスメント情報を基にした具体的な内容を記載してください
-- 情報が不足している場合でも、推測される内容を記載してください
+- 必ずJSON形式のみを出力してください（説明文は不要）
+- すべての項目に具体的な内容を記載してください
+- 「ー」や空文字列は使用しないでください
+- サッカー療育の文脈で記載してください
 
 【児童情報】
 児童名: ${assessment.data.childName}
-診断名: ${assessment.data.diagnosis || '診断名なし（発達に課題のあるお子様）'}
+診断名: ${assessment.data.diagnosis || '発達に課題のあるお子様'}
 
 【アセスメント評価結果】
-■対人・社会性
-- 場面や指示の理解: ${assessment.data.situationEpisode || '詳細記載なし'}
-- 共感性: ${assessment.data.empathyEpisode || '詳細記載なし'}
-- 社会的ルール: ${assessment.data.cooperation || '詳細記載なし'}
-- コミュニケーション: ${assessment.data.communicationDetails || '詳細記載なし'}
-- こだわり: ${assessment.data.persistence || '詳細記載なし'}
+- 場面や指示の理解: ${assessment.data.situationEpisode || '個別の状況に応じた支援が必要'}
+- 共感性: ${assessment.data.empathyEpisode || '他者理解の練習が必要'}
+- 社会的ルール: ${assessment.data.cooperation || '集団活動での支援が必要'}
+- コミュニケーション: ${assessment.data.communicationDetails || 'コミュニケーション支援が必要'}
+- こだわり: ${assessment.data.persistence || '柔軟性の支援が必要'}
+- 指示の受け入れ: ${assessment.data.instructionDetails || '指示理解の支援が必要'}
+- 集中力: ${assessment.data.concentrationDetails || '集中力の維持支援が必要'}
+- 多動性: ${assessment.data.hyperactivityDetails || '活動量の調整支援が必要'}
+- 衝動性: ${assessment.data.impulsivityDetails || '衝動コントロールの支援が必要'}
+- パニック: ${assessment.data.panicDetails || '感情コントロールの支援が必要'}
+- 粗大運動: ${assessment.data.grossMotorDetails || '運動機能の支援が必要'}
+- 微細運動: ${assessment.data.fineMotorDetails || '手先の器用さの支援が必要'}
+- バランス: ${assessment.data.balanceDetails || 'バランス能力の支援が必要'}
+- 生活習慣: ${assessment.data.dailyLivingDetails || '生活習慣の支援が必要'}
+- 家庭での配慮: ${assessment.data.familySupport || '家庭との連携が必要'}
 
-■行動・情緒
-- 指示の受け入れ: ${assessment.data.instructionDetails || '詳細記載なし'}
-- 集中力: ${assessment.data.concentrationDetails || '詳細記載なし'}
-- 多動性: ${assessment.data.hyperactivityDetails || '詳細記載なし'}
-- 衝動性: ${assessment.data.impulsivityDetails || '詳細記載なし'}
-- パニック: ${assessment.data.panicDetails || '詳細記載なし'}
+【出力形式】
+以下のJSON形式で出力してください：
+{
+  "selfIntent": "本人の生活に対する意向（サッカーを楽しみたい等）",
+  "familyIntent": "家族の生活に対する意向（感情のコントロールを学んでほしい等）",
+  "supportPolicy": "総合的な支援の方針（200文字程度）",
+  "longTermGoal": "長期目標（具体的な達成目標）",
+  "shortTermGoal": "短期目標（3ヶ月程度で達成できる目標）",
+  "selfSupport": [
+    {
+      "needs": "本人のニーズ1（例：自分の感情を理解し表現できるようになりたい）",
+      "goal": "具体的な達成目標1",
+      "content": "支援内容（5領域との関連を含む具体的な内容）",
+      "period": "6ヶ月",
+      "staff": "カラーズFCスタッフ、保護者",
+      "notes": "留意事項（本人の役割を含む）",
+      "priority": 1
+    },
+    {
+      "needs": "本人のニーズ2",
+      "goal": "具体的な達成目標2",
+      "content": "支援内容2",
+      "period": "6ヶ月",
+      "staff": "カラーズFCスタッフ",
+      "notes": "留意事項2",
+      "priority": 2
+    },
+    {
+      "needs": "本人のニーズ3",
+      "goal": "具体的な達成目標3",
+      "content": "支援内容3",
+      "period": "6ヶ月",
+      "staff": "カラーズFCスタッフ",
+      "notes": "留意事項3",
+      "priority": 3
+    }
+  ],
+  "familySupport": {
+    "needs": "家族支援のニーズ",
+    "goal": "具体的な達成目標",
+    "content": "支援内容",
+    "period": "6ヶ月",
+    "staff": "カラーズFCスタッフ",
+    "notes": "留意事項"
+  },
+  "transitionSupport": {
+    "needs": "移行支援のニーズ",
+    "goal": "具体的な達成目標",
+    "content": "支援内容",
+    "period": "6ヶ月",
+    "staff": "カラーズFCスタッフ、学校の先生",
+    "notes": "留意事項"
+  }
+}
 
-■身体・運動
-- 粗大運動: ${assessment.data.grossMotorDetails || '詳細記載なし'}
-- 微細運動: ${assessment.data.fineMotorDetails || '詳細記載なし'}
-- バランス: ${assessment.data.balanceDetails || '詳細記載なし'}
+JSONのみを出力してください。`;
 
-■その他
-- 生活習慣: ${assessment.data.dailyLivingDetails || '詳細記載なし'}
-- 家庭での配慮: ${assessment.data.familySupport || '詳細記載なし'}
+                const response = await geminiAPI.generateContent(prompt);
 
-【出力する支援計画の構成】
-1. 【総合的支援方針】（200文字程度で児童の特性を踏まえた支援の方向性を記載）
+                // JSONを抽出
+                let planData;
+                try {
+                    const jsonMatch = response.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) {
+                        planData = JSON.parse(jsonMatch[0]);
+                    } else {
+                        throw new Error('JSON not found in response');
+                    }
+                } catch (e) {
+                    console.error('JSON parse error:', e);
+                    alert('支援計画の生成に失敗しました。再度お試しください。');
+                    return;
+                }
 
-2. 【長期目標】（6ヶ月〜1年）
-   - 具体的な達成目標を3つ記載
-
-3. 【短期目標】（1〜3ヶ月）
-   - 具体的な達成目標を3つ記載
-
-4. 【具体的な支援内容と方法】
-   - 対人・社会性の支援（具体的な活動内容）
-   - 行動・情緒の支援（具体的な活動内容）
-   - 身体・運動の支援（具体的な活動内容）
-
-5. 【家庭との連携事項】
-   - 家庭でできる支援を3つ記載
-
-6. 【評価時期と方法】
-   - 評価の時期と評価方法を記載
-
-HTMLフォーマットで、見やすく整理された支援計画書を作成してください。
-各セクションには必ず具体的な内容を入れてください。
-`;
-
-                const supportPlanHTML = await geminiAPI.generateContent(prompt);
+                // 公式様式のHTMLを生成
+                const supportPlanHTML = generateOfficialSupportPlanHTML(assessment.data, planData, startDate, endDate);
 
                 // Save support plan
                 const supportPlans = JSON.parse(localStorage.getItem('supportPlans') || '{}');
@@ -468,6 +519,7 @@ HTMLフォーマットで、見やすく整理された支援計画書を作成�
                     html: supportPlanHTML,
                     childName: assessment.data.childName,
                     fileName: fileName,
+                    planData: planData,
                     createdAt: new Date().toISOString()
                 };
                 localStorage.setItem('supportPlans', JSON.stringify(supportPlans));
@@ -484,6 +536,172 @@ HTMLフォーマットで、見やすく整理された支援計画書を作成�
                 alert('支援計画の作成に失敗しました。もう一度お試しください。');
             }
         };
+
+        // 公式様式の支援計画HTMLを生成
+        function generateOfficialSupportPlanHTML(childData, planData, startDate, endDate) {
+            const today = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '/');
+
+            return `
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>${childData.childName}さんの個別支援計画</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Meiryo', sans-serif; font-size: 12px; line-height: 1.4; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 1100px; margin: 0 auto; background: white; padding: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { display: flex; justify-content: space-between; margin-bottom: 20px; }
+        .header-left h1 { font-size: 18px; color: #333; margin-bottom: 5px; }
+        .header-right { text-align: right; font-size: 11px; color: #666; }
+        .info-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+        .info-table th, .info-table td { border: 1px solid #ccc; padding: 8px 10px; text-align: left; }
+        .info-table th { background: #f0f0f0; font-weight: bold; width: 120px; }
+        .section-title { background: #ff9800; color: white; padding: 8px 12px; font-weight: bold; margin: 15px 0 10px; }
+        .content-row { display: flex; margin-bottom: 10px; }
+        .content-label { width: 150px; font-weight: bold; padding: 8px; background: #fff8e1; border: 1px solid #ddd; }
+        .content-value { flex: 1; padding: 8px; border: 1px solid #ddd; border-left: none; }
+        .support-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 11px; }
+        .support-table th { background: #ff9800; color: white; padding: 8px; border: 1px solid #e65100; text-align: center; font-weight: bold; }
+        .support-table td { padding: 8px; border: 1px solid #ddd; vertical-align: top; }
+        .support-table .category { background: #fff8e1; font-weight: bold; text-align: center; width: 60px; }
+        .support-table .needs { width: 120px; }
+        .support-table .goal { width: 150px; }
+        .support-table .content { width: 280px; }
+        .support-table .period { width: 60px; text-align: center; }
+        .support-table .staff { width: 100px; }
+        .support-table .notes { width: 180px; }
+        .support-table .priority { width: 40px; text-align: center; }
+        .footer { margin-top: 30px; display: flex; justify-content: space-between; }
+        .footer-left, .footer-right { width: 45%; }
+        .signature-row { display: flex; margin-bottom: 10px; }
+        .signature-label { width: 100px; }
+        .signature-line { flex: 1; border-bottom: 1px solid #333; }
+        @media print { body { padding: 0; background: white; } .container { box-shadow: none; padding: 15px; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-left">
+                <h1>${childData.childName}さんの個別支援計画（代替支援用）</h1>
+            </div>
+            <div class="header-right">
+                <p>施設名：カラーズFC鳥栖</p>
+                <p>利用サービス：放課後等デイサービス</p>
+                <p>作成日：${today}</p>
+            </div>
+        </div>
+
+        <table class="info-table">
+            <tr>
+                <th>受給者証番号</th>
+                <td style="width:150px;"></td>
+                <th>開始日</th>
+                <td style="width:120px;">${startDate}</td>
+                <th>有効期限</th>
+                <td style="width:120px;">${endDate}</td>
+                <th>作成回数</th>
+                <td style="width:60px;">1</td>
+            </tr>
+        </table>
+
+        <div class="content-row">
+            <div class="content-label">利用児及び家族の<br>生活に対する意向</div>
+            <div class="content-value">
+                <strong>本人：</strong>${planData.selfIntent}<br>
+                <strong>家族：</strong>${planData.familyIntent}
+            </div>
+        </div>
+
+        <div class="content-row">
+            <div class="content-label">総合的な支援の方針</div>
+            <div class="content-value">${planData.supportPolicy}</div>
+        </div>
+
+        <div class="content-row">
+            <div class="content-label">長期目標（内容・期間等）</div>
+            <div class="content-value">${planData.longTermGoal}</div>
+            <div class="content-label" style="width:180px;border-left:none;">支援の標準的な提供時間等<br>（曜日・頻度、時間）</div>
+        </div>
+
+        <div class="content-row">
+            <div class="content-label">短期目標（内容・期間等）</div>
+            <div class="content-value">${planData.shortTermGoal}</div>
+            <div class="content-value" style="width:180px;border-left:none;">毎週月・金曜日 12:30〜18:00<br>休校日 10:00〜15:00</div>
+        </div>
+
+        <table class="support-table">
+            <thead>
+                <tr>
+                    <th colspan="2">項目（本人のニーズ等）</th>
+                    <th>具体的な達成目標</th>
+                    <th>支援内容<br>（内容・支援の提供上のポイント・5領域との関連性等）</th>
+                    <th>達成時期</th>
+                    <th>担当者<br>提供機関</th>
+                    <th>留意事項<br>（本人の役割を含む）</th>
+                    <th>優先順位</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${planData.selfSupport.map((item, index) => `
+                <tr>
+                    ${index === 0 ? `<td class="category" rowspan="${planData.selfSupport.length}">本人支援</td>` : ''}
+                    <td class="needs">${item.needs}</td>
+                    <td class="goal">${item.goal}</td>
+                    <td class="content">${item.content}</td>
+                    <td class="period">${item.period}</td>
+                    <td class="staff">${item.staff}</td>
+                    <td class="notes">${item.notes}</td>
+                    <td class="priority">${item.priority}</td>
+                </tr>
+                `).join('')}
+                <tr>
+                    <td class="category">家族支援</td>
+                    <td class="needs">${planData.familySupport.needs}</td>
+                    <td class="goal">${planData.familySupport.goal}</td>
+                    <td class="content">${planData.familySupport.content}</td>
+                    <td class="period">${planData.familySupport.period}</td>
+                    <td class="staff">${planData.familySupport.staff}</td>
+                    <td class="notes">${planData.familySupport.notes}</td>
+                    <td class="priority"></td>
+                </tr>
+                <tr>
+                    <td class="category">移行支援</td>
+                    <td class="needs">${planData.transitionSupport.needs}</td>
+                    <td class="goal">${planData.transitionSupport.goal}</td>
+                    <td class="content">${planData.transitionSupport.content}</td>
+                    <td class="period">${planData.transitionSupport.period}</td>
+                    <td class="staff">${planData.transitionSupport.staff}</td>
+                    <td class="notes">${planData.transitionSupport.notes}</td>
+                    <td class="priority"></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="footer">
+            <div class="footer-left">
+                <div class="signature-row">
+                    <span class="signature-label">説明同意日</span>
+                    <span>令和　　年　　月　　日</span>
+                </div>
+                <div class="signature-row">
+                    <span class="signature-label">保護者氏名</span>
+                    <span class="signature-line"></span>
+                </div>
+            </div>
+            <div class="footer-right">
+                <p>カラーズFC鳥栖</p>
+                <div class="signature-row">
+                    <span class="signature-label">児童発達支援管理責任者</span>
+                    <span style="margin-left:20px;">岡本　陸佑</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>`;
+        }
 
         window.createDailyReport = async function(fileName) {
             const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
