@@ -519,10 +519,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     // 対応するフォームを表示
                     if (targetAITab === 'record') {
                         showRecordForm();
+                    } else if (targetAITab === 'batch-record') {
+                        showBatchRecordForm();
                     } else if (targetAITab === 'plan') {
                         showPlanForm();
                     } else if (targetAITab === 'review') {
                         showReviewForm();
+                    } else if (targetAITab === 'csv-import') {
+                        showCsvImportForm();
                     }
                 }
             });
@@ -875,7 +879,12 @@ function showRecordForm() {
             <div class="form-group">
                 <label>対象児童名</label>
                 <div class="student-select-container">
-                    <input type="text" id="childNameSearch" placeholder="名前で検索..." oninput="filterRecordStudentOptions(this.value)" style="margin-bottom: 0.5rem;">
+                    <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem;">
+                        <input type="text" id="childNameSearch" placeholder="名前で検索..." oninput="filterRecordStudentOptions(this.value)" style="flex: 1;">
+                        <button type="button" class="sync-btn" onclick="syncStudentDataFromDrive()" style="padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;">
+                            <span class="sync-icon">↻</span> 更新
+                        </button>
+                    </div>
                     <select id="childNameSelect" required onchange="onRecordStudentSelect(this.value)">
                         ${studentOptions}
                         <option value="__manual__">手動で入力</option>
@@ -889,14 +898,18 @@ function showRecordForm() {
             <input type="hidden" id="supportPlanDataJson" value=''>
             
             <div class="form-group">
-                <label>活動内容</label>
-                <select id="activityType" required>
-                    <option value="">選択してください</option>
-                    <option value="individual">個別練習</option>
-                    <option value="group">グループ活動</option>
-                    <option value="game">ミニゲーム</option>
-                    <option value="skill">スキル練習</option>
-                </select>
+                <label>活動内容（複数選択可）</label>
+                <div class="activity-checkboxes" id="activityTypeCheckboxes">
+                    <label><input type="checkbox" name="activityType" value="warmup"><span>ウォーミングアップ</span></label>
+                    <label><input type="checkbox" name="activityType" value="individual"><span>個別練習</span></label>
+                    <label><input type="checkbox" name="activityType" value="group"><span>グループ活動</span></label>
+                    <label><input type="checkbox" name="activityType" value="game"><span>ミニゲーム</span></label>
+                    <label><input type="checkbox" name="activityType" value="skill"><span>スキル練習</span></label>
+                    <label><input type="checkbox" name="activityType" value="cooldown"><span>クールダウン</span></label>
+                    <label><input type="checkbox" name="activityType" value="event"><span>イベント</span></label>
+                    <label><input type="checkbox" name="activityType" value="other"><span>その他</span></label>
+                </div>
+                <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">※1つ以上選択してください</p>
             </div>
             
             <div class="form-group">
@@ -959,7 +972,12 @@ function showPlanForm() {
             <div class="form-group">
                 <label>対象児童名</label>
                 <div class="student-select-container">
-                    <input type="text" id="planChildNameSearch" placeholder="名前で検索..." oninput="filterPlanStudentOptions(this.value)" style="margin-bottom: 0.5rem;">
+                    <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem;">
+                        <input type="text" id="planChildNameSearch" placeholder="名前で検索..." oninput="filterPlanStudentOptions(this.value)" style="flex: 1;">
+                        <button type="button" class="sync-btn" onclick="syncStudentDataFromDrive()" style="padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;">
+                            <span class="sync-icon">↻</span> 更新
+                        </button>
+                    </div>
                     <select id="planChildNameSelect" required onchange="onPlanStudentSelect(this.value)">
                         ${studentOptions}
                         <option value="__manual__">手動で入力</option>
@@ -1000,6 +1018,15 @@ function showPlanForm() {
             <div class="form-group">
                 <label>保護者の要望</label>
                 <textarea id="parentRequest" placeholder="例: 友達と協力できるようになってほしい"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>出力形式</label>
+                <select id="planOutputFormat">
+                    <option value="standard">標準形式</option>
+                    <option value="official-support">公式様式（専門的支援実施計画）</option>
+                    <option value="official-individual">公式様式（個別支援計画）</option>
+                </select>
             </div>
 
             <input type="hidden" id="assessmentDataJson" value=''>
@@ -1054,11 +1081,19 @@ function showReviewForm() {
         <form onsubmit="generateReview(event)">
             <div class="form-group">
                 <label>対象児童名</label>
-                <select id="reviewChildName" required onchange="loadStudentDataForReview(this.value)">
-                    ${studentOptions}
-                    <option value="__manual__">手動で入力</option>
-                </select>
-                <input type="text" id="reviewChildNameManual" placeholder="児童名を入力" style="display: none; margin-top: 0.5rem;">
+                <div class="student-select-container">
+                    <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem;">
+                        <input type="text" id="reviewChildNameSearch" placeholder="名前で検索..." oninput="filterReviewStudentOptions(this.value)" style="flex: 1;">
+                        <button type="button" class="sync-btn" onclick="syncStudentDataFromDrive()" style="padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;">
+                            <span class="sync-icon">↻</span> 更新
+                        </button>
+                    </div>
+                    <select id="reviewChildNameSelect" required onchange="loadStudentDataForReview(this.value)">
+                        ${studentOptions}
+                        <option value="__manual__">手動で入力</option>
+                    </select>
+                    <input type="text" id="reviewChildNameManual" placeholder="児童名を入力" style="display: none; margin-top: 0.5rem;">
+                </div>
             </div>
 
             <div id="driveDataStatus" style="display: none; margin-bottom: 1rem; padding: 1rem; background: #e3f2fd; border-radius: 8px;">
@@ -1250,16 +1285,35 @@ async function generateRecord(event) {
     const childName = (selectValue === '__manual__')
         ? document.getElementById('childName').value
         : selectValue;
-    const activityType = document.getElementById('activityType').value;
+
+    // チェックボックスから選択された活動を取得（複数選択対応）
+    const selectedActivities = [];
+    document.querySelectorAll('#activityTypeCheckboxes input[type="checkbox"]:checked').forEach(checkbox => {
+        selectedActivities.push(checkbox.value);
+    });
+
+    // 活動が選択されているか確認
+    if (selectedActivities.length === 0) {
+        alert('活動内容を1つ以上選択してください');
+        return;
+    }
+
     const observation = document.getElementById('observation').value;
     const notes = document.getElementById('notes').value;
 
     const activityLabels = {
+        'warmup': 'ウォーミングアップ',
         'individual': '個別練習',
         'group': 'グループ活動',
         'game': 'ミニゲーム',
-        'skill': 'スキル練習'
+        'skill': 'スキル練習',
+        'cooldown': 'クールダウン',
+        'event': 'イベント',
+        'other': 'その他'
     };
+
+    // 選択された活動のラベルを取得
+    const activityTypeLabels = selectedActivities.map(a => activityLabels[a] || a).join('、');
 
     // ローディング表示
     document.getElementById('recordContent').innerHTML = '<div class="ai-loading"><img src="soccerball.png" alt="読み込み中" class="ai-loading-ball"><span class="ai-loading-text">AIが記録を生成中...</span></div>';
@@ -1284,7 +1338,8 @@ async function generateRecord(event) {
             const recordData = {
                 date,
                 childName,
-                activityType: activityLabels[activityType],
+                activityType: activityTypeLabels,
+                activities: selectedActivities,
                 observation,
                 notes,
                 supportPlan: supportPlanData  // 支援計画データを追加
@@ -1302,10 +1357,10 @@ async function generateRecord(event) {
 
 日付: ${date}
 対象児童: ${childName}
-活動内容: ${activityLabels[activityType]}
+活動内容: ${activityTypeLabels}
 
 ◆ 活動の様子
-${childName}さんは、本日の${activityLabels[activityType]}に参加しました。
+${childName}さんは、本日の${activityTypeLabels}に参加しました。
 ${observation}
 
 ◆ 観察と評価
@@ -1324,7 +1379,7 @@ ${notes ? `特に、${notes}という点が印象的でした。` : ''}
 
             document.getElementById('recordContent').textContent = generatedText;
             lastGeneratedRecord = generatedText;
-            lastRecordData = { date, childName, activityType: activityLabels[activityType], observation, notes };
+            lastRecordData = { date, childName, activityType: activityTypeLabels, activities: selectedActivities, observation, notes };
         }
 
         // Google Driveに保存
@@ -1582,6 +1637,7 @@ async function generatePlan(event) {
     const issues = document.getElementById('currentIssues').value;
     const strengths = document.getElementById('strengths').value;
     const parentRequest = document.getElementById('parentRequest').value;
+    const outputFormat = document.getElementById('planOutputFormat')?.value || 'standard';
 
     // アセスメントデータを取得
     const assessmentDataJson = document.getElementById('assessmentDataJson').value;
@@ -1610,12 +1666,49 @@ async function generatePlan(event) {
                 assessmentData  // アセスメントデータを追加
             };
 
-            const generatedText = await geminiAPI.generateSupportPlan(planData);
-            document.getElementById('planContent').innerHTML = convertMarkdownToHTML(generatedText);
+            // 出力形式に応じて異なる生成処理を実行
+            let generatedText;
+            if (outputFormat === 'official-support') {
+                // 公式様式（専門的支援実施計画）
+                const assessmentSummary = assessmentData ? JSON.stringify(assessmentData, null, 2) : `課題: ${issues}\n強み: ${strengths}`;
+                const officialData = await geminiAPI.generateOfficialSupportPlan({
+                    childName,
+                    diagnosis: assessmentData?.diagnosis || '',
+                    certificateNumber: assessmentData?.certificateNumber || '',
+                    supportPeriod: `${new Date().getFullYear()}年${new Date().getMonth() + 1}月〜`,
+                    assessmentSummary
+                });
+                generatedText = renderOfficialSupportPlan(childName, officialData);
+                window.lastOfficialPlanData = { type: 'support', data: officialData, childName };
+            } else if (outputFormat === 'official-individual') {
+                // 公式様式（個別支援計画）
+                const assessmentSummary = assessmentData ? JSON.stringify(assessmentData, null, 2) : `課題: ${issues}\n強み: ${strengths}`;
+                const today = new Date();
+                const endDate = new Date(today);
+                endDate.setMonth(endDate.getMonth() + 6);
+                const officialData = await geminiAPI.generateOfficialIndividualPlan({
+                    childName,
+                    diagnosis: assessmentData?.diagnosis || '',
+                    certificateNumber: assessmentData?.certificateNumber || '',
+                    startDate: today.toLocaleDateString('ja-JP'),
+                    endDate: endDate.toLocaleDateString('ja-JP'),
+                    assessmentSummary
+                });
+                generatedText = renderOfficialIndividualPlan(childName, officialData);
+                window.lastOfficialPlanData = { type: 'individual', data: officialData, childName };
+            } else {
+                // 標準形式
+                generatedText = await geminiAPI.generateSupportPlan(planData);
+                window.lastOfficialPlanData = null;
+            }
+
+            const renderedText = (outputFormat === 'standard') ? convertMarkdownToHTML(generatedText) : generatedText;
+            document.getElementById('planContent').innerHTML = renderedText;
 
             // 修正用に保存
             lastGeneratedPlan = generatedText;
             lastPlanData = planData;
+            lastPlanData.outputFormat = outputFormat;
 
             // localStorageに支援計画を保存
             const supportPlans = JSON.parse(localStorage.getItem('supportPlans') || '{}');
@@ -1628,6 +1721,7 @@ async function generatePlan(event) {
                 strengths,
                 parentRequest,
                 generatedText,
+                outputFormat,
                 createdAt: new Date().toISOString()
             };
             localStorage.setItem('supportPlans', JSON.stringify(supportPlans));
@@ -1701,7 +1795,7 @@ async function generateReview(event) {
     event.preventDefault();
 
     // 手動入力の場合は手動入力フィールドから取得
-    let childName = document.getElementById('reviewChildName').value;
+    let childName = document.getElementById('reviewChildNameSelect').value;
     if (childName === '__manual__') {
         childName = document.getElementById('reviewChildNameManual').value;
     }
@@ -2853,3 +2947,1189 @@ function initializeUserSettings() {
 document.addEventListener('DOMContentLoaded', function() {
     initializeUserSettings();
 });
+
+// ============================================
+// データ同期機能（Google Drive → localStorage）
+// ============================================
+
+/**
+ * Google Driveから児童データを同期
+ * 別端末で登録した児童データを反映する
+ */
+async function syncStudentDataFromDrive() {
+    const syncBtn = document.querySelector('.sync-btn');
+    const originalText = syncBtn ? syncBtn.innerHTML : '';
+
+    try {
+        // ボタンの状態を更新
+        if (syncBtn) {
+            syncBtn.innerHTML = '<span class="sync-icon spinning">↻</span> 同期中...';
+            syncBtn.disabled = true;
+        }
+
+        // Google Drive APIの初期化確認
+        if (!googleDriveAPI.isInitialized()) {
+            await googleDriveAPI.initialize();
+        }
+
+        // 認証確認
+        if (!googleDriveAPI.isSignedIn) {
+            await googleDriveAPI.authorize();
+        }
+
+        // データ同期実行
+        const result = await googleDriveAPI.syncAllStudentData();
+
+        if (result.success) {
+            // 同期成功
+            const studentCount = result.syncedStudents.length;
+            alert(`同期完了: ${studentCount}名の児童データを更新しました`);
+
+            // フォームを再描画（選択肢を更新）
+            refreshStudentSelects();
+        } else {
+            throw new Error(result.error || '同期に失敗しました');
+        }
+    } catch (error) {
+        console.error('データ同期エラー:', error);
+        alert('データ同期に失敗しました: ' + error.message);
+    } finally {
+        // ボタンの状態を復元
+        if (syncBtn) {
+            syncBtn.innerHTML = originalText;
+            syncBtn.disabled = false;
+        }
+    }
+}
+
+/**
+ * 児童選択プルダウンを更新
+ */
+function refreshStudentSelects() {
+    // localStorageから最新のアセスメント一覧を取得
+    const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
+    const studentNames = [...new Set(Object.values(assessments).map(a => a.data?.childName).filter(Boolean))];
+
+    // 記録作成フォームの選択肢を更新
+    const recordSelect = document.getElementById('childNameSelect');
+    if (recordSelect) {
+        let options = '<option value="">選択してください</option>';
+        studentNames.forEach(name => {
+            options += `<option value="${name}">${name}</option>`;
+        });
+        options += '<option value="__manual__">手動で入力</option>';
+        recordSelect.innerHTML = options;
+    }
+
+    // 支援計画フォームの選択肢を更新
+    const planSelect = document.getElementById('planChildNameSelect');
+    if (planSelect) {
+        let options = '<option value="">選択してください</option>';
+        studentNames.forEach(name => {
+            options += `<option value="${name}">${name}</option>`;
+        });
+        options += '<option value="__manual__">手動で入力</option>';
+        planSelect.innerHTML = options;
+    }
+
+    // 振り返りフォームの選択肢を更新
+    const reviewSelect = document.getElementById('reviewChildNameSelect');
+    if (reviewSelect) {
+        let options = '<option value="">選択してください</option>';
+        studentNames.forEach(name => {
+            options += `<option value="${name}">${name}</option>`;
+        });
+        options += '<option value="__manual__">手動で入力</option>';
+        reviewSelect.innerHTML = options;
+    }
+
+    console.log('児童選択肢を更新しました:', studentNames.length, '名');
+}
+
+/**
+ * 最終同期日時を取得
+ */
+function getLastSyncTime() {
+    const timestamp = localStorage.getItem('syncTimestamp');
+    if (!timestamp) return '未同期';
+
+    const date = new Date(timestamp);
+    return date.toLocaleString('ja-JP');
+}
+
+// ============================================
+// 一括記録作成機能
+// ============================================
+
+// 一括記録のステップ管理用変数
+let batchRecordState = {
+    step: 1,
+    date: '',
+    activities: [],
+    selectedChildren: [],
+    childrenMemos: {}
+};
+
+/**
+ * 一括記録作成フォームを表示
+ */
+function showBatchRecordForm() {
+    const container = document.getElementById('batchRecordContent');
+
+    // 状態をリセット
+    batchRecordState = {
+        step: 1,
+        date: new Date().toISOString().split('T')[0],
+        activities: [],
+        selectedChildren: [],
+        childrenMemos: {}
+    };
+
+    renderBatchRecordStep1(container);
+}
+
+/**
+ * Step 1: 日付と活動内容の設定
+ */
+function renderBatchRecordStep1(container) {
+    container.innerHTML = `
+        <div class="batch-record-wizard">
+            <div class="wizard-progress">
+                <div class="progress-step active">1. 日付・活動</div>
+                <div class="progress-step">2. 児童選択</div>
+                <div class="progress-step">3. 記録入力</div>
+            </div>
+
+            <form onsubmit="batchRecordStep1Submit(event)">
+                <div class="form-group">
+                    <label>日付</label>
+                    <input type="date" id="batchDate" required value="${batchRecordState.date}">
+                </div>
+
+                <div class="form-group">
+                    <label>活動内容（複数選択可）</label>
+                    <div class="activity-checkboxes" id="batchActivityCheckboxes">
+                        <label><input type="checkbox" name="batchActivity" value="warmup"><span>ウォーミングアップ</span></label>
+                        <label><input type="checkbox" name="batchActivity" value="individual"><span>個別練習</span></label>
+                        <label><input type="checkbox" name="batchActivity" value="group"><span>グループ活動</span></label>
+                        <label><input type="checkbox" name="batchActivity" value="game"><span>ミニゲーム</span></label>
+                        <label><input type="checkbox" name="batchActivity" value="skill"><span>スキル練習</span></label>
+                        <label><input type="checkbox" name="batchActivity" value="cooldown"><span>クールダウン</span></label>
+                        <label><input type="checkbox" name="batchActivity" value="event"><span>イベント</span></label>
+                        <label><input type="checkbox" name="batchActivity" value="other"><span>その他</span></label>
+                    </div>
+                    <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">※1つ以上選択してください</p>
+                </div>
+
+                <div class="wizard-buttons">
+                    <button type="submit" class="btn-primary">次へ: 児童選択 →</button>
+                </div>
+            </form>
+        </div>
+    `;
+}
+
+/**
+ * Step 1 送信処理
+ */
+function batchRecordStep1Submit(event) {
+    event.preventDefault();
+
+    const date = document.getElementById('batchDate').value;
+    const selectedActivities = [];
+    document.querySelectorAll('#batchActivityCheckboxes input:checked').forEach(cb => {
+        selectedActivities.push(cb.value);
+    });
+
+    if (selectedActivities.length === 0) {
+        alert('活動内容を1つ以上選択してください');
+        return;
+    }
+
+    batchRecordState.date = date;
+    batchRecordState.activities = selectedActivities;
+    batchRecordState.step = 2;
+
+    const container = document.getElementById('batchRecordContent');
+    renderBatchRecordStep2(container);
+}
+
+/**
+ * Step 2: 参加児童の選択
+ */
+function renderBatchRecordStep2(container) {
+    // localStorageから児童一覧を取得
+    const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
+    const studentNames = [...new Set(Object.values(assessments).map(a => a.data?.childName).filter(Boolean))];
+
+    const activityLabels = {
+        'warmup': 'ウォーミングアップ',
+        'individual': '個別練習',
+        'group': 'グループ活動',
+        'game': 'ミニゲーム',
+        'skill': 'スキル練習',
+        'cooldown': 'クールダウン',
+        'event': 'イベント',
+        'other': 'その他'
+    };
+
+    const selectedActivityLabels = batchRecordState.activities.map(a => activityLabels[a]).join('、');
+
+    let childrenCheckboxes = '';
+    if (studentNames.length === 0) {
+        childrenCheckboxes = '<p style="color: #666; padding: 1rem;">登録されている児童がいません。先にアセスメントを作成してください。</p>';
+    } else {
+        studentNames.forEach(name => {
+            const checked = batchRecordState.selectedChildren.includes(name) ? 'checked' : '';
+            childrenCheckboxes += `
+                <label class="child-checkbox-label">
+                    <input type="checkbox" name="batchChild" value="${name}" ${checked}>
+                    <span>${name}</span>
+                </label>
+            `;
+        });
+    }
+
+    container.innerHTML = `
+        <div class="batch-record-wizard">
+            <div class="wizard-progress">
+                <div class="progress-step completed">1. 日付・活動</div>
+                <div class="progress-step active">2. 児童選択</div>
+                <div class="progress-step">3. 記録入力</div>
+            </div>
+
+            <div class="batch-summary">
+                <p><strong>日付:</strong> ${batchRecordState.date}</p>
+                <p><strong>活動:</strong> ${selectedActivityLabels}</p>
+            </div>
+
+            <form onsubmit="batchRecordStep2Submit(event)">
+                <div class="form-group">
+                    <label>参加児童を選択</label>
+                    <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <button type="button" class="btn-small" onclick="selectAllBatchChildren()">全選択</button>
+                        <button type="button" class="btn-small" onclick="deselectAllBatchChildren()">選択解除</button>
+                        <button type="button" class="sync-btn" onclick="syncAndRefreshBatchChildren()" style="padding: 0.3rem 0.8rem; font-size: 0.85rem;">
+                            <span class="sync-icon">↻</span> 更新
+                        </button>
+                    </div>
+                    <div class="children-selection" id="batchChildrenList">
+                        ${childrenCheckboxes}
+                    </div>
+                    <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">※1名以上選択してください</p>
+                </div>
+
+                <div class="wizard-buttons">
+                    <button type="button" class="btn-secondary" onclick="batchRecordGoBack(1)">← 戻る</button>
+                    <button type="submit" class="btn-primary">次へ: 記録入力 →</button>
+                </div>
+            </form>
+        </div>
+    `;
+}
+
+/**
+ * 全選択
+ */
+function selectAllBatchChildren() {
+    document.querySelectorAll('#batchChildrenList input[type="checkbox"]').forEach(cb => {
+        cb.checked = true;
+    });
+}
+
+/**
+ * 選択解除
+ */
+function deselectAllBatchChildren() {
+    document.querySelectorAll('#batchChildrenList input[type="checkbox"]').forEach(cb => {
+        cb.checked = false;
+    });
+}
+
+/**
+ * 同期して児童リストを更新
+ */
+async function syncAndRefreshBatchChildren() {
+    await syncStudentDataFromDrive();
+    const container = document.getElementById('batchRecordContent');
+    renderBatchRecordStep2(container);
+}
+
+/**
+ * Step 2 送信処理
+ */
+function batchRecordStep2Submit(event) {
+    event.preventDefault();
+
+    const selectedChildren = [];
+    document.querySelectorAll('#batchChildrenList input:checked').forEach(cb => {
+        selectedChildren.push(cb.value);
+    });
+
+    if (selectedChildren.length === 0) {
+        alert('参加児童を1名以上選択してください');
+        return;
+    }
+
+    batchRecordState.selectedChildren = selectedChildren;
+    batchRecordState.step = 3;
+
+    // 各児童のメモを初期化
+    selectedChildren.forEach(name => {
+        if (!batchRecordState.childrenMemos[name]) {
+            batchRecordState.childrenMemos[name] = { memo: '', noIssue: false };
+        }
+    });
+
+    const container = document.getElementById('batchRecordContent');
+    renderBatchRecordStep3(container);
+}
+
+/**
+ * 前のステップに戻る
+ */
+function batchRecordGoBack(step) {
+    batchRecordState.step = step;
+    const container = document.getElementById('batchRecordContent');
+
+    if (step === 1) {
+        renderBatchRecordStep1(container);
+    } else if (step === 2) {
+        renderBatchRecordStep2(container);
+    }
+}
+
+/**
+ * Step 3: 個別メモ入力（一覧形式）
+ */
+function renderBatchRecordStep3(container) {
+    const activityLabels = {
+        'warmup': 'ウォーミングアップ',
+        'individual': '個別練習',
+        'group': 'グループ活動',
+        'game': 'ミニゲーム',
+        'skill': 'スキル練習',
+        'cooldown': 'クールダウン',
+        'event': 'イベント',
+        'other': 'その他'
+    };
+
+    const selectedActivityLabels = batchRecordState.activities.map(a => activityLabels[a]).join('、');
+
+    let childrenInputs = '';
+    batchRecordState.selectedChildren.forEach((name, index) => {
+        const memoData = batchRecordState.childrenMemos[name] || { memo: '', noIssue: false };
+        childrenInputs += `
+            <div class="batch-child-input">
+                <div class="batch-child-header">
+                    <span class="batch-child-number">${index + 1}</span>
+                    <span class="batch-child-name">${name}</span>
+                </div>
+                <textarea
+                    id="memo_${index}"
+                    placeholder="本日の様子を入力..."
+                    oninput="updateBatchMemo('${name}', this.value)"
+                >${memoData.memo}</textarea>
+                <label class="no-issue-label">
+                    <input type="checkbox" id="noIssue_${index}"
+                        ${memoData.noIssue ? 'checked' : ''}
+                        onchange="updateBatchNoIssue('${name}', this.checked)">
+                    <span>特に問題なし（定型文を使用）</span>
+                </label>
+            </div>
+        `;
+    });
+
+    container.innerHTML = `
+        <div class="batch-record-wizard">
+            <div class="wizard-progress">
+                <div class="progress-step completed">1. 日付・活動</div>
+                <div class="progress-step completed">2. 児童選択</div>
+                <div class="progress-step active">3. 記録入力</div>
+            </div>
+
+            <div class="batch-summary">
+                <p><strong>日付:</strong> ${batchRecordState.date}</p>
+                <p><strong>活動:</strong> ${selectedActivityLabels}</p>
+                <p><strong>参加児童:</strong> ${batchRecordState.selectedChildren.length}名</p>
+            </div>
+
+            <div class="batch-children-inputs">
+                ${childrenInputs}
+            </div>
+
+            <div class="wizard-buttons">
+                <button type="button" class="btn-secondary" onclick="batchRecordGoBack(2)">← 戻る</button>
+                <button type="button" class="btn-primary" onclick="generateBatchRecords()">一括生成</button>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * メモを更新
+ */
+function updateBatchMemo(name, value) {
+    if (!batchRecordState.childrenMemos[name]) {
+        batchRecordState.childrenMemos[name] = { memo: '', noIssue: false };
+    }
+    batchRecordState.childrenMemos[name].memo = value;
+}
+
+/**
+ * 問題なしフラグを更新
+ */
+function updateBatchNoIssue(name, checked) {
+    if (!batchRecordState.childrenMemos[name]) {
+        batchRecordState.childrenMemos[name] = { memo: '', noIssue: false };
+    }
+    batchRecordState.childrenMemos[name].noIssue = checked;
+}
+
+/**
+ * 一括記録生成
+ */
+async function generateBatchRecords() {
+    const container = document.getElementById('batchRecordContent');
+
+    const activityLabels = {
+        'warmup': 'ウォーミングアップ',
+        'individual': '個別練習',
+        'group': 'グループ活動',
+        'game': 'ミニゲーム',
+        'skill': 'スキル練習',
+        'cooldown': 'クールダウン',
+        'event': 'イベント',
+        'other': 'その他'
+    };
+
+    const selectedActivityLabels = batchRecordState.activities.map(a => activityLabels[a]).join('、');
+
+    // ローディング表示
+    container.innerHTML = `
+        <div class="ai-loading">
+            <img src="soccerball.png" alt="読み込み中" class="ai-loading-ball">
+            <span class="ai-loading-text">記録を一括生成中... (${batchRecordState.selectedChildren.length}名分)</span>
+        </div>
+    `;
+
+    const results = [];
+
+    try {
+        for (const childName of batchRecordState.selectedChildren) {
+            const memoData = batchRecordState.childrenMemos[childName] || { memo: '', noIssue: false };
+
+            let observation = memoData.memo;
+            if (memoData.noIssue && !observation) {
+                observation = '本日も元気に参加しました。特に問題なく、活動に取り組みました。';
+            }
+
+            const recordData = {
+                date: batchRecordState.date,
+                childName,
+                activityType: selectedActivityLabels,
+                activities: batchRecordState.activities,
+                observation,
+                notes: memoData.noIssue ? '特に問題なし' : ''
+            };
+
+            let generatedText = '';
+
+            if (geminiAPI.isInitialized()) {
+                generatedText = await geminiAPI.generateRecord(recordData);
+            } else {
+                generatedText = `【活動記録】\n\n日付: ${batchRecordState.date}\n対象児童: ${childName}\n活動内容: ${selectedActivityLabels}\n\n◆ 活動の様子\n${observation}\n\n※ Gemini APIを設定すると、より詳細な記録が自動生成されます`;
+            }
+
+            results.push({
+                childName,
+                recordData,
+                generatedText
+            });
+
+            // Google Driveに保存
+            await saveRecordToDrive(childName, batchRecordState.date, generatedText, recordData);
+        }
+
+        // 結果表示
+        renderBatchRecordResults(container, results);
+
+    } catch (error) {
+        console.error('一括記録生成エラー:', error);
+        container.innerHTML = `
+            <div style="color: #d32f2f; padding: 1rem;">
+                エラーが発生しました: ${error.message}
+            </div>
+            <button class="btn-secondary" onclick="showBatchRecordForm()">最初からやり直す</button>
+        `;
+    }
+}
+
+/**
+ * 一括記録結果を表示
+ */
+function renderBatchRecordResults(container, results) {
+    // 結果をグローバルに保存（連絡帳生成用）
+    window.batchRecordResults = results;
+
+    let resultsHTML = '';
+    results.forEach((result, index) => {
+        resultsHTML += `
+            <div class="batch-result-item">
+                <div class="batch-result-header">
+                    <span class="batch-child-number">${index + 1}</span>
+                    <span class="batch-child-name">${result.childName}</span>
+                    <span class="batch-result-status">✓ 保存済み</span>
+                </div>
+                <div class="batch-result-content" id="batchResult_${index}">
+                    ${convertMarkdownToHTML(result.generatedText)}
+                </div>
+                <div class="parent-note-section" id="parentNote_${index}" style="display: none;">
+                    <div class="parent-note-header">
+                        <strong>保護者向け連絡帳</strong>
+                    </div>
+                    <div class="parent-note-content"></div>
+                    <button class="btn-small" onclick="copyParentNote(${index})">コピー</button>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = `
+        <div class="batch-record-wizard">
+            <div class="wizard-progress">
+                <div class="progress-step completed">1. 日付・活動</div>
+                <div class="progress-step completed">2. 児童選択</div>
+                <div class="progress-step completed">3. 記録入力</div>
+            </div>
+
+            <div class="batch-summary" style="background: #e8f5e9; border-color: #4CAF50;">
+                <h3 style="color: #2e7d32; margin-bottom: 0.5rem;">一括生成完了</h3>
+                <p>${results.length}名分の記録をGoogle Driveに保存しました。</p>
+            </div>
+
+            <div class="batch-results">
+                ${resultsHTML}
+            </div>
+
+            <div class="wizard-buttons">
+                <button type="button" class="btn-secondary" onclick="generateAllParentNotes()">
+                    連絡帳文章を一括生成
+                </button>
+                <button type="button" class="btn-primary" onclick="showBatchRecordForm()">新しい一括記録を作成</button>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * 全児童の連絡帳文章を一括生成
+ */
+async function generateAllParentNotes() {
+    if (!window.batchRecordResults || window.batchRecordResults.length === 0) {
+        alert('生成する記録がありません');
+        return;
+    }
+
+    const btn = document.querySelector('.wizard-buttons .btn-secondary');
+    const originalText = btn.textContent;
+    btn.textContent = '生成中...';
+    btn.disabled = true;
+
+    try {
+        const records = window.batchRecordResults.map(r => ({
+            childName: r.childName,
+            observation: r.recordData.observation,
+            activities: r.recordData.activities,
+            activityType: r.recordData.activityType,
+            date: r.recordData.date
+        }));
+
+        if (geminiAPI.isInitialized()) {
+            const parentNotes = await geminiAPI.generateBatchParentNotes(records);
+
+            // 各連絡帳を表示
+            parentNotes.forEach((note, index) => {
+                const section = document.getElementById(`parentNote_${index}`);
+                if (section && note.success) {
+                    const content = section.querySelector('.parent-note-content');
+                    content.textContent = note.parentNote;
+                    section.style.display = 'block';
+                    // 結果に連絡帳を追加
+                    window.batchRecordResults[index].parentNote = note.parentNote;
+                }
+            });
+
+            alert('連絡帳文章の生成が完了しました');
+        } else {
+            alert('Gemini APIが設定されていません。設定画面からAPIキーを設定してください。');
+        }
+    } catch (error) {
+        console.error('連絡帳生成エラー:', error);
+        alert('連絡帳の生成に失敗しました: ' + error.message);
+    } finally {
+        btn.textContent = originalText;
+        btn.disabled = false;
+    }
+}
+
+// ========================================
+// 公式様式レンダリング関数
+// ========================================
+
+/**
+ * 専門的支援実施計画のHTMLをレンダリング
+ */
+function renderOfficialSupportPlan(childName, data) {
+    const today = new Date().toLocaleDateString('ja-JP');
+    const items = data.items || [];
+
+    let itemsHTML = '';
+    items.forEach(item => {
+        itemsHTML += `
+            <tr>
+                <td style="text-align:center; font-weight:bold; width:120px;">${item.category || ''}</td>
+                <td style="width:180px;">${item.goal || ''}</td>
+                <td>${item.content || ''}</td>
+                <td style="width:180px;">${item.method || ''}</td>
+                <td style="text-align:center; width:80px;">${item.period || ''}</td>
+            </tr>
+        `;
+    });
+
+    return `
+        <div class="official-plan-container" style="font-family: 'Hiragino Kaku Gothic ProN', sans-serif; background: white; padding: 20px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                <div>
+                    <h2 style="color: #d35400; margin: 0;">${childName}さんの専門的支援実施計画</h2>
+                </div>
+                <div style="text-align: right; font-size: 11pt;">
+                    <p style="margin: 3px 0;">施設名：カラーズFC鳥栖</p>
+                    <p style="margin: 3px 0;">利用サービス：放課後等デイサービス</p>
+                    <p style="margin: 3px 0;">作成日：${today}</p>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 15px; background: #f8f9fa; padding: 12px; border-radius: 8px;">
+                <h4 style="color: #d35400; margin: 0 0 8px 0;">アセスメント結果</h4>
+                <p style="margin: 5px 0;"><strong>本人：</strong>${data.assessmentSelf || ''}</p>
+                <p style="margin: 5px 0;"><strong>家族：</strong>${data.assessmentFamily || ''}</p>
+            </div>
+
+            <div style="margin-bottom: 15px; background: #f8f9fa; padding: 12px; border-radius: 8px;">
+                <h4 style="color: #d35400; margin: 0 0 8px 0;">総合的な支援の方針</h4>
+                <p style="margin: 0;">${data.supportPolicy || ''}</p>
+            </div>
+
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
+                <tr>
+                    <td style="background: #f8f9fa; padding: 10px; border: 1px solid #ddd; font-weight: bold; color: #d35400; width: 100px;">長期目標</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">${data.longTermGoal || ''}</td>
+                </tr>
+                <tr>
+                    <td style="background: #f8f9fa; padding: 10px; border: 1px solid #ddd; font-weight: bold; color: #d35400;">短期目標</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">${data.shortTermGoal || ''}</td>
+                </tr>
+            </table>
+
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
+                <thead>
+                    <tr style="background: #f8f9fa;">
+                        <th style="border: 1px solid #ddd; padding: 10px; font-size: 10pt;">特に支援を要する項目</th>
+                        <th style="border: 1px solid #ddd; padding: 10px; font-size: 10pt;">目指すべき達成目標</th>
+                        <th style="border: 1px solid #ddd; padding: 10px; font-size: 10pt;">具体的な支援の内容</th>
+                        <th style="border: 1px solid #ddd; padding: 10px; font-size: 10pt;">実施方法</th>
+                        <th style="border: 1px solid #ddd; padding: 10px; font-size: 10pt;">達成時期</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${itemsHTML}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+/**
+ * 個別支援計画のHTMLをレンダリング
+ */
+function renderOfficialIndividualPlan(childName, data) {
+    const today = new Date().toLocaleDateString('ja-JP');
+    const selfSupport = data.selfSupport || [];
+    const familySupport = data.familySupport || {};
+    const transitionSupport = data.transitionSupport || {};
+
+    let selfSupportHTML = '';
+    selfSupport.forEach((item, index) => {
+        const rowspanAttr = index === 0 ? `rowspan="${selfSupport.length}"` : '';
+        const categoryCell = index === 0 ? `<td style="text-align:center; font-weight:bold; width:60px; vertical-align:middle; background:#fafafa;" ${rowspanAttr}>本人支援</td>` : '';
+
+        selfSupportHTML += `
+            <tr>
+                ${categoryCell}
+                <td style="width:130px;">${item.needs || ''}</td>
+                <td style="width:140px;">${item.goal || ''}</td>
+                <td>${item.content || ''}</td>
+                <td style="text-align:center; width:60px;">${item.period || ''}</td>
+                <td style="width:90px;">${item.staff || ''}</td>
+                <td style="width:130px;">${item.notes || ''}</td>
+                <td style="text-align:center; width:40px;">${item.priority || ''}</td>
+            </tr>
+        `;
+    });
+
+    return `
+        <div class="official-plan-container" style="font-family: 'Hiragino Kaku Gothic ProN', sans-serif; background: white; padding: 20px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                <div>
+                    <h2 style="color: #d35400; margin: 0;">${childName}さんの個別支援計画</h2>
+                    <p style="color: #666; margin: 5px 0 0 0;">（代替支援用）</p>
+                </div>
+                <div style="text-align: right; font-size: 11pt;">
+                    <p style="margin: 3px 0;">施設名：カラーズFC鳥栖</p>
+                    <p style="margin: 3px 0;">利用サービス：放課後等デイサービス</p>
+                    <p style="margin: 3px 0;">作成日：${today}</p>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 15px; background: #f8f9fa; padding: 12px; border-radius: 8px;">
+                <h4 style="color: #d35400; margin: 0 0 8px 0;">利用児及び家族の生活に対する意向</h4>
+                <p style="margin: 5px 0;"><strong>本人：</strong>${data.intentSelf || ''}</p>
+                <p style="margin: 5px 0;"><strong>家族：</strong>${data.intentFamily || ''}</p>
+            </div>
+
+            <div style="margin-bottom: 15px; background: #f8f9fa; padding: 12px; border-radius: 8px;">
+                <h4 style="color: #d35400; margin: 0 0 8px 0;">総合的な支援の方針</h4>
+                <p style="margin: 0;">${data.supportPolicy || ''}</p>
+            </div>
+
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
+                <tr>
+                    <td style="background: #f8f9fa; padding: 10px; border: 1px solid #ddd; font-weight: bold; color: #d35400; width: 150px;">長期目標<br><span style="font-size:9pt;color:#666;">（内容・期間等）</span></td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">${data.longTermGoal || ''}</td>
+                    <td style="padding: 10px; border: 1px solid #ddd; width: 200px; background: #fafafa;">
+                        <div style="font-size: 9pt; color: #666; margin-bottom: 5px;">支援の標準的な提供時間等</div>
+                        ${data.scheduleInfo || ''}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="background: #f8f9fa; padding: 10px; border: 1px solid #ddd; font-weight: bold; color: #d35400;">短期目標<br><span style="font-size:9pt;color:#666;">（内容・期間等）</span></td>
+                    <td style="padding: 10px; border: 1px solid #ddd;" colspan="2">${data.shortTermGoal || ''}</td>
+                </tr>
+            </table>
+
+            <table style="width: 100%; border-collapse: collapse; font-size: 10pt;">
+                <thead>
+                    <tr style="background: #f8f9fa;">
+                        <th style="border: 1px solid #ddd; padding: 8px;" colspan="2">項目（本人のニーズ等）</th>
+                        <th style="border: 1px solid #ddd; padding: 8px;">具体的な達成目標</th>
+                        <th style="border: 1px solid #ddd; padding: 8px;">支援内容</th>
+                        <th style="border: 1px solid #ddd; padding: 8px;">達成時期</th>
+                        <th style="border: 1px solid #ddd; padding: 8px;">担当者</th>
+                        <th style="border: 1px solid #ddd; padding: 8px;">留意事項</th>
+                        <th style="border: 1px solid #ddd; padding: 8px;">優先順位</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${selfSupportHTML}
+                    <tr>
+                        <td style="text-align:center; font-weight:bold; width:60px; vertical-align:middle; background:#fafafa;">家族支援</td>
+                        <td>${familySupport.needs || ''}</td>
+                        <td>${familySupport.goal || ''}</td>
+                        <td>${familySupport.content || ''}</td>
+                        <td style="text-align:center;">${familySupport.period || ''}</td>
+                        <td>${familySupport.staff || ''}</td>
+                        <td>${familySupport.notes || ''}</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td style="text-align:center; font-weight:bold; width:60px; vertical-align:middle; background:#fafafa;">移行支援</td>
+                        <td>${transitionSupport.needs || ''}</td>
+                        <td>${transitionSupport.goal || ''}</td>
+                        <td>${transitionSupport.content || ''}</td>
+                        <td style="text-align:center;">${transitionSupport.period || ''}</td>
+                        <td>${transitionSupport.staff || ''}</td>
+                        <td>${transitionSupport.notes || ''}</td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+/**
+ * 連絡帳文章をクリップボードにコピー
+ */
+function copyParentNote(index) {
+    const content = document.querySelector(`#parentNote_${index} .parent-note-content`);
+    if (content) {
+        navigator.clipboard.writeText(content.textContent).then(() => {
+            alert('連絡帳文章をコピーしました');
+        }).catch(err => {
+            console.error('コピーエラー:', err);
+            // フォールバック
+            const textarea = document.createElement('textarea');
+            textarea.value = content.textContent;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            alert('連絡帳文章をコピーしました');
+        });
+    }
+}
+
+/**
+ * 振り返り用の生徒選択肢をフィルタリング
+ */
+function filterReviewStudentOptions(searchText) {
+    const select = document.getElementById('reviewChildNameSelect');
+    if (!select) return;
+
+    const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
+    const allNames = [...new Set(Object.values(assessments).map(a => a.data?.childName).filter(Boolean))];
+
+    // 検索テキストで絞り込み
+    const filtered = searchText
+        ? allNames.filter(name => name.includes(searchText))
+        : allNames;
+
+    // オプションを再構築
+    let options = '<option value="">選択してください</option>';
+    filtered.forEach(name => {
+        options += `<option value="${name}">${name}</option>`;
+    });
+    options += '<option value="__manual__">手動で入力</option>';
+
+    select.innerHTML = options;
+}
+
+// ========================================
+// CSVインポート機能
+// ========================================
+
+/**
+ * CSVインポートフォームを表示
+ */
+function showCsvImportForm() {
+    const container = document.getElementById('csvImportContent');
+    if (!container) return;
+
+    container.innerHTML = `
+        <div class="csv-import-container">
+            <div class="import-type-selector">
+                <h4>インポートするデータの種類を選択</h4>
+                <div class="import-type-buttons">
+                    <button class="import-type-btn active" data-type="childInfo" onclick="selectImportType('childInfo')">
+                        <span class="import-type-icon">👤</span>
+                        <span class="import-type-label">児童基本情報</span>
+                    </button>
+                    <button class="import-type-btn" data-type="supportPlan" onclick="selectImportType('supportPlan')">
+                        <span class="import-type-icon">📋</span>
+                        <span class="import-type-label">支援計画</span>
+                    </button>
+                    <button class="import-type-btn" data-type="record" onclick="selectImportType('record')">
+                        <span class="import-type-icon">📝</span>
+                        <span class="import-type-label">活動記録</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="csv-import-form">
+                <div id="importTypeInfo" class="import-type-info">
+                    <h4>児童基本情報のインポート</h4>
+                    <p>CSVファイルに以下のフィールドを含めてください：</p>
+                    <div class="required-fields">
+                        <span class="field-badge required">氏名（必須）</span>
+                        <span class="field-badge">ふりがな</span>
+                        <span class="field-badge">生年月日</span>
+                        <span class="field-badge">性別</span>
+                        <span class="field-badge">診断名</span>
+                        <span class="field-badge">受給者証番号</span>
+                        <span class="field-badge">保護者名</span>
+                        <span class="field-badge">学校・園名</span>
+                    </div>
+                </div>
+
+                <div class="file-upload-area" id="fileUploadArea">
+                    <input type="file" id="csvFileInput" accept=".csv" onchange="handleCsvFileSelect(event)" style="display:none;">
+                    <div class="upload-icon">📁</div>
+                    <p>クリックしてCSVファイルを選択<br>またはドラッグ＆ドロップ</p>
+                    <p class="file-hint">対応形式: CSV (UTF-8)</p>
+                </div>
+
+                <div id="selectedFileInfo" class="selected-file-info" style="display:none;">
+                    <span class="file-icon">📄</span>
+                    <span id="selectedFileName" class="file-name"></span>
+                    <button class="btn-remove-file" onclick="clearCsvFile()">×</button>
+                </div>
+
+                <div class="import-actions">
+                    <button class="btn-download-template" onclick="downloadCsvTemplate()">
+                        テンプレートをダウンロード
+                    </button>
+                    <button id="importBtn" class="btn-primary" onclick="executeImport()" disabled>
+                        インポート実行
+                    </button>
+                </div>
+            </div>
+
+            <div id="importResult" class="import-result" style="display:none;">
+                <!-- インポート結果がここに表示 -->
+            </div>
+        </div>
+    `;
+
+    // ドラッグ＆ドロップ設定
+    const uploadArea = document.getElementById('fileUploadArea');
+    uploadArea.addEventListener('click', () => {
+        document.getElementById('csvFileInput').click();
+    });
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    });
+    uploadArea.addEventListener('dragleave', () => {
+        uploadArea.classList.remove('dragover');
+    });
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if (files.length > 0 && files[0].name.endsWith('.csv')) {
+            handleCsvFile(files[0]);
+        } else {
+            alert('CSVファイルを選択してください');
+        }
+    });
+
+    // 現在の選択タイプを保存
+    window.currentImportType = 'childInfo';
+}
+
+// 現在選択されているCSVファイル
+window.selectedCsvFile = null;
+window.currentImportType = 'childInfo';
+
+/**
+ * インポートタイプを選択
+ */
+function selectImportType(type) {
+    window.currentImportType = type;
+
+    // ボタンのアクティブ状態を更新
+    document.querySelectorAll('.import-type-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.type === type);
+    });
+
+    // 情報パネルを更新
+    const infoPanel = document.getElementById('importTypeInfo');
+    const typeInfo = {
+        childInfo: {
+            title: '児童基本情報のインポート',
+            description: 'CSVファイルに以下のフィールドを含めてください：',
+            fields: [
+                { name: '氏名', required: true },
+                { name: 'ふりがな', required: false },
+                { name: '生年月日', required: false },
+                { name: '性別', required: false },
+                { name: '診断名', required: false },
+                { name: '受給者証番号', required: false },
+                { name: '保護者名', required: false },
+                { name: '学校・園名', required: false }
+            ]
+        },
+        supportPlan: {
+            title: '支援計画のインポート',
+            description: 'CSVファイルに以下のフィールドを含めてください：',
+            fields: [
+                { name: '児童名', required: true },
+                { name: '作成日', required: false },
+                { name: '支援期間', required: false },
+                { name: '長期目標', required: false },
+                { name: '短期目標', required: false },
+                { name: '支援内容', required: false },
+                { name: '家族支援', required: false },
+                { name: '備考', required: false }
+            ]
+        },
+        record: {
+            title: '活動記録のインポート',
+            description: 'CSVファイルに以下のフィールドを含めてください：',
+            fields: [
+                { name: '日付', required: true },
+                { name: '児童名', required: true },
+                { name: '活動内容', required: false },
+                { name: '様子', required: false },
+                { name: '備考', required: false }
+            ]
+        }
+    };
+
+    const info = typeInfo[type];
+    const fieldsHTML = info.fields.map(f =>
+        `<span class="field-badge${f.required ? ' required' : ''}">${f.name}${f.required ? '（必須）' : ''}</span>`
+    ).join('');
+
+    infoPanel.innerHTML = `
+        <h4>${info.title}</h4>
+        <p>${info.description}</p>
+        <div class="required-fields">${fieldsHTML}</div>
+    `;
+}
+
+/**
+ * CSVファイル選択時の処理
+ */
+function handleCsvFileSelect(event) {
+    const file = event.target.files[0];
+    if (file) {
+        handleCsvFile(file);
+    }
+}
+
+/**
+ * CSVファイルを処理
+ */
+function handleCsvFile(file) {
+    window.selectedCsvFile = file;
+
+    // ファイル情報を表示
+    document.getElementById('fileUploadArea').style.display = 'none';
+    const fileInfo = document.getElementById('selectedFileInfo');
+    fileInfo.style.display = 'flex';
+    document.getElementById('selectedFileName').textContent = file.name;
+
+    // インポートボタンを有効化
+    document.getElementById('importBtn').disabled = false;
+}
+
+/**
+ * 選択したCSVファイルをクリア
+ */
+function clearCsvFile() {
+    window.selectedCsvFile = null;
+    document.getElementById('csvFileInput').value = '';
+    document.getElementById('fileUploadArea').style.display = 'flex';
+    document.getElementById('selectedFileInfo').style.display = 'none';
+    document.getElementById('importBtn').disabled = true;
+    document.getElementById('importResult').style.display = 'none';
+}
+
+/**
+ * CSVテンプレートをダウンロード
+ */
+function downloadCsvTemplate() {
+    const templates = {
+        childInfo: {
+            filename: '児童基本情報_テンプレート.csv',
+            headers: ['氏名', 'ふりがな', '生年月日', '性別', '診断名', '受給者証番号', '保護者名', '学校・園名', '学年'],
+            sample: ['山田太郎', 'やまだたろう', '2015-04-01', '男', 'ASD', '1234567890', '山田花子', '○○小学校', '3年']
+        },
+        supportPlan: {
+            filename: '支援計画_テンプレート.csv',
+            headers: ['児童名', '作成日', '支援期間', '長期目標', '短期目標', '支援内容', '家族支援', '備考'],
+            sample: ['山田太郎', '2024-04-01', '2024年4月〜2024年9月', '集団活動への参加', 'ルールを守って活動できる', '視覚的支援を用いた説明', '家庭での様子の共有', '']
+        },
+        record: {
+            filename: '活動記録_テンプレート.csv',
+            headers: ['日付', '児童名', '活動内容', '様子', '備考'],
+            sample: ['2024-04-15', '山田太郎', 'ウォーミングアップ、ミニゲーム', '積極的に参加できた', '']
+        }
+    };
+
+    const template = templates[window.currentImportType];
+    const bom = '\uFEFF'; // UTF-8 BOM for Excel compatibility
+    const content = bom + [template.headers.join(','), template.sample.join(',')].join('\n');
+
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = template.filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+/**
+ * インポートを実行
+ */
+async function executeImport() {
+    if (!window.selectedCsvFile) {
+        alert('CSVファイルを選択してください');
+        return;
+    }
+
+    const btn = document.getElementById('importBtn');
+    const originalText = btn.textContent;
+    btn.textContent = 'インポート中...';
+    btn.disabled = true;
+
+    try {
+        let result;
+        switch (window.currentImportType) {
+            case 'childInfo':
+                result = await csvImporter.importChildInfo(window.selectedCsvFile);
+                break;
+            case 'supportPlan':
+                result = await csvImporter.importSupportPlan(window.selectedCsvFile);
+                break;
+            case 'record':
+                result = await csvImporter.importRecords(window.selectedCsvFile);
+                break;
+        }
+
+        // 結果を表示
+        showImportResult(result);
+
+    } catch (error) {
+        console.error('インポートエラー:', error);
+        showImportResult({
+            success: false,
+            message: error.message
+        });
+    } finally {
+        btn.textContent = originalText;
+        btn.disabled = false;
+    }
+}
+
+/**
+ * インポート結果を表示
+ */
+function showImportResult(result) {
+    const resultDiv = document.getElementById('importResult');
+    resultDiv.style.display = 'block';
+
+    if (result.success) {
+        const namesHTML = result.importedNames
+            ? result.importedNames.map(name => `<span class="imported-name">${name}</span>`).join('')
+            : '';
+
+        resultDiv.innerHTML = `
+            <div class="import-success">
+                <div class="success-icon">✓</div>
+                <h4>インポート完了</h4>
+                <p>${result.message}</p>
+                ${namesHTML ? `<div class="imported-names">${namesHTML}</div>` : ''}
+            </div>
+            <div class="import-result-actions">
+                <button class="btn-secondary" onclick="clearCsvFile()">別のファイルをインポート</button>
+            </div>
+        `;
+    } else {
+        resultDiv.innerHTML = `
+            <div class="import-error">
+                <div class="error-icon">✗</div>
+                <h4>インポート失敗</h4>
+                <p>${result.message}</p>
+            </div>
+            <div class="import-result-actions">
+                <button class="btn-secondary" onclick="clearCsvFile()">やり直す</button>
+            </div>
+        `;
+    }
+}

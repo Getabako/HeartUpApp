@@ -433,6 +433,254 @@ ${refinementRequest}
 
         return await this.generateContent(prompt);
     }
+
+    /**
+     * 保護者向け連絡帳文章を生成
+     * スタッフのメモを要約＋丁寧語に変換
+     * @param {Object} data - { staffNote, childName, activities, date }
+     * @returns {Promise<string>} 生成された連絡帳文章
+     */
+    async generateParentNote(data) {
+        const { staffNote, childName, activities, date } = data;
+
+        const prompt = `
+あなたは児童発達支援施設「カラーズFC」のスタッフです。
+以下のスタッフメモを、保護者向けの連絡帳に適した丁寧な文章に変換してください。
+
+【児童名】${childName}
+【日付】${date}
+【活動内容】${activities}
+【スタッフメモ】
+${staffNote}
+
+【変換ルール】
+1. 丁寧語で書く（「〜していました」「〜できました」等の口調）
+2. ポジティブな表現を心がける
+3. 専門用語は平易な言葉に置き換える
+4. 100〜200文字程度に要約する
+5. 保護者が読んで安心できるような温かみのある文章にする
+6. 具体的なエピソードがあれば含める
+
+【出力形式】
+保護者向けの連絡帳文章のみを出力してください。
+挨拶文や署名は不要です。
+「本日は」から始めてください。
+`;
+
+        return await this.generateContent(prompt);
+    }
+
+    /**
+     * 一括で複数児童の連絡帳文章を生成
+     * @param {Array} records - 各児童の記録データの配列
+     * @returns {Promise<Array>} 生成された連絡帳文章の配列
+     */
+    async generateBatchParentNotes(records) {
+        const results = [];
+
+        for (const record of records) {
+            try {
+                const parentNote = await this.generateParentNote({
+                    staffNote: record.observation || record.memo,
+                    childName: record.childName,
+                    activities: record.activityType || record.activities?.join('、') || '',
+                    date: record.date
+                });
+                results.push({
+                    childName: record.childName,
+                    parentNote,
+                    success: true
+                });
+            } catch (error) {
+                console.error(`連絡帳生成エラー (${record.childName}):`, error);
+                results.push({
+                    childName: record.childName,
+                    parentNote: '',
+                    success: false,
+                    error: error.message
+                });
+            }
+        }
+
+        return results;
+    }
+
+    /**
+     * 公式様式の専門的支援実施計画を生成
+     * @param {Object} data - 児童データとアセスメント結果
+     * @returns {Promise<Object>} 計画データ
+     */
+    async generateOfficialSupportPlan(data) {
+        if (!this.isInitialized()) {
+            throw new Error('APIキーが設定されていません');
+        }
+
+        const prompt = `以下の児童情報とアセスメント結果に基づいて、放課後等デイサービスの専門的支援実施計画を作成してください。
+
+【児童情報】
+氏名: ${data.childName}
+診断名: ${data.diagnosis || '未記入'}
+受給者証番号: ${data.certificateNumber || ''}
+支援期間: ${data.supportPeriod || ''}
+
+【アセスメント結果】
+${data.assessmentSummary || '詳細なアセスメント結果なし'}
+
+【出力形式】
+以下のJSON形式で出力してください。
+
+{
+    "assessmentSelf": "本人の意向（サッカーを楽しみたいです等）",
+    "assessmentFamily": "家族の意向（感情のコントロールを学んで欲しい等）",
+    "supportPolicy": "総合的な支援の方針（300文字程度）",
+    "longTermGoal": "長期目標（具体的で達成可能な目標）",
+    "shortTermGoal": "短期目標（3ヶ月程度で達成できる目標）",
+    "items": [
+        {
+            "category": "言語やコミュニケーション",
+            "goal": "目指すべき達成目標",
+            "content": "具体的な支援の内容",
+            "method": "実施方法（SSTの実施等）",
+            "period": "12か月"
+        },
+        {
+            "category": "認知や行動",
+            "goal": "目指すべき達成目標",
+            "content": "具体的な支援の内容",
+            "method": "実施方法",
+            "period": "12か月"
+        },
+        {
+            "category": "運動や感覚",
+            "goal": "目指すべき達成目標",
+            "content": "具体的な支援の内容",
+            "method": "実施方法",
+            "period": "12か月"
+        }
+    ]
+}
+
+サッカー療育の文脈で、以下の点を考慮してください：
+- サッカーを通じた社会性の発達
+- チーム活動における協調性
+- 感情コントロールの練習
+- 運動機能の向上
+- 自己肯定感の向上
+
+JSONのみを出力し、他の説明は不要です。`;
+
+        try {
+            const result = await this.generateContent(prompt);
+            // JSONを抽出
+            let jsonStr = result;
+            const jsonMatch = result.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                jsonStr = jsonMatch[0];
+            }
+            return JSON.parse(jsonStr);
+        } catch (error) {
+            console.error('Official support plan generation error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * 公式様式の個別支援計画を生成
+     * @param {Object} data - 児童データとアセスメント結果
+     * @returns {Promise<Object>} 計画データ
+     */
+    async generateOfficialIndividualPlan(data) {
+        if (!this.isInitialized()) {
+            throw new Error('APIキーが設定されていません');
+        }
+
+        const prompt = `以下の児童情報とアセスメント結果に基づいて、放課後等デイサービスの個別支援計画を作成してください。
+
+【児童情報】
+氏名: ${data.childName}
+診断名: ${data.diagnosis || '未記入'}
+受給者証番号: ${data.certificateNumber || ''}
+開始日: ${data.startDate || ''}
+有効期限: ${data.endDate || ''}
+
+【アセスメント結果】
+${data.assessmentSummary || '詳細なアセスメント結果なし'}
+
+【出力形式】
+以下のJSON形式で出力してください。
+
+{
+    "intentSelf": "本人の生活に対する意向",
+    "intentFamily": "家族の生活に対する意向",
+    "supportPolicy": "総合的な支援の方針（300文字程度）",
+    "longTermGoal": "長期目標（具体的で達成可能な目標）",
+    "shortTermGoal": "短期目標（3ヶ月程度で達成できる目標）",
+    "scheduleInfo": "毎週月・金曜日 12:30〜18:00等",
+    "selfSupport": [
+        {
+            "needs": "本人のニーズ（感情を理解する等）",
+            "goal": "具体的な達成目標",
+            "content": "支援内容（5領域との関連も含む）",
+            "period": "6ヶ月",
+            "staff": "カラーズFCスタッフ",
+            "notes": "留意事項",
+            "priority": 1
+        },
+        {
+            "needs": "本人のニーズ2",
+            "goal": "具体的な達成目標2",
+            "content": "支援内容2",
+            "period": "6ヶ月",
+            "staff": "カラーズFCスタッフ",
+            "notes": "留意事項2",
+            "priority": 2
+        },
+        {
+            "needs": "本人のニーズ3",
+            "goal": "具体的な達成目標3",
+            "content": "支援内容3",
+            "period": "6ヶ月",
+            "staff": "カラーズFCスタッフ",
+            "notes": "留意事項3",
+            "priority": 3
+        }
+    ],
+    "familySupport": {
+        "needs": "保護者に対する支援のニーズ",
+        "goal": "具体的な達成目標",
+        "content": "支援内容",
+        "period": "6ヶ月",
+        "staff": "カラーズFCスタッフ",
+        "notes": "留意事項"
+    },
+    "transitionSupport": {
+        "needs": "移行支援のニーズ",
+        "goal": "具体的な達成目標",
+        "content": "支援内容",
+        "period": "6ヶ月",
+        "staff": "カラーズFCスタッフ、学校の先生",
+        "notes": "留意事項"
+    }
+}
+
+サッカー療育の文脈で、5領域（認知や行動、言語やコミュニケーション、健康や生活、運動や感覚、人間関係や社会性）との関連を含めてください。
+
+JSONのみを出力し、他の説明は不要です。`;
+
+        try {
+            const result = await this.generateContent(prompt);
+            // JSONを抽出
+            let jsonStr = result;
+            const jsonMatch = result.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                jsonStr = jsonMatch[0];
+            }
+            return JSON.parse(jsonStr);
+        } catch (error) {
+            console.error('Official individual plan generation error:', error);
+            throw error;
+        }
+    }
 }
 
 // グローバルインスタンスを作成

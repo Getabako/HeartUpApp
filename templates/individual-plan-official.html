@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>個別支援計画</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
+            font-size: 11pt;
+            line-height: 1.5;
+            color: #333;
+            background: white;
+        }
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        /* ヘッダー部分 */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+        .title-section h1 {
+            font-size: 18pt;
+            color: #d35400;
+            margin-bottom: 5px;
+        }
+        .title-section .subtitle {
+            font-size: 14pt;
+            color: #666;
+        }
+        .title-section .badge {
+            display: inline-block;
+            background: #e67e22;
+            color: white;
+            padding: 2px 10px;
+            border-radius: 4px;
+            font-size: 10pt;
+            margin-left: 10px;
+        }
+        .facility-info {
+            text-align: right;
+            font-size: 10pt;
+        }
+        .facility-info p {
+            margin-bottom: 3px;
+        }
+        /* 基本情報テーブル */
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+        .info-table th,
+        .info-table td {
+            border: 1px solid #bdc3c7;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        .info-table th {
+            background: #f8f9fa;
+            font-weight: normal;
+            color: #555;
+        }
+        /* セクションスタイル */
+        .section {
+            margin-bottom: 15px;
+        }
+        .section-header {
+            background: #f8f9fa;
+            border: 1px solid #bdc3c7;
+            border-bottom: none;
+            padding: 8px 12px;
+            font-weight: bold;
+            color: #d35400;
+        }
+        .section-content {
+            border: 1px solid #bdc3c7;
+            padding: 12px;
+            min-height: 50px;
+        }
+        /* 目標セクション（2カラム） */
+        .goal-section {
+            display: table;
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+        .goal-row {
+            display: table-row;
+        }
+        .goal-label {
+            display: table-cell;
+            background: #f8f9fa;
+            border: 1px solid #bdc3c7;
+            padding: 8px 12px;
+            font-weight: bold;
+            color: #d35400;
+            width: 150px;
+            vertical-align: top;
+        }
+        .goal-content {
+            display: table-cell;
+            border: 1px solid #bdc3c7;
+            padding: 12px;
+            vertical-align: top;
+        }
+        .goal-schedule {
+            display: table-cell;
+            border: 1px solid #bdc3c7;
+            padding: 12px;
+            width: 250px;
+            vertical-align: top;
+            background: #fafafa;
+        }
+        .goal-schedule-header {
+            font-size: 9pt;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        /* 送迎・備考セクション */
+        .two-column {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .two-column .section {
+            flex: 1;
+            margin-bottom: 0;
+        }
+        /* 支援項目テーブル */
+        .support-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+            font-size: 10pt;
+        }
+        .support-table th {
+            background: #f8f9fa;
+            border: 1px solid #bdc3c7;
+            padding: 8px 6px;
+            text-align: center;
+            font-weight: normal;
+            font-size: 9pt;
+            color: #555;
+        }
+        .support-table td {
+            border: 1px solid #bdc3c7;
+            padding: 8px 6px;
+            vertical-align: top;
+        }
+        .support-table .col-category {
+            width: 60px;
+            text-align: center;
+            font-weight: bold;
+            vertical-align: middle;
+            background: #fafafa;
+        }
+        .support-table .col-goal { width: 140px; }
+        .support-table .col-content { width: auto; }
+        .support-table .col-period { width: 60px; text-align: center; }
+        .support-table .col-staff { width: 90px; }
+        .support-table .col-notes { width: 150px; }
+        .support-table .col-priority { width: 40px; text-align: center; }
+        .support-category {
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            letter-spacing: 2px;
+        }
+        /* フッター */
+        .footer {
+            margin-top: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+        .signature-section {
+            flex: 1;
+        }
+        .signature-row {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 10px;
+        }
+        .signature-row .label {
+            font-weight: bold;
+            width: 100px;
+        }
+        .signature-row .date-fields {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+        .signature-row input {
+            border: none;
+            border-bottom: 1px solid #333;
+            width: 40px;
+            text-align: center;
+            font-size: 11pt;
+        }
+        .signature-row .name-field {
+            width: 200px;
+        }
+        .facility-signature {
+            text-align: right;
+        }
+        .facility-signature p {
+            margin-bottom: 5px;
+        }
+        .manager-name {
+            font-size: 14pt;
+            font-weight: bold;
+        }
+        /* 印刷用スタイル */
+        @media print {
+            body { font-size: 9pt; }
+            .container { padding: 0; max-width: 100%; }
+            .no-print { display: none; }
+            .support-table { font-size: 8pt; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- ヘッダー -->
+        <div class="header">
+            <div class="title-section">
+                <h1><span class="child-name">{{childName}}</span>さんの個別支援計画<span class="badge">公開</span></h1>
+                <p class="subtitle">（代替支援用）</p>
+            </div>
+            <div class="facility-info">
+                <p>施設名：<span class="facility-name">{{facilityName}}</span></p>
+                <p>利用サービス：<span class="service-type">{{serviceType}}</span></p>
+                <p>作成日：<span class="created-date">{{createdDate}}</span></p>
+            </div>
+        </div>
+
+        <!-- 基本情報 -->
+        <table class="info-table">
+            <tr>
+                <th style="width:100px;">受給者証番号</th>
+                <td style="width:150px;"><span class="certificate-number">{{certificateNumber}}</span></td>
+                <th style="width:60px;">開始日</th>
+                <td style="width:120px;"><span class="start-date">{{startDate}}</span></td>
+                <th style="width:60px;">有効期限</th>
+                <td style="width:120px;"><span class="end-date">{{endDate}}</span></td>
+                <th style="width:80px;">作成回数</th>
+                <td style="width:60px;text-align:center;"><span class="plan-count">{{planCount}}</span></td>
+            </tr>
+        </table>
+
+        <!-- 利用児及び家族の意向 -->
+        <div class="section">
+            <div class="section-header">利用児及び家族の生活に対する意向</div>
+            <div class="section-content">
+                <p><strong>本人：</strong><span class="intent-self">{{intentSelf}}</span></p>
+                <p><strong>家族：</strong><span class="intent-family">{{intentFamily}}</span></p>
+            </div>
+        </div>
+
+        <!-- 総合的な支援の方針 -->
+        <div class="section">
+            <div class="section-header">総合的な支援の方針</div>
+            <div class="section-content">
+                <span class="support-policy">{{supportPolicy}}</span>
+            </div>
+        </div>
+
+        <!-- 長期目標・短期目標 -->
+        <div class="goal-section">
+            <div class="goal-row">
+                <div class="goal-label">長期目標<br>（内容・期間等）</div>
+                <div class="goal-content"><span class="long-term-goal">{{longTermGoal}}</span></div>
+                <div class="goal-schedule">
+                    <div class="goal-schedule-header">支援の標準的な提供時間等<br>（曜日・頻度、時間）</div>
+                    <span class="schedule-info">{{scheduleInfo}}</span>
+                </div>
+            </div>
+            <div class="goal-row">
+                <div class="goal-label">短期目標<br>（内容・期間等）</div>
+                <div class="goal-content"><span class="short-term-goal">{{shortTermGoal}}</span></div>
+                <div class="goal-schedule"></div>
+            </div>
+        </div>
+
+        <!-- 送迎・備考 -->
+        <div class="two-column">
+            <div class="section">
+                <div class="section-header">送迎</div>
+                <div class="section-content">
+                    <p><strong>迎え：</strong><span class="pickup-info">{{pickupInfo}}</span></p>
+                    <p><strong>送り：</strong><span class="dropoff-info">{{dropoffInfo}}</span></p>
+                </div>
+            </div>
+            <div class="section">
+                <div class="section-header">備考</div>
+                <div class="section-content">
+                    <span class="remarks">{{remarks}}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 支援項目テーブル -->
+        <table class="support-table">
+            <thead>
+                <tr>
+                    <th colspan="2">項目（本人のニーズ等）</th>
+                    <th class="col-goal">具体的な達成目標</th>
+                    <th class="col-content">支援内容<br>（内容・支援の提供上のポイント・5領域との関連性等）</th>
+                    <th class="col-period">達成時期</th>
+                    <th class="col-staff">担当者<br>提供機関</th>
+                    <th class="col-notes">留意事項<br>（本人の役割を含む）</th>
+                    <th class="col-priority">優先順位</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- 本人支援 -->
+                <tr>
+                    <td class="col-category" rowspan="3"><span class="support-category">本人支援</span></td>
+                    <td><span class="self1-needs">{{self1Needs}}</span></td>
+                    <td><span class="self1-goal">{{self1Goal}}</span></td>
+                    <td><span class="self1-content">{{self1Content}}</span></td>
+                    <td class="col-period"><span class="self1-period">{{self1Period}}</span></td>
+                    <td><span class="self1-staff">{{self1Staff}}</span></td>
+                    <td><span class="self1-notes">{{self1Notes}}</span></td>
+                    <td class="col-priority"><span class="self1-priority">{{self1Priority}}</span></td>
+                </tr>
+                <tr>
+                    <td><span class="self2-needs">{{self2Needs}}</span></td>
+                    <td><span class="self2-goal">{{self2Goal}}</span></td>
+                    <td><span class="self2-content">{{self2Content}}</span></td>
+                    <td class="col-period"><span class="self2-period">{{self2Period}}</span></td>
+                    <td><span class="self2-staff">{{self2Staff}}</span></td>
+                    <td><span class="self2-notes">{{self2Notes}}</span></td>
+                    <td class="col-priority"><span class="self2-priority">{{self2Priority}}</span></td>
+                </tr>
+                <tr>
+                    <td><span class="self3-needs">{{self3Needs}}</span></td>
+                    <td><span class="self3-goal">{{self3Goal}}</span></td>
+                    <td><span class="self3-content">{{self3Content}}</span></td>
+                    <td class="col-period"><span class="self3-period">{{self3Period}}</span></td>
+                    <td><span class="self3-staff">{{self3Staff}}</span></td>
+                    <td><span class="self3-notes">{{self3Notes}}</span></td>
+                    <td class="col-priority"><span class="self3-priority">{{self3Priority}}</span></td>
+                </tr>
+                <!-- 家族支援 -->
+                <tr>
+                    <td class="col-category"><span class="support-category">家族支援</span></td>
+                    <td><span class="family-needs">{{familyNeeds}}</span></td>
+                    <td><span class="family-goal">{{familyGoal}}</span></td>
+                    <td><span class="family-content">{{familyContent}}</span></td>
+                    <td class="col-period"><span class="family-period">{{familyPeriod}}</span></td>
+                    <td><span class="family-staff">{{familyStaff}}</span></td>
+                    <td><span class="family-notes">{{familyNotes}}</span></td>
+                    <td class="col-priority"></td>
+                </tr>
+                <!-- 移行支援 -->
+                <tr>
+                    <td class="col-category"><span class="support-category">移行支援</span></td>
+                    <td><span class="transition-needs">{{transitionNeeds}}</span></td>
+                    <td><span class="transition-goal">{{transitionGoal}}</span></td>
+                    <td><span class="transition-content">{{transitionContent}}</span></td>
+                    <td class="col-period"><span class="transition-period">{{transitionPeriod}}</span></td>
+                    <td><span class="transition-staff">{{transitionStaff}}</span></td>
+                    <td><span class="transition-notes">{{transitionNotes}}</span></td>
+                    <td class="col-priority"></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- 署名欄 -->
+        <div class="footer">
+            <div class="signature-section">
+                <div class="signature-row">
+                    <span class="label">説明同意日</span>
+                    <div class="date-fields">
+                        <span>令和</span>
+                        <input type="text" class="consent-year" value="">
+                        <span>年</span>
+                        <input type="text" class="consent-month" value="">
+                        <span>月</span>
+                        <input type="text" class="consent-day" value="">
+                        <span>日</span>
+                    </div>
+                </div>
+                <div class="signature-row">
+                    <span class="label">保護者氏名</span>
+                    <input type="text" class="name-field guardian-name" value="">
+                    <span style="margin-left:20px;">印</span>
+                </div>
+            </div>
+            <div class="facility-signature">
+                <p><span class="facility-name-footer">{{facilityName}}</span></p>
+                <p>児童発達支援管理責任者</p>
+                <p class="manager-name"><span class="manager-name-value">{{managerName}}</span></p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

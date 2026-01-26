@@ -853,6 +853,123 @@ class GoogleDriveAPI {
     }
 
     /**
+     * ターゲットフォルダ内の全生徒フォルダ一覧を取得
+     * @returns {Promise<{success: boolean, folders: Array}>}
+     */
+    async listStudentFolders() {
+        if (!this.isSignedIn) {
+            await this.authorize();
+        }
+
+        try {
+            // ターゲットフォルダ内のフォルダのみを取得
+            const response = await gapi.client.drive.files.list({
+                q: `'${this.TARGET_FOLDER_ID}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+                fields: 'files(id, name, createdTime)',
+                orderBy: 'name'
+            });
+
+            console.log('生徒フォルダ一覧取得:', response.result.files?.length || 0, '件');
+            return {
+                success: true,
+                folders: response.result.files || []
+            };
+        } catch (error) {
+            console.error('生徒フォルダ一覧取得エラー:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Google Driveから全生徒データを同期してlocalStorageに保存
+     * @returns {Promise<{success: boolean, syncedStudents: Array, assessments: Object, supportPlans: Object, records: Object}>}
+     */
+    async syncAllStudentData() {
+        const result = {
+            success: false,
+            syncedStudents: [],
+            assessments: {},
+            supportPlans: {},
+            records: {}
+        };
+
+        try {
+            // 全生徒フォルダを取得
+            const folderList = await this.listStudentFolders();
+
+            for (const folder of folderList.folders) {
+                try {
+                    // 各フォルダ内のJSONファイルを取得
+                    const filesResponse = await gapi.client.drive.files.list({
+                        q: `'${folder.id}' in parents and mimeType = 'application/json' and trashed = false`,
+                        fields: 'files(id, name, createdTime)',
+                        orderBy: 'createdTime desc'
+                    });
+
+                    for (const file of filesResponse.result.files || []) {
+                        try {
+                            // JSONファイルの内容を取得
+                            const fileContent = await gapi.client.drive.files.get({
+                                fileId: file.id,
+                                alt: 'media'
+                            });
+
+                            const data = typeof fileContent.body === 'string'
+                                ? JSON.parse(fileContent.body)
+                                : fileContent.result;
+
+                            // ファイルタイプに応じて振り分け
+                            const key = `${folder.name}_${file.name}`;
+                            if (data.type === 'assessment') {
+                                result.assessments[key] = data;
+                            } else if (data.type === 'supportPlan') {
+                                result.supportPlans[key] = data;
+                            } else if (data.type === 'record') {
+                                result.records[key] = data;
+                            }
+                        } catch (e) {
+                            console.warn('ファイル読み込みスキップ:', file.name, e.message);
+                        }
+                    }
+
+                    result.syncedStudents.push({
+                        name: folder.name,
+                        folderId: folder.id
+                    });
+                } catch (e) {
+                    console.warn('フォルダ処理スキップ:', folder.name, e.message);
+                }
+            }
+
+            // localStorageに保存（既存データとマージ）
+            const existingAssessments = JSON.parse(localStorage.getItem('assessments') || '{}');
+            const existingSupportPlans = JSON.parse(localStorage.getItem('supportPlans') || '{}');
+            const existingRecords = JSON.parse(localStorage.getItem('dailyReports') || '{}');
+
+            const mergedAssessments = { ...existingAssessments, ...result.assessments };
+            const mergedSupportPlans = { ...existingSupportPlans, ...result.supportPlans };
+            const mergedRecords = { ...existingRecords, ...result.records };
+
+            localStorage.setItem('assessments', JSON.stringify(mergedAssessments));
+            localStorage.setItem('supportPlans', JSON.stringify(mergedSupportPlans));
+            localStorage.setItem('dailyReports', JSON.stringify(mergedRecords));
+            localStorage.setItem('syncTimestamp', new Date().toISOString());
+
+            result.success = true;
+            result.assessments = mergedAssessments;
+            result.supportPlans = mergedSupportPlans;
+            result.records = mergedRecords;
+
+            console.log('データ同期完了:', result.syncedStudents.length, '名の生徒データを同期');
+            return result;
+        } catch (error) {
+            console.error('データ同期エラー:', error);
+            result.error = error.message;
+            return result;
+        }
+    }
+
+    /**
      * 生徒フォルダからアセスメントと記録データを取得（振り返り用）
      * @param {string} studentName - 生徒名
      * @returns {Promise<{assessments: Array, records: Array}>}

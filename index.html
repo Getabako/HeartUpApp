@@ -102,11 +102,17 @@
                         <button class="ai-tab-button active" data-ai-tab="record">
                             <span class="ai-tab-text">記録作成補助</span>
                         </button>
+                        <button class="ai-tab-button" data-ai-tab="batch-record">
+                            <span class="ai-tab-text">一括記録作成</span>
+                        </button>
                         <button class="ai-tab-button" data-ai-tab="plan">
                             <span class="ai-tab-text">支援計画作成</span>
                         </button>
                         <button class="ai-tab-button" data-ai-tab="review">
                             <span class="ai-tab-text">成長の振り返り</span>
+                        </button>
+                        <button class="ai-tab-button" data-ai-tab="csv-import">
+                            <span class="ai-tab-text">CSVインポート</span>
                         </button>
                     </div>
                     
@@ -120,7 +126,18 @@
                             <!-- 記録作成フォームがここに表示されます -->
                         </div>
                     </div>
-                    
+
+                    <!-- 一括記録作成タブコンテンツ -->
+                    <div id="ai-batch-record" class="ai-tab-content">
+                        <div class="ai-tool-description">
+                            <h3>一括記録作成</h3>
+                            <p>複数の児童の記録を一度に作成できます。日付と活動を設定後、参加児童を選択して記録を入力します。</p>
+                        </div>
+                        <div id="batchRecordContent">
+                            <!-- 一括記録フォームがここに表示されます -->
+                        </div>
+                    </div>
+
                     <!-- 支援計画作成タブコンテンツ -->
                     <div id="ai-plan" class="ai-tab-content">
                         <div class="ai-tool-description">
@@ -140,6 +157,17 @@
                         </div>
                         <div id="reviewToolContent">
                             <!-- 振り返りフォームがここに表示されます -->
+                        </div>
+                    </div>
+
+                    <!-- CSVインポートタブコンテンツ -->
+                    <div id="ai-csv-import" class="ai-tab-content">
+                        <div class="ai-tool-description">
+                            <h3>CSVインポート</h3>
+                            <p>CSVファイルから児童情報、支援計画、活動記録をまとめてインポートできます。</p>
+                        </div>
+                        <div id="csvImportContent">
+                            <!-- CSVインポートフォームがここに表示されます -->
                         </div>
                     </div>
                 </div>
@@ -218,6 +246,7 @@
     <script src="config.js" onerror="console.log('config.js not found - using default API_CONFIG')"></script>
     <script src="google-drive-api.js"></script>
     <script src="gemini-api.js"></script>
+    <script src="csv-importer.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
