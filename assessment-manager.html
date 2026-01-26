@@ -318,8 +318,25 @@
         </div>
     </div>
 
-    <script type="module">
-        import { generateWithGemini } from './config.js';
+    <!-- html2pdf.js for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- config.jsは存在する場合のみ読み込む（デプロイ時に自動生成される） -->
+    <script>
+        // 最初に空のAPI_CONFIGを定義（デフォルト値）
+        window.API_CONFIG = {
+            GEMINI_API_KEY: '',
+            MODEL_NAME: 'gemini-2.0-flash-exp'
+        };
+    </script>
+    <script src="config.js" onerror="console.log('config.js not found - using default API_CONFIG')"></script>
+    <script src="google-drive-api.js"></script>
+    <script src="gemini-api.js"></script>
+    <script>
+        // APIキーを読み込み
+        document.addEventListener('DOMContentLoaded', function() {
+            geminiAPI.loadApiKey();
+            loadChildren();
+        });
 
         // Load and display children
         function loadChildren() {
@@ -383,46 +400,66 @@
             try {
                 // Generate support plan using Gemini API
                 const prompt = `
-以下のアセスメント情報に基づいて、児童発達支援のための個別支援計画を作成してください。
+あなたは児童発達支援の専門家です。以下のアセスメント情報を分析し、この児童に合った具体的な個別支援計画を作成してください。
 
+【重要な指示】
+- 「ー」や「-」などのプレースホルダーは絶対に使用しないでください
+- すべての項目に、アセスメント情報を基にした具体的な内容を記載してください
+- 情報が不足している場合でも、推測される内容を記載してください
+
+【児童情報】
 児童名: ${assessment.data.childName}
-診断名: ${assessment.data.diagnosis || 'なし'}
+診断名: ${assessment.data.diagnosis || '診断名なし（発達に課題のあるお子様）'}
 
-【評価情報】
-対人・社会性:
-- 場面や指示の理解: ${assessment.data.situationEpisode}
-- 共感性: ${assessment.data.empathyEpisode}
-- 社会的ルール: ${assessment.data.cooperation}
-- コミュニケーション: ${assessment.data.communicationDetails}
-- こだわり: ${assessment.data.persistence}
+【アセスメント評価結果】
+■対人・社会性
+- 場面や指示の理解: ${assessment.data.situationEpisode || '詳細記載なし'}
+- 共感性: ${assessment.data.empathyEpisode || '詳細記載なし'}
+- 社会的ルール: ${assessment.data.cooperation || '詳細記載なし'}
+- コミュニケーション: ${assessment.data.communicationDetails || '詳細記載なし'}
+- こだわり: ${assessment.data.persistence || '詳細記載なし'}
 
-行動・情緒:
-- 指示の受け入れ: ${assessment.data.instructionDetails}
-- 集中力: ${assessment.data.concentrationDetails}
-- 多動性: ${assessment.data.hyperactivityDetails}
-- 衝動性: ${assessment.data.impulsivityDetails}
-- パニック: ${assessment.data.panicDetails}
+■行動・情緒
+- 指示の受け入れ: ${assessment.data.instructionDetails || '詳細記載なし'}
+- 集中力: ${assessment.data.concentrationDetails || '詳細記載なし'}
+- 多動性: ${assessment.data.hyperactivityDetails || '詳細記載なし'}
+- 衝動性: ${assessment.data.impulsivityDetails || '詳細記載なし'}
+- パニック: ${assessment.data.panicDetails || '詳細記載なし'}
 
-身体・運動:
-- 粗大運動: ${assessment.data.grossMotorDetails}
-- 微細運動: ${assessment.data.fineMotorDetails}
-- バランス: ${assessment.data.balanceDetails}
+■身体・運動
+- 粗大運動: ${assessment.data.grossMotorDetails || '詳細記載なし'}
+- 微細運動: ${assessment.data.fineMotorDetails || '詳細記載なし'}
+- バランス: ${assessment.data.balanceDetails || '詳細記載なし'}
 
-その他:
-- 生活習慣: ${assessment.data.dailyLivingDetails}
-- 家庭での配慮: ${assessment.data.familySupport}
+■その他
+- 生活習慣: ${assessment.data.dailyLivingDetails || '詳細記載なし'}
+- 家庭での配慮: ${assessment.data.familySupport || '詳細記載なし'}
 
-【支援計画に含める内容】
-1. 長期目標（6ヶ月〜1年）
-2. 短期目標（1〜3ヶ月）
-3. 具体的な支援内容と方法
-4. 家庭との連携事項
-5. 評価時期と方法
+【出力する支援計画の構成】
+1. 【総合的支援方針】（200文字程度で児童の特性を踏まえた支援の方向性を記載）
+
+2. 【長期目標】（6ヶ月〜1年）
+   - 具体的な達成目標を3つ記載
+
+3. 【短期目標】（1〜3ヶ月）
+   - 具体的な達成目標を3つ記載
+
+4. 【具体的な支援内容と方法】
+   - 対人・社会性の支援（具体的な活動内容）
+   - 行動・情緒の支援（具体的な活動内容）
+   - 身体・運動の支援（具体的な活動内容）
+
+5. 【家庭との連携事項】
+   - 家庭でできる支援を3つ記載
+
+6. 【評価時期と方法】
+   - 評価の時期と評価方法を記載
 
 HTMLフォーマットで、見やすく整理された支援計画書を作成してください。
+各セクションには必ず具体的な内容を入れてください。
 `;
 
-                const supportPlanHTML = await generateWithGemini(prompt);
+                const supportPlanHTML = await geminiAPI.generateContent(prompt);
 
                 // Save support plan
                 const supportPlans = JSON.parse(localStorage.getItem('supportPlans') || '{}');
@@ -501,7 +538,7 @@ ${latestPlan ? `支援計画目標: ${latestPlan.html}` : ''}
 HTMLフォーマットで、見やすく整理された日々の記録を作成してください。
 `;
 
-                const reportHTML = await generateWithGemini(prompt);
+                const reportHTML = await geminiAPI.generateContent(prompt);
 
                 // Save daily report
                 const dailyReports = JSON.parse(localStorage.getItem('dailyReports') || '{}');
@@ -597,7 +634,7 @@ ${previousReviews[0][1].html}
 HTMLフォーマットで、グラフや表を使用して視覚的に分かりやすい振り返りレポートを作成してください。
 `;
 
-                const reviewHTML = await generateWithGemini(prompt);
+                const reviewHTML = await geminiAPI.generateContent(prompt);
 
                 // Save review
                 const reviewFileName = `${assessment.data.childName}_振り返り_${new Date().toISOString().split('T')[0]}.html`;

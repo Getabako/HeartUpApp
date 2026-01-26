@@ -517,9 +517,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (content.id === 'ai-' + targetAITab) {
                     content.classList.add('active');
                     // 対応するフォームを表示
-                    if (targetAITab === 'record') {
-                        showRecordForm();
-                    } else if (targetAITab === 'batch-record') {
+                    if (targetAITab === 'batch-record') {
                         showBatchRecordForm();
                     } else if (targetAITab === 'plan') {
                         showPlanForm();
@@ -620,8 +618,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // AI機能タブの初期化
 function initializeAITabs() {
-    // 最初のタブ（記録作成）を表示
-    showRecordForm();
+    // 最初のタブ（一括記録作成）を表示
+    showBatchRecordForm();
 }
 
 // 資料を表示する関数
