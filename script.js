@@ -3999,8 +3999,162 @@ function handleCsvFile(file) {
     fileInfo.style.display = 'flex';
     document.getElementById('selectedFileName').textContent = file.name;
 
+    // フォルダ選択UIを表示
+    showFolderSelection();
+}
+
+/**
+ * フォルダ選択UIを表示
+ */
+async function showFolderSelection() {
+    const folderSection = document.getElementById('folderSelectionSection');
+    if (!folderSection) {
+        // フォルダ選択セクションを追加
+        const importForm = document.querySelector('.csv-import-form');
+        const folderHTML = `
+            <div id="folderSelectionSection" class="folder-selection-section">
+                <h4>保存先フォルダを選択</h4>
+                <p class="folder-hint">Google Driveの生徒フォルダを選択、または新規作成できます</p>
+
+                <div id="folderLoadingIndicator" class="folder-loading">
+                    <span class="loading-spinner">⏳</span> フォルダ一覧を読み込み中...
+                </div>
+
+                <div id="folderList" class="folder-list" style="display:none;">
+                    <!-- フォルダ一覧がここに表示 -->
+                </div>
+
+                <div class="folder-actions">
+                    <button class="btn-new-folder" onclick="createNewImportFolder()">
+                        ➕ 新規フォルダを作成
+                    </button>
+                </div>
+            </div>
+        `;
+        importForm.insertAdjacentHTML('beforeend', folderHTML);
+    }
+
+    document.getElementById('folderSelectionSection').style.display = 'block';
+    document.getElementById('folderLoadingIndicator').style.display = 'block';
+    document.getElementById('folderList').style.display = 'none';
+
+    // Google Driveから既存フォルダを取得
+    try {
+        if (typeof googleDriveAPI !== 'undefined' && googleDriveAPI.isInitialized()) {
+            await googleDriveAPI.authorize();
+            const result = await googleDriveAPI.listStudentFolders();
+
+            if (result.success && result.folders.length > 0) {
+                displayFolderList(result.folders);
+            } else {
+                displayFolderList([]);
+            }
+        } else {
+            // Google Drive未接続の場合
+            displayFolderList([]);
+        }
+    } catch (error) {
+        console.error('フォルダ取得エラー:', error);
+        displayFolderList([]);
+    }
+
+    document.getElementById('folderLoadingIndicator').style.display = 'none';
+    document.getElementById('folderList').style.display = 'block';
+}
+
+/**
+ * フォルダ一覧を表示
+ */
+function displayFolderList(folders) {
+    const folderList = document.getElementById('folderList');
+
+    if (folders.length === 0) {
+        folderList.innerHTML = `
+            <div class="no-folders">
+                <p>既存のフォルダがありません</p>
+                <p class="hint">新規フォルダを作成するか、localStorageのみに保存されます</p>
+            </div>
+        `;
+        // インポートボタンを有効化（localStorageのみ）
+        window.selectedFolderId = null;
+        window.selectedFolderName = null;
+        document.getElementById('importBtn').disabled = false;
+        return;
+    }
+
+    let html = '<div class="folder-grid">';
+    folders.forEach(folder => {
+        html += `
+            <div class="folder-item" onclick="selectImportFolder('${folder.id}', '${folder.name}')" data-folder-id="${folder.id}">
+                <span class="folder-icon">📁</span>
+                <span class="folder-name">${folder.name}</span>
+            </div>
+        `;
+    });
+    html += '</div>';
+
+    folderList.innerHTML = html;
+
+    // インポートボタンはまだ無効（フォルダ選択待ち）
+    document.getElementById('importBtn').disabled = true;
+}
+
+/**
+ * インポート先フォルダを選択
+ */
+function selectImportFolder(folderId, folderName) {
+    window.selectedFolderId = folderId;
+    window.selectedFolderName = folderName;
+
+    // 選択状態を更新
+    document.querySelectorAll('.folder-item').forEach(item => {
+        item.classList.toggle('selected', item.dataset.folderId === folderId);
+    });
+
+    // 選択されたフォルダを表示
+    let selectedIndicator = document.getElementById('selectedFolderIndicator');
+    if (!selectedIndicator) {
+        const folderSection = document.getElementById('folderSelectionSection');
+        folderSection.insertAdjacentHTML('beforeend', '<div id="selectedFolderIndicator" class="selected-folder-indicator"></div>');
+        selectedIndicator = document.getElementById('selectedFolderIndicator');
+    }
+    selectedIndicator.innerHTML = `<span class="check-icon">✓</span> 選択中: <strong>${folderName}</strong>`;
+
     // インポートボタンを有効化
     document.getElementById('importBtn').disabled = false;
+}
+
+/**
+ * 新規フォルダを作成
+ */
+async function createNewImportFolder() {
+    const folderName = prompt('新規フォルダ名を入力してください（児童名など）:');
+    if (!folderName || !folderName.trim()) return;
+
+    try {
+        if (typeof googleDriveAPI !== 'undefined' && googleDriveAPI.isInitialized()) {
+            await googleDriveAPI.authorize();
+            const result = await googleDriveAPI.getOrCreateStudentFolder(folderName.trim());
+
+            if (result.folderId) {
+                alert(`フォルダ「${result.folderName}」を${result.isNew ? '作成' : '選択'}しました`);
+                selectImportFolder(result.folderId, result.folderName);
+
+                // フォルダ一覧を更新
+                const folders = await googleDriveAPI.listStudentFolders();
+                if (folders.success) {
+                    displayFolderList(folders.folders);
+                    // 再度選択状態を設定
+                    selectImportFolder(result.folderId, result.folderName);
+                }
+            }
+        } else {
+            alert('Google Driveに接続されていません。設定からGoogle Driveを連携してください。');
+        }
+    } catch (error) {
+        console.error('フォルダ作成エラー:', error);
+        alert('フォルダの作成に失敗しました: ' + error.message);
+    }
 }
 
 /**
@@ -4068,16 +4222,29 @@ async function executeImport() {
 
     try {
         let result;
+        const options = {
+            folderId: window.selectedFolderId || null,
+            folderName: window.selectedFolderName || null,
+            saveToGoogleDrive: !!window.selectedFolderId
+        };
+
         switch (window.currentImportType) {
             case 'childInfo':
-                result = await csvImporter.importChildInfo(window.selectedCsvFile);
+                result = await csvImporter.importChildInfo(window.selectedCsvFile, options);
                 break;
             case 'supportPlan':
-                result = await csvImporter.importSupportPlan(window.selectedCsvFile);
+                result = await csvImporter.importSupportPlan(window.selectedCsvFile, options);
                 break;
             case 'record':
-                result = await csvImporter.importRecords(window.selectedCsvFile);
+                result = await csvImporter.importRecords(window.selectedCsvFile, options);
                 break;
+        }
+
+        // Google Driveに保存
+        if (options.saveToGoogleDrive && result.success) {
+            btn.textContent = 'Google Driveに保存中...';
+            await saveImportedDataToGoogleDrive(result, options);
+            result.message += `\n\nGoogle Drive「${options.folderName}」フォルダに保存しました`;
         }
 
         // 結果を表示
@@ -4092,6 +4259,87 @@ async function executeImport() {
     } finally {
         btn.textContent = originalText;
         btn.disabled = false;
+        // 選択状態をリセット
+        window.selectedFolderId = null;
+        window.selectedFolderName = null;
+    }
+}
+
+/**
+ * インポートしたデータをGoogle Driveに保存
+ */
+async function saveImportedDataToGoogleDrive(result, options) {
+    if (!options.folderId || typeof googleDriveAPI === 'undefined') return;
+
+    try {
+        // インポートタイプに応じてlocalStorageからデータを取得して保存
+        const type = window.currentImportType;
+
+        if (type === 'childInfo') {
+            const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
+            for (const name of result.importedNames || []) {
+                const key = Object.keys(assessments).find(k => k.includes(name));
+                if (key && assessments[key]) {
+                    const data = assessments[key];
+                    await googleDriveAPI.uploadHTMLFile(
+                        `${name}_基本情報.html`,
+                        data.html,
+                        options.folderId
+                    );
+                    // JSONも保存
+                    await googleDriveAPI.uploadJSONFile(
+                        `${name}_基本情報.json`,
+                        { type: 'assessment', ...data },
+                        options.folderId
+                    );
+                }
+            }
+        } else if (type === 'supportPlan') {
+            const plans = JSON.parse(localStorage.getItem('supportPlans') || '{}');
+            for (const name of result.importedNames || []) {
+                const key = Object.keys(plans).find(k => k.includes(name));
+                if (key && plans[key]) {
+                    const data = plans[key];
+                    await googleDriveAPI.uploadHTMLFile(
+                        key,
+                        data.html,
+                        options.folderId
+                    );
+                    await googleDriveAPI.uploadJSONFile(
+                        key.replace('.html', '.json'),
+                        { type: 'supportPlan', ...data },
+                        options.folderId
+                    );
+                }
+            }
+        } else if (type === 'record') {
+            const reports = JSON.parse(localStorage.getItem('dailyReports') || '{}');
+            for (const nameDate of result.importedNames || []) {
+                // "森田亜羅斗 (2026/1/19)" 形式から名前を抽出
+                const name = nameDate.split(' (')[0];
+                const keys = Object.keys(reports).filter(k => k.includes(name));
+                for (const key of keys) {
+                    if (reports[key]) {
+                        const data = reports[key];
+                        await googleDriveAPI.uploadHTMLFile(
+                            key,
+                            data.html,
+                            options.folderId
+                        );
+                        await googleDriveAPI.uploadJSONFile(
+                            key.replace('.html', '.json'),
+                            { type: 'record', ...data },
+                            options.folderId
+                        );
+                    }
+                }
+            }
+        }
+
+        console.log('Google Driveへの保存完了');
+    } catch (error) {
+        console.error('Google Drive保存エラー:', error);
+        throw error;
     }
 }
 
