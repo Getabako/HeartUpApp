@@ -516,44 +516,71 @@ class CSVImporter {
      */
     async importRecords(file) {
         const text = await this.readFile(file);
-        const { headers, rows } = this.parseCSV(text);
-
-        const requiredFields = ['日付', '児童名'];
-        const missingFields = requiredFields.filter(f => !headers.includes(f));
-        if (missingFields.length > 0) {
-            throw new Error(`必須フィールドがありません: ${missingFields.join(', ')}`);
-        }
+        const format = this.detectRecordCSVFormat(text);
 
         const dailyReports = JSON.parse(localStorage.getItem('dailyReports') || '{}');
         const imported = [];
 
-        for (const row of rows) {
-            if (!row['日付'] || !row['児童名']) continue;
+        if (format === 'vertical') {
+            // 縦型CSV（指導記録形式）の処理
+            const records = this.parseVerticalRecords(text);
 
-            const date = row['日付'];
-            const childName = row['児童名'];
-            const fileName = `${childName}_記録_${date}.html`;
+            for (const record of records) {
+                if (!record.date || !record.childName) continue;
 
-            const recordData = {
-                date,
-                childName,
-                activity: row['活動内容'] || '',
-                observation: row['様子'] || row['観察内容'] || '',
-                notes: row['備考'] || row['特記事項'] || ''
-            };
+                const fileName = `${record.childName}_記録_${record.date.replace(/\//g, '-')}.html`;
 
-            dailyReports[fileName] = {
-                fileName,
-                childName,
-                data: recordData,
-                activity: recordData.activity,
-                observation: recordData.observation,
-                createdAt: new Date().toISOString(),
-                importedFrom: 'csv',
-                html: this.generateRecordHTML(recordData)
-            };
+                dailyReports[fileName] = {
+                    fileName,
+                    childName: record.childName,
+                    data: record,
+                    activity: record.activity || '',
+                    observation: record.observation || '',
+                    createdAt: new Date().toISOString(),
+                    importedFrom: 'csv',
+                    html: this.generateRecordHTML(record)
+                };
 
-            imported.push(`${childName} (${date})`);
+                imported.push(`${record.childName} (${record.date})`);
+            }
+        } else {
+            // 横型CSV（テーブル形式）の処理
+            const { headers, rows } = this.parseCSV(text);
+
+            const requiredFields = ['日付', '児童名'];
+            const missingFields = requiredFields.filter(f => !headers.includes(f));
+            if (missingFields.length > 0) {
+                throw new Error(`必須フィールドがありません: ${missingFields.join(', ')}`);
+            }
+
+            for (const row of rows) {
+                if (!row['日付'] || !row['児童名']) continue;
+
+                const date = row['日付'];
+                const childName = row['児童名'];
+                const fileName = `${childName}_記録_${date.replace(/\//g, '-')}.html`;
+
+                const recordData = {
+                    date,
+                    childName,
+                    activity: row['活動内容'] || '',
+                    observation: row['様子'] || row['観察内容'] || '',
+                    notes: row['備考'] || row['特記事項'] || ''
+                };
+
+                dailyReports[fileName] = {
+                    fileName,
+                    childName,
+                    data: recordData,
+                    activity: recordData.activity,
+                    observation: recordData.observation,
+                    createdAt: new Date().toISOString(),
+                    importedFrom: 'csv',
+                    html: this.generateRecordHTML(recordData)
+                };
+
+                imported.push(`${childName} (${date})`);
+            }
         }
 
         localStorage.setItem('dailyReports', JSON.stringify(dailyReports));
@@ -564,6 +591,110 @@ class CSVImporter {
             importedNames: imported,
             message: `${imported.length}件の活動記録をインポートしました`
         };
+    }
+
+    /**
+     * 記録CSVの形式を検出
+     * @param {string} csvText - CSVテキスト
+     * @returns {string} 'vertical' | 'horizontal'
+     */
+    detectRecordCSVFormat(csvText) {
+        const lines = csvText.split(/\r?\n/).filter(line => line.trim());
+
+        // 縦型の特徴: 先頭数行にヘッダー情報（利用者名、利用サービスなど）がある
+        for (let i = 0; i < Math.min(10, lines.length); i++) {
+            const line = lines[i].replace(/^\ufeff/, '');
+            if (line.includes('利用者名') || line.includes('利用サービス') || line.includes('本日の様子')) {
+                return 'vertical';
+            }
+        }
+
+        return 'horizontal';
+    }
+
+    /**
+     * 縦型記録CSVをパース
+     * @param {string} csvText - CSVテキスト
+     * @returns {Array} パースされた記録データの配列
+     */
+    parseVerticalRecords(csvText) {
+        const lines = csvText.split(/\r?\n/).filter(line => line.trim());
+        const records = [];
+
+        let childName = '';
+        let serviceName = '';
+        let facility = '';
+        let dataStartIndex = -1;
+
+        // ヘッダー部分を解析
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].replace(/^\ufeff/, '');
+            const cols = this.parseCSVLine(line);
+            const firstCol = (cols[0] || '').trim();
+
+            // 利用者名を抽出
+            if (firstCol.includes('利用者名')) {
+                childName = firstCol.replace(/利用者名[：:]?/, '').trim();
+                if (!childName && cols[1]) {
+                    childName = cols[1].trim();
+                }
+            }
+
+            // 利用サービス
+            if (firstCol.includes('利用サービス')) {
+                serviceName = firstCol.replace(/利用サービス[：:]/, '').trim();
+            }
+
+            // データ開始行を検出（「日付」列を持つ行）
+            if (firstCol === '日付') {
+                dataStartIndex = i + 1;
+                break;
+            }
+        }
+
+        if (!childName) {
+            throw new Error('利用者名が見つかりません');
+        }
+
+        if (dataStartIndex === -1) {
+            throw new Error('記録データが見つかりません');
+        }
+
+        // データ行を解析
+        let currentRecord = null;
+
+        for (let i = dataStartIndex; i < lines.length; i++) {
+            const cols = this.parseCSVLine(lines[i]);
+            const date = (cols[0] || '').trim();
+            const facilityCol = (cols[1] || '').trim();
+            const observation = (cols[2] || '').trim();
+            const recorder = (cols[3] || '').trim();
+
+            if (date) {
+                // 新しい日付の記録
+                if (currentRecord) {
+                    records.push(currentRecord);
+                }
+                currentRecord = {
+                    date,
+                    childName,
+                    facility: facilityCol,
+                    observation: observation,
+                    recorder: recorder,
+                    activity: serviceName
+                };
+            } else if (currentRecord && observation) {
+                // 継続行（日付が空で内容がある場合）
+                currentRecord.observation += '\n' + observation;
+            }
+        }
+
+        // 最後のレコードを追加
+        if (currentRecord) {
+            records.push(currentRecord);
+        }
+
+        return records;
     }
 
     /**
@@ -863,6 +994,9 @@ class CSVImporter {
      * 活動記録HTMLを生成
      */
     generateRecordHTML(data) {
+        // 改行を<br>に変換
+        const observationHTML = (data.observation || '（未記入）').replace(/\n/g, '<br>');
+
         return `
 <!DOCTYPE html>
 <html lang="ja">
@@ -870,32 +1004,48 @@ class CSVImporter {
     <meta charset="UTF-8">
     <title>${data.childName} 活動記録 ${data.date}</title>
     <style>
-        body { font-family: 'Hiragino Kaku Gothic ProN', sans-serif; padding: 20px; }
-        .section { margin: 20px 0; }
+        body { font-family: 'Hiragino Kaku Gothic ProN', sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #2e7d32; border-bottom: 2px solid #4caf50; padding-bottom: 10px; }
+        .header-info { display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 20px; padding: 15px; background: #e8f5e9; border-radius: 8px; }
+        .header-item { }
         .label { font-weight: bold; color: #2e7d32; }
+        .section { margin: 20px 0; padding: 15px; background: #fafafa; border-radius: 8px; border-left: 4px solid #4caf50; }
+        .section-title { font-weight: bold; color: #2e7d32; margin-bottom: 10px; font-size: 14px; }
+        .section-content { line-height: 1.8; }
+        .imported-badge { display: inline-block; background: #ff9800; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px; margin-left: 10px; }
     </style>
 </head>
 <body>
-    <h1>活動記録</h1>
-    <p><span class="label">日付:</span> ${data.date}</p>
-    <p><span class="label">児童名:</span> ${data.childName}</p>
+    <div class="container">
+        <h1>活動記録 <span class="imported-badge">CSVインポート</span></h1>
 
-    <div class="section">
-        <p><span class="label">活動内容:</span></p>
-        <p>${data.activity || '（未記入）'}</p>
-    </div>
+        <div class="header-info">
+            <div class="header-item"><span class="label">日付:</span> ${data.date}</div>
+            <div class="header-item"><span class="label">児童名:</span> ${data.childName}</div>
+            ${data.facility ? `<div class="header-item"><span class="label">施設:</span> ${data.facility}</div>` : ''}
+            ${data.recorder ? `<div class="header-item"><span class="label">記録者:</span> ${data.recorder}</div>` : ''}
+        </div>
 
-    <div class="section">
-        <p><span class="label">様子・観察:</span></p>
-        <p>${data.observation || '（未記入）'}</p>
-    </div>
+        ${data.activity ? `
+        <div class="section">
+            <div class="section-title">活動内容</div>
+            <div class="section-content">${data.activity}</div>
+        </div>
+        ` : ''}
 
-    ${data.notes ? `
-    <div class="section">
-        <p><span class="label">備考:</span></p>
-        <p>${data.notes}</p>
+        <div class="section">
+            <div class="section-title">本日の様子</div>
+            <div class="section-content">${observationHTML}</div>
+        </div>
+
+        ${data.notes ? `
+        <div class="section">
+            <div class="section-title">備考</div>
+            <div class="section-content">${data.notes}</div>
+        </div>
+        ` : ''}
     </div>
-    ` : ''}
 </body>
 </html>
         `.trim();
