@@ -18,27 +18,21 @@ class CSVImporter {
         const lines = csvText.split(/\r?\n/).filter(line => line.trim());
         if (lines.length < 2) return 'horizontal';
 
-        // 縦型の特徴: 各行が2列で、1列目がキー名のような形式
-        const firstLineCols = this.parseCSVLine(lines[0]);
-        const secondLineCols = this.parseCSVLine(lines[1]);
+        // BOMを除去して確認
+        const cleanText = csvText.replace(/^\ufeff/, '');
 
-        // 縦型キーワードの検出
-        const verticalKeywords = ['氏名', '性別', '生年月日', '受給者証番号', '児童名', '施設名', '利用サービス', '作成日', '総合的な支援の方針'];
-        const firstColValue = firstLineCols[0]?.trim() || '';
+        // 縦型キーワードの検出（コロンを含む形式も対応）
+        const verticalKeywords = ['氏名', '性別', '生年月日', '受給者証番号', '児童名', '施設名', '利用サービス', '作成日', '総合的な支援の方針', '長期目標', '短期目標'];
 
-        // 最初の列に縦型キーワードが含まれているかチェック
-        for (const keyword of verticalKeywords) {
-            if (firstColValue.includes(keyword)) {
-                return 'vertical';
-            }
-        }
+        // 最初の数行をチェック
+        for (let i = 0; i < Math.min(10, lines.length); i++) {
+            const line = lines[i].replace(/^\ufeff/, '');
+            const cols = this.parseCSVLine(line);
+            const firstCol = (cols[0] || '').trim();
 
-        // 2行目以降も確認
-        for (let i = 1; i < Math.min(5, lines.length); i++) {
-            const cols = this.parseCSVLine(lines[i]);
-            const firstCol = cols[0]?.trim() || '';
+            // キーワードが含まれているかチェック（「児童名：〇〇」形式も対応）
             for (const keyword of verticalKeywords) {
-                if (firstCol.includes(keyword) || firstCol === keyword) {
+                if (firstCol.includes(keyword)) {
                     return 'vertical';
                 }
             }
@@ -369,41 +363,53 @@ class CSVImporter {
 
         let currentSection = '';
         let currentSupportItem = null;
+        let intentSection = false;
 
         for (let i = 0; i < lines.length; i++) {
             const cols = this.parseCSVLine(lines[i]);
-            const firstCol = (cols[0] || '').replace(/^\ufeff/, '').trim();
+            // BOMを除去
+            let firstCol = (cols[0] || '').replace(/^\ufeff/, '').trim();
             const secondCol = (cols[1] || '').trim();
 
-            // 児童名
+            // 児童名（「児童名：〇〇」形式）
             if (firstCol.includes('児童名')) {
-                const match = firstCol.match(/児童名[：:](.+)/);
+                // 「児童名：森田　亜羅斗」または「児童名,森田　亜羅斗」の両形式に対応
+                const match = firstCol.match(/児童名[：:]/);
                 if (match) {
-                    planData.childName = match[1].trim();
+                    // コロン以降を取得
+                    planData.childName = firstCol.replace(/児童名[：:]/, '').trim();
+                } else if (secondCol) {
+                    planData.childName = secondCol;
                 }
             }
 
             // 施設名
             if (firstCol.includes('施設名')) {
-                const match = firstCol.match(/施設名[：:](.+)/);
+                const match = firstCol.match(/施設名[：:]/);
                 if (match) {
-                    planData.facilityName = match[1].trim();
+                    planData.facilityName = firstCol.replace(/施設名[：:]/, '').trim();
+                } else if (secondCol) {
+                    planData.facilityName = secondCol;
                 }
             }
 
             // 利用サービス
             if (firstCol.includes('利用サービス')) {
-                const match = firstCol.match(/利用サービス[：:](.+)/);
+                const match = firstCol.match(/利用サービス[：:]/);
                 if (match) {
-                    planData.serviceName = match[1].trim();
+                    planData.serviceName = firstCol.replace(/利用サービス[：:]/, '').trim();
+                } else if (secondCol) {
+                    planData.serviceName = secondCol;
                 }
             }
 
             // 作成日
             if (firstCol.includes('作成日')) {
-                const match = firstCol.match(/作成日[：:](.+)/);
+                const match = firstCol.match(/作成日[：:]/);
                 if (match) {
-                    planData.createdDate = match[1].trim();
+                    planData.createdDate = firstCol.replace(/作成日[：:]/, '').trim();
+                } else if (secondCol) {
+                    planData.createdDate = secondCol;
                 }
             }
 
@@ -411,17 +417,23 @@ class CSVImporter {
             if (firstCol === '受給者証番号') {
                 planData.certificateNumber = secondCol;
                 // 同じ行に開始日、有効期限がある場合
-                if (cols[2] === '開始日') planData.startDate = cols[3] || '';
-                if (cols[4] === '有効期限') planData.endDate = cols[5] || '';
+                if (cols[2] === '開始日') planData.startDate = (cols[3] || '').trim();
+                if (cols[4] === '有効期限') planData.endDate = (cols[5] || '').trim();
             }
 
             // 利用児及び家族の生活に対する意向
-            if (firstCol.includes('利用児及び家族') || firstCol.includes('生活に対する意向')) {
+            if (firstCol.includes('利用児及び家族')) {
+                intentSection = true;
                 if (secondCol.includes('本人')) {
                     planData.selfIntent = secondCol.replace(/^本人[：:]/, '').trim();
                 }
+            }
+            if (firstCol.includes('生活に対する意向') || (intentSection && firstCol === '')) {
                 if (secondCol.includes('家族')) {
                     planData.familyIntent = secondCol.replace(/^家族[：:]/, '').trim();
+                    intentSection = false;
+                } else if (secondCol.includes('本人')) {
+                    planData.selfIntent = secondCol.replace(/^本人[：:]/, '').trim();
                 }
             }
 
@@ -445,24 +457,24 @@ class CSVImporter {
                 currentSection = 'selfSupport';
                 currentSupportItem = {
                     needs: secondCol,
-                    goal: cols[2] || '',
-                    content: cols[3] || '',
-                    period: cols[4] || cols[5] || '',
-                    staff: cols[5] || cols[6] || '',
-                    notes: cols[6] || cols[7] || '',
-                    priority: cols[7] || cols[8] || ''
+                    goal: (cols[2] || '').trim(),
+                    content: (cols[3] || '').trim(),
+                    period: (cols[4] || cols[5] || '').trim(),
+                    staff: (cols[5] || cols[6] || '').trim(),
+                    notes: (cols[6] || cols[7] || '').trim(),
+                    priority: (cols[7] || cols[8] || '').trim()
                 };
                 planData.selfSupport.push(currentSupportItem);
-            } else if (currentSection === 'selfSupport' && firstCol === '' && secondCol) {
-                // 本人支援の継続行
+            } else if (currentSection === 'selfSupport' && firstCol === '' && secondCol && !secondCol.startsWith('・')) {
+                // 本人支援の新しい目標行（・で始まる行は継続内容なのでスキップ）
                 currentSupportItem = {
                     needs: secondCol,
-                    goal: cols[2] || '',
-                    content: cols[3] || '',
-                    period: cols[4] || cols[5] || '',
-                    staff: cols[5] || cols[6] || '',
-                    notes: cols[6] || cols[7] || '',
-                    priority: cols[7] || cols[8] || ''
+                    goal: (cols[2] || '').trim(),
+                    content: (cols[3] || '').trim(),
+                    period: (cols[4] || cols[5] || '').trim(),
+                    staff: (cols[5] || cols[6] || '').trim(),
+                    notes: (cols[6] || cols[7] || '').trim(),
+                    priority: (cols[7] || cols[8] || '').trim()
                 };
                 planData.selfSupport.push(currentSupportItem);
             }
@@ -472,11 +484,11 @@ class CSVImporter {
                 currentSection = 'familySupport';
                 planData.familySupport = {
                     needs: secondCol,
-                    goal: cols[2] || '',
-                    content: cols[3] || '',
-                    period: cols[4] || cols[5] || '',
-                    staff: cols[5] || cols[6] || '',
-                    notes: cols[6] || cols[7] || ''
+                    goal: (cols[2] || '').trim(),
+                    content: (cols[3] || '').trim(),
+                    period: (cols[4] || cols[5] || '').trim(),
+                    staff: (cols[5] || cols[6] || '').trim(),
+                    notes: (cols[6] || cols[7] || '').trim()
                 };
             }
 
@@ -485,11 +497,11 @@ class CSVImporter {
                 currentSection = 'transitionSupport';
                 planData.transitionSupport = {
                     needs: secondCol,
-                    goal: cols[2] || '',
-                    content: cols[3] || '',
-                    period: cols[4] || cols[5] || '',
-                    staff: cols[5] || cols[6] || '',
-                    notes: cols[6] || cols[7] || ''
+                    goal: (cols[2] || '').trim(),
+                    content: (cols[3] || '').trim(),
+                    period: (cols[4] || cols[5] || '').trim(),
+                    staff: (cols[5] || cols[6] || '').trim(),
+                    notes: (cols[6] || cols[7] || '').trim()
                 };
             }
         }
