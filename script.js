@@ -4161,12 +4161,27 @@ async function createNewImportFolder() {
  * 選択したCSVファイルをクリア
  */
 function clearCsvFile() {
+    resetCsvSelection();
+    document.getElementById('importResult').style.display = 'none';
+}
+
+/**
+ * CSV選択状態をリセット（結果表示は維持）
+ */
+function resetCsvSelection() {
     window.selectedCsvFile = null;
+    window.selectedFolderId = null;
+    window.selectedFolderName = null;
     document.getElementById('csvFileInput').value = '';
     document.getElementById('fileUploadArea').style.display = 'flex';
     document.getElementById('selectedFileInfo').style.display = 'none';
     document.getElementById('importBtn').disabled = true;
-    document.getElementById('importResult').style.display = 'none';
+
+    // フォルダ選択セクションを非表示
+    const folderSection = document.getElementById('folderSelectionSection');
+    if (folderSection) {
+        folderSection.style.display = 'none';
+    }
 }
 
 /**
@@ -4362,10 +4377,10 @@ function showImportResult(result) {
                 <p>${result.message}</p>
                 ${namesHTML ? `<div class="imported-names">${namesHTML}</div>` : ''}
             </div>
-            <div class="import-result-actions">
-                <button class="btn-secondary" onclick="clearCsvFile()">別のファイルをインポート</button>
-            </div>
         `;
+
+        // 成功時は自動でファイル選択をリセット（続けて別のファイルをインポート可能に）
+        resetCsvSelection();
     } else {
         resultDiv.innerHTML = `
             <div class="import-error">
