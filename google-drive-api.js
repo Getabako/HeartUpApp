@@ -532,6 +532,50 @@ class GoogleDriveAPI {
     }
 
     /**
+     * Google Driveからファイルを削除
+     * @param {string} fileName - 削除するファイル名
+     * @param {string} folderId - 検索対象のフォルダID（省略時は全フォルダから検索）
+     */
+    async deleteFile(fileName, folderId = null) {
+        if (!this.isSignedIn) {
+            await this.authorize();
+        }
+
+        try {
+            // ファイル名で検索
+            let query = `name = '${fileName}' and trashed = false`;
+            if (folderId) {
+                query += ` and '${folderId}' in parents`;
+            }
+
+            const response = await gapi.client.drive.files.list({
+                q: query,
+                fields: 'files(id, name)',
+                spaces: 'drive'
+            });
+
+            const files = response.result.files;
+            if (!files || files.length === 0) {
+                console.log('削除対象ファイルが見つかりません:', fileName);
+                return { success: false, message: 'ファイルが見つかりません' };
+            }
+
+            // 見つかったファイルを削除
+            for (const file of files) {
+                await gapi.client.drive.files.delete({
+                    fileId: file.id
+                });
+                console.log('Google Driveからファイルを削除:', file.name);
+            }
+
+            return { success: true, deletedCount: files.length };
+        } catch (error) {
+            console.error('Google Driveファイル削除エラー:', error);
+            throw error;
+        }
+    }
+
+    /**
      * アセスメントシートをGoogle Driveに保存
      * HTMLとJSONの両方をアップロード
      */

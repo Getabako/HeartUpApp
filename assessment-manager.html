@@ -153,6 +153,20 @@
             color: white;
         }
 
+        .btn-danger-small {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef9a9a;
+            padding: 0.4rem 0.6rem;
+            font-size: 0.9rem;
+            min-width: auto;
+        }
+
+        .btn-danger-small:hover {
+            background: #ffcdd2;
+            opacity: 1;
+        }
+
         .modal {
             display: none;
             position: fixed;
@@ -901,15 +915,17 @@ HTMLフォーマットで、グラフや表を使用して視覚的に分かり�
                 .sort((a, b) => new Date(b[1].createdAt) - new Date(a[1].createdAt))
                 .forEach(([fileName, assessment]) => {
                     const childData = assessment.data;
+                    const escapedFileName = fileName.replace(/'/g, "\\'");
                     listHTML += `
-                        <div class="list-item">
+                        <div class="list-item" id="assessment-item-${fileName.replace(/[^a-zA-Z0-9]/g, '_')}">
                             <div class="list-item-info">
                                 <h4>${childData.childName}（${childData.childNameKana || ''}）</h4>
                                 <p>診断名: ${childData.diagnosis || 'なし'}</p>
                                 <p>作成日: ${new Date(assessment.createdAt).toLocaleDateString('ja-JP')}</p>
                             </div>
                             <div class="list-item-actions">
-                                <button class="btn btn-primary" onclick="viewAssessment('${fileName}')">表示</button>
+                                <button class="btn btn-primary" onclick="viewAssessment('${escapedFileName}')">表示</button>
+                                <button class="btn btn-danger-small" onclick="deleteAssessment('${escapedFileName}')" title="削除">🗑</button>
                             </div>
                         </div>
                     `;
@@ -918,6 +934,39 @@ HTMLフォーマットで、グラフや表を使用して視覚的に分かり�
             listHTML += '</div>';
             content.innerHTML = listHTML;
             modal.classList.add('active');
+        };
+
+        // アセスメントを削除
+        window.deleteAssessment = async function(fileName) {
+            if (!confirm('このアセスメントを削除しますか？\n※関連する支援計画や活動記録は削除されません')) {
+                return;
+            }
+
+            try {
+                // localStorageから削除
+                const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
+                delete assessments[fileName];
+                localStorage.setItem('assessments', JSON.stringify(assessments));
+
+                // Google Driveからも削除を試みる
+                if (typeof googleDriveAPI !== 'undefined' && googleDriveAPI.isInitialized()) {
+                    try {
+                        await googleDriveAPI.deleteFile(fileName);
+                        // JSONファイルも削除
+                        const jsonFileName = fileName.replace('.html', '.json');
+                        await googleDriveAPI.deleteFile(jsonFileName);
+                    } catch (e) {
+                        console.log('Google Driveからの削除はスキップ:', e);
+                    }
+                }
+
+                alert('削除しました');
+                // 一覧を更新
+                showAllAssessments();
+            } catch (error) {
+                console.error('削除エラー:', error);
+                alert('削除に失敗しました');
+            }
         };
 
         // 支援計画一覧を表示
@@ -943,6 +992,7 @@ HTMLフォーマットで、グラフや表を使用して視覚的に分かり�
             Object.entries(supportPlans)
                 .sort((a, b) => new Date(b[1].createdAt) - new Date(a[1].createdAt))
                 .forEach(([fileName, plan]) => {
+                    const escapedFileName = fileName.replace(/'/g, "\\'");
                     listHTML += `
                         <div class="list-item">
                             <div class="list-item-info">
@@ -951,7 +1001,8 @@ HTMLフォーマットで、グラフや表を使用して視覚的に分かり�
                                 <p>作成日: ${new Date(plan.createdAt).toLocaleDateString('ja-JP')}</p>
                             </div>
                             <div class="list-item-actions">
-                                <button class="btn btn-secondary" onclick="viewSupportPlan('${fileName}')">表示</button>
+                                <button class="btn btn-secondary" onclick="viewSupportPlan('${escapedFileName}')">表示</button>
+                                <button class="btn btn-danger-small" onclick="deleteSupportPlan('${escapedFileName}')" title="削除">🗑</button>
                             </div>
                         </div>
                     `;
@@ -960,6 +1011,35 @@ HTMLフォーマットで、グラフや表を使用して視覚的に分かり�
             listHTML += '</div>';
             content.innerHTML = listHTML;
             modal.classList.add('active');
+        };
+
+        // 支援計画を削除
+        window.deleteSupportPlan = async function(fileName) {
+            if (!confirm('この支援計画を削除しますか？')) {
+                return;
+            }
+
+            try {
+                const supportPlans = JSON.parse(localStorage.getItem('supportPlans') || '{}');
+                delete supportPlans[fileName];
+                localStorage.setItem('supportPlans', JSON.stringify(supportPlans));
+
+                if (typeof googleDriveAPI !== 'undefined' && googleDriveAPI.isInitialized()) {
+                    try {
+                        await googleDriveAPI.deleteFile(fileName);
+                        const jsonFileName = fileName.replace('.html', '.json');
+                        await googleDriveAPI.deleteFile(jsonFileName);
+                    } catch (e) {
+                        console.log('Google Driveからの削除はスキップ:', e);
+                    }
+                }
+
+                alert('削除しました');
+                showAllSupportPlans();
+            } catch (error) {
+                console.error('削除エラー:', error);
+                alert('削除に失敗しました');
+            }
         };
 
         // 支援計画を表示
@@ -1002,6 +1082,7 @@ HTMLフォーマットで、グラフや表を使用して視覚的に分かり�
                 Object.entries(dailyReports)
                     .sort((a, b) => new Date(b[1].createdAt) - new Date(a[1].createdAt))
                     .forEach(([fileName, report]) => {
+                        const escapedFileName = fileName.replace(/'/g, "\\'");
                         listHTML += `
                             <div class="list-item">
                                 <div class="list-item-info">
@@ -1010,7 +1091,8 @@ HTMLフォーマットで、グラフや表を使用して視覚的に分かり�
                                     <p>作成日: ${new Date(report.createdAt).toLocaleDateString('ja-JP')}</p>
                                 </div>
                                 <div class="list-item-actions">
-                                    <button class="btn btn-tertiary" onclick="viewDailyReport('${fileName}')">表示</button>
+                                    <button class="btn btn-tertiary" onclick="viewDailyReport('${escapedFileName}')">表示</button>
+                                    <button class="btn btn-danger-small" onclick="deleteDailyReport('${escapedFileName}')" title="削除">🗑</button>
                                 </div>
                             </div>
                         `;
@@ -1024,6 +1106,7 @@ HTMLフォーマットで、グラフや表を使用して視覚的に分かり�
                 Object.entries(reviews)
                     .sort((a, b) => new Date(b[1].createdAt) - new Date(a[1].createdAt))
                     .forEach(([fileName, review]) => {
+                        const escapedFileName = fileName.replace(/'/g, "\\'");
                         listHTML += `
                             <div class="list-item">
                                 <div class="list-item-info">
@@ -1031,7 +1114,8 @@ HTMLフォーマットで、グラフや表を使用して視覚的に分かり�
                                     <p>作成日: ${new Date(review.createdAt).toLocaleDateString('ja-JP')}</p>
                                 </div>
                                 <div class="list-item-actions">
-                                    <button class="btn btn-quaternary" onclick="viewReview('${fileName}')">表示</button>
+                                    <button class="btn btn-quaternary" onclick="viewReview('${escapedFileName}')">表示</button>
+                                    <button class="btn btn-danger-small" onclick="deleteReview('${escapedFileName}')" title="削除">🗑</button>
                                 </div>
                             </div>
                         `;
@@ -1053,6 +1137,35 @@ HTMLフォーマットで、グラフや表を使用して視覚的に分かり�
             }
         };
 
+        // 日々の記録を削除
+        window.deleteDailyReport = async function(fileName) {
+            if (!confirm('この記録を削除しますか？')) {
+                return;
+            }
+
+            try {
+                const dailyReports = JSON.parse(localStorage.getItem('dailyReports') || '{}');
+                delete dailyReports[fileName];
+                localStorage.setItem('dailyReports', JSON.stringify(dailyReports));
+
+                if (typeof googleDriveAPI !== 'undefined' && googleDriveAPI.isInitialized()) {
+                    try {
+                        await googleDriveAPI.deleteFile(fileName);
+                        const jsonFileName = fileName.replace('.html', '.json');
+                        await googleDriveAPI.deleteFile(jsonFileName);
+                    } catch (e) {
+                        console.log('Google Driveからの削除はスキップ:', e);
+                    }
+                }
+
+                alert('削除しました');
+                showAllReports();
+            } catch (error) {
+                console.error('削除エラー:', error);
+                alert('削除に失敗しました');
+            }
+        };
+
         // 成長振り返りを表示
         window.viewReview = function(fileName) {
             const reviews = JSON.parse(localStorage.getItem('reviews') || '{}');
@@ -1060,6 +1173,35 @@ HTMLフォーマットで、グラフや表を使用して視覚的に分かり�
             if (review) {
                 const content = document.getElementById('assessmentContent');
                 content.innerHTML = review.html;
+            }
+        };
+
+        // 成長振り返りを削除
+        window.deleteReview = async function(fileName) {
+            if (!confirm('この成長振り返りを削除しますか？')) {
+                return;
+            }
+
+            try {
+                const reviews = JSON.parse(localStorage.getItem('reviews') || '{}');
+                delete reviews[fileName];
+                localStorage.setItem('reviews', JSON.stringify(reviews));
+
+                if (typeof googleDriveAPI !== 'undefined' && googleDriveAPI.isInitialized()) {
+                    try {
+                        await googleDriveAPI.deleteFile(fileName);
+                        const jsonFileName = fileName.replace('.html', '.json');
+                        await googleDriveAPI.deleteFile(jsonFileName);
+                    } catch (e) {
+                        console.log('Google Driveからの削除はスキップ:', e);
+                    }
+                }
+
+                alert('削除しました');
+                showAllReports();
+            } catch (error) {
+                console.error('削除エラー:', error);
+                alert('削除に失敗しました');
             }
         };
 
