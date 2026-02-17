@@ -24,7 +24,7 @@ echo "    GEMINI_API_KEY: '${GEMINI_API_KEY}'," >> config.js
 cat >> config.js << 'CONFIGEOF'
 
     // 使用するモデル
-    MODEL_NAME: 'gemini-2.0-flash-exp'
+    MODEL_NAME: 'gemini-2.0-flash'
 };
 
 // Google Drive API設定
