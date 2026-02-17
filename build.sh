@@ -8,7 +8,6 @@ echo "Generating config.js from environment variables..."
 [ -z "$GEMINI_API_KEY" ] && echo "Warning: GEMINI_API_KEY is not set." && GEMINI_API_KEY=""
 [ -z "$GOOGLE_DRIVE_CLIENT_ID" ] && echo "Warning: GOOGLE_DRIVE_CLIENT_ID is not set." && GOOGLE_DRIVE_CLIENT_ID=""
 [ -z "$GOOGLE_DRIVE_API_KEY" ] && echo "Warning: GOOGLE_DRIVE_API_KEY is not set." && GOOGLE_DRIVE_API_KEY=""
-[ -z "$GOOGLE_DRIVE_FOLDER_ID" ] && echo "Warning: GOOGLE_DRIVE_FOLDER_ID is not set." && GOOGLE_DRIVE_FOLDER_ID=""
 
 cat > config.js << CONFIGEOF
 // Auto-generated from environment variables at build time
@@ -19,10 +18,13 @@ const API_CONFIG = {
     MODEL_NAME: 'gemini-2.5-flash'
 };
 
+// Google Drive設定
+// CLIENT_IDとAPI_KEYはVercel環境変数から注入
+// フォルダIDはユーザーがGoogle Pickerで選択（localStorageに保存）
 const DRIVE_CONFIG = {
     CLIENT_ID: '${GOOGLE_DRIVE_CLIENT_ID}',
     API_KEY: '${GOOGLE_DRIVE_API_KEY}',
-    TARGET_FOLDER_ID: '${GOOGLE_DRIVE_FOLDER_ID}'
+    TARGET_FOLDER_ID: ''
 };
 CONFIGEOF
 

@@ -10,8 +10,8 @@ class GoogleDriveAPI {
         this.SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email';
         this.DISCOVERY_DOCS = ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'];
 
-        // 保存先フォルダID（デフォルト値はVercel環境変数から、プロファイルで上書き可能）
-        this.DEFAULT_FOLDER_ID = typeof DRIVE_CONFIG !== 'undefined' ? DRIVE_CONFIG.TARGET_FOLDER_ID : '';
+        // 保存先フォルダID（ユーザーがGoogle Pickerで選択、localStorageに保存）
+        this.DEFAULT_FOLDER_ID = localStorage.getItem('drive_target_folder_id') || '';
         this.TARGET_FOLDER_ID = this.DEFAULT_FOLDER_ID;
 
         this.tokenClient = null;
@@ -297,6 +297,10 @@ class GoogleDriveAPI {
                     if (data[google.picker.Response.ACTION] === google.picker.Action.PICKED) {
                         const folder = data[google.picker.Response.DOCUMENTS][0];
                         console.log('フォルダ選択:', folder.name, folder.id);
+                        // 選択したフォルダIDをlocalStorageに保存（次回以降自動で使用）
+                        localStorage.setItem('drive_target_folder_id', folder.id);
+                        localStorage.setItem('drive_target_folder_name', folder.name);
+                        this.TARGET_FOLDER_ID = folder.id;
                         if (callback) callback(folder.id, folder.name, null);
                     } else if (data[google.picker.Response.ACTION] === google.picker.Action.CANCEL) {
                         console.log('フォルダ選択キャンセル');
