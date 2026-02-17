@@ -262,6 +262,39 @@
             gap: 10px;
         }
 
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+                min-height: auto;
+            }
+
+            .container > header,
+            .main-actions,
+            .children-list,
+            .close-modal {
+                display: none !important;
+            }
+
+            .modal {
+                display: block !important;
+                position: static;
+                background: none;
+                width: 100%;
+                height: auto;
+            }
+
+            .modal-content {
+                max-width: 100%;
+                max-height: none;
+                overflow: visible;
+                width: 100%;
+                padding: 0;
+                border-radius: 0;
+                box-shadow: none;
+            }
+        }
+
         @media (max-width: 768px) {
             header h1 {
                 font-size: 28px;
