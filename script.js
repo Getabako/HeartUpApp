@@ -1540,8 +1540,13 @@ function generateRecordHTML(childName, date, content, recordData) {
         }
         @media print {
             .print-button { display: none; }
-            body { padding: 0; background: white; }
-            .record-sheet { box-shadow: none; }
+            body { padding: 0; margin: 0; background: white; }
+            .record-sheet { 
+                max-width: 100%; margin: 0; padding: 20px; box-shadow: none; 
+            }
+            table { page-break-inside: auto; }
+            tr { page-break-inside: avoid; page-break-after: auto; }
+            thead { display: table-header-group; }
         }
     </style>
 </head>
@@ -2049,8 +2054,13 @@ function generateReviewHTML(childName, reviewData, content) {
         }
         @media print {
             .print-button { display: none; }
-            body { padding: 0; background: white; }
-            .review-sheet { box-shadow: none; }
+            body { padding: 0; margin: 0; background: white; }
+            .review-sheet { 
+                max-width: 100%; margin: 0; padding: 20px; box-shadow: none; 
+            }
+            table { page-break-inside: auto; }
+            tr { page-break-inside: avoid; page-break-after: auto; }
+            thead { display: table-header-group; }
         }
     </style>
 </head>
@@ -2338,8 +2348,13 @@ function generateSupportPlanHTML(childName, planData, content) {
         }
         @media print {
             .print-button { display: none; }
-            body { padding: 0; background: white; }
-            .plan-sheet { box-shadow: none; }
+            body { padding: 0; margin: 0; background: white; }
+            .plan-sheet { 
+                max-width: 100%; margin: 0; padding: 20px; box-shadow: none; 
+            }
+            table { page-break-inside: auto; }
+            tr { page-break-inside: avoid; page-break-after: auto; }
+            thead { display: table-header-group; }
         }
     </style>
 </head>

@@ -344,7 +344,30 @@ async function generateAssessmentSheet(data) {
         }
         @media print {
             .print-button { display: none; }
-            body { padding: 0; background: white; }
+            body { 
+                padding: 0; 
+                margin: 0;
+                background: white; 
+            }
+            .assessment-sheet {
+                max-width: 100%;
+                margin: 0;
+                padding: 20px;
+                box-shadow: none;
+            }
+            table {
+                page-break-inside: auto;
+            }
+            tr {
+                page-break-inside: avoid;
+                page-break-after: auto;
+            }
+            thead {
+                display: table-header-group;
+            }
+            .header, .basic-info, .category-header {
+                page-break-after: avoid;
+            }
         }
     </style>
 </head>
