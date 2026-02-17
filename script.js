@@ -1388,7 +1388,7 @@ ${notes ? `特に、${notes}という点が印象的でした。` : ''}
         document.getElementById('recordContent').innerHTML = `
             <div style="color: #d32f2f;">
                 エラーが発生しました: ${error.message}<br>
-                <small>APIキーはGitHub Secretsから自動的に注入されます。デプロイ後にご利用ください。</small>
+                <small>APIキーはVercel環境変数から自動的に注入されます。</small>
             </div>
         `;
     }
@@ -1787,7 +1787,7 @@ async function generatePlan(event) {
         document.getElementById('planContent').innerHTML = `
             <div style="color: #d32f2f;">
                 エラーが発生しました: ${error.message}<br>
-                <small>APIキーはGitHub Secretsから自動的に注入されます。デプロイ後にご利用ください。</small>
+                <small>APIキーはVercel環境変数から自動的に注入されます。</small>
             </div>
         `;
     }
@@ -1916,7 +1916,7 @@ async function generateReview(event) {
         document.getElementById('reviewContent').innerHTML = `
             <div style="color: #d32f2f;">
                 エラーが発生しました: ${error.message}<br>
-                <small>APIキーはGitHub Secretsから自動的に注入されます。デプロイ後にご利用ください。</small>
+                <small>APIキーはVercel環境変数から自動的に注入されます。</small>
             </div>
         `;
     }
@@ -2136,7 +2136,7 @@ async function refineRecord() {
         document.getElementById('recordContent').innerHTML = `
             <div style="color: #d32f2f;">
                 エラーが発生しました: ${error.message}<br>
-                <small>APIキーはGitHub Secretsから自動的に注入されます。デプロイ後にご利用ください。</small>
+                <small>APIキーはVercel環境変数から自動的に注入されます。</small>
             </div>
         `;
     }
@@ -2177,7 +2177,7 @@ async function refinePlan() {
         document.getElementById('planContent').innerHTML = `
             <div style="color: #d32f2f;">
                 エラーが発生しました: ${error.message}<br>
-                <small>APIキーはGitHub Secretsから自動的に注入されます。デプロイ後にご利用ください。</small>
+                <small>APIキーはVercel環境変数から自動的に注入されます。</small>
             </div>
         `;
     }
@@ -2442,7 +2442,7 @@ async function refineReview() {
         document.getElementById('reviewContent').innerHTML = `
             <div style="color: #d32f2f;">
                 エラーが発生しました: ${error.message}<br>
-                <small>APIキーはGitHub Secretsから自動的に注入されます。デプロイ後にご利用ください。</small>
+                <small>APIキーはVercel環境変数から自動的に注入されます。</small>
             </div>
         `;
     }
