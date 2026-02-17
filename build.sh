@@ -7,7 +7,7 @@ echo "Generating config.js from environment variables..."
 
 [ -z "$GEMINI_API_KEY" ] && echo "Warning: GEMINI_API_KEY is not set." && GEMINI_API_KEY=""
 [ -z "$GOOGLE_DRIVE_CLIENT_ID" ] && echo "Warning: GOOGLE_DRIVE_CLIENT_ID is not set." && GOOGLE_DRIVE_CLIENT_ID=""
-[ -z "$GOOGLE_DRIVE_API_KEY" ] && echo "Warning: GOOGLE_DRIVE_API_KEY is not set." && GOOGLE_DRIVE_API_KEY=""
+[ -z "$GOOGLE_DRIVE_API_KEY" ] && echo "GOOGLE_DRIVE_API_KEY not set, using GEMINI_API_KEY." && GOOGLE_DRIVE_API_KEY="$GEMINI_API_KEY"
 
 cat > config.js << CONFIGEOF
 // Auto-generated from environment variables at build time
