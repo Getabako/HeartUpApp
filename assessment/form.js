@@ -146,19 +146,48 @@ document.getElementById('assessmentForm').addEventListener('submit', async funct
         const fileName = `${data.childName}_アセスメントシート.html`;
         await saveAssessmentSheet(fileName, assessmentHTML, data);
 
-        // Google Driveへ自動保存（PDF形式、生徒名フォルダに保存）
+        // Google Driveへ自動保存（生徒名フォルダに保存）
         let driveResult = null;
         if (typeof googleDriveAPI !== 'undefined') {
-            submitButton.textContent = 'PDFを生成中...';
             console.log('Google Drive保存開始...', { driveInitialized, isInit: googleDriveAPI.isInitialized() });
             try {
                 // 初期化されていなければ再度初期化を試みる
                 if (!driveInitialized) {
                     console.log('Google Drive API 再初期化中...');
+                    submitButton.textContent = 'Google Drive APIを初期化中...';
                     driveInitialized = await googleDriveAPI.initialize();
                 }
 
-                if (driveInitialized) {
+                if (driveInitialized && googleDriveAPI.isInitialized()) {
+                    // ユーザー認証を確認
+                    if (!googleDriveAPI.isSignedIn) {
+                        console.log('Google Driveへの認証を開始...');
+                        submitButton.textContent = 'Google Driveへの認証中...';
+                        await googleDriveAPI.authorize();
+                    }
+
+                    // TARGET_FOLDER_IDが設定されているか確認
+                    const targetFolderId = googleDriveAPI.getTargetFolderId();
+                    if (!targetFolderId) {
+                        console.warn('保存先フォルダIDが設定されていません。ユーザーにフォルダ選択を促します。');
+                        submitButton.textContent = '保存先フォルダを選択してください...';
+
+                        // フォルダ選択ダイアログを表示
+                        await new Promise((resolve, reject) => {
+                            googleDriveAPI.openFolderPicker((folderId, folderName, error) => {
+                                if (error) {
+                                    console.error('フォルダ選択エラー:', error);
+                                    reject(new Error('保存先フォルダの選択に失敗しました'));
+                                } else if (folderId) {
+                                    console.log('フォルダ選択完了:', folderName, folderId);
+                                    resolve();
+                                } else {
+                                    reject(new Error('フォルダが選択されませんでした'));
+                                }
+                            });
+                        });
+                    }
+
                     submitButton.textContent = 'Google Driveに保存中...';
 
                     // 生徒名フォルダに保存（フォルダがなければ自動作成）
@@ -169,26 +198,36 @@ document.getElementById('assessmentForm').addEventListener('submit', async funct
                         data
                     );
                     console.log('Google Drive保存結果:', driveResult);
+
+                    if (!driveResult || !driveResult.success) {
+                        throw new Error('Google Driveへの保存に失敗しました');
+                    }
                 } else {
                     console.warn('Google Drive API が初期化されていません');
+                    throw new Error('Google Drive APIの初期化に失敗しました');
                 }
             } catch (driveError) {
                 console.error('Google Drive保存エラー:', driveError);
+                // エラーをユーザーに通知
+                alert(`Google Driveへの保存に失敗しました: ${driveError.message}\n\nローカルには保存されています。`);
             }
         } else {
             console.warn('googleDriveAPI が利用できません');
         }
 
         // Show success message
-        let successMessage = `アセスメントシートが作成されました！\n\nファイル名: ${fileName}`;
+        let successMessage = `アセスメントシートが作成されました！\n\nファイル名: ${fileName}\nローカルにダウンロードされました。`;
 
         if (driveResult && driveResult.success) {
             const folderStatus = driveResult.folder.isNew ? '（新規作成）' : '（既存）';
-            successMessage += `\n\nGoogle Driveに保存されました！`;
-            successMessage += `\n保存先フォルダ: ${driveResult.folder.folderName} ${folderStatus}`;
-            successMessage += `\nファイルリンク: ${driveResult.html.webViewLink}`;
-        } else {
-            successMessage += `\n\n※ Google Driveへの保存はスキップされました`;
+            successMessage += `\n\n✅ Google Driveに保存されました！`;
+            successMessage += `\n📁 保存先フォルダ: ${driveResult.folder.folderName} ${folderStatus}`;
+            if (driveResult.html && driveResult.html.webViewLink) {
+                successMessage += `\n🔗 ファイルリンク: ${driveResult.html.webViewLink}`;
+            }
+        } else if (driveResult === null) {
+            successMessage += `\n\n⚠️ Google Driveへの保存はスキップされました`;
+            successMessage += `\n（Google Drive APIが利用できないか、設定されていません）`;
         }
 
         successMessage += `\n\nこのメッセージを閉じると支援計画作成画面に移動します。`;

@@ -10,8 +10,9 @@ class GoogleDriveAPI {
         this.SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email';
         this.DISCOVERY_DOCS = ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'];
 
-        // 保存先フォルダID（ユーザーがGoogle Pickerで選択、localStorageに保存）
-        this.DEFAULT_FOLDER_ID = localStorage.getItem('drive_target_folder_id') || '';
+        // 保存先フォルダID（優先順位: localStorage > config.js > 空文字列）
+        const configFolderId = typeof DRIVE_CONFIG !== 'undefined' ? DRIVE_CONFIG.TARGET_FOLDER_ID : '';
+        this.DEFAULT_FOLDER_ID = localStorage.getItem('drive_target_folder_id') || configFolderId || '';
         this.TARGET_FOLDER_ID = this.DEFAULT_FOLDER_ID;
 
         this.tokenClient = null;
