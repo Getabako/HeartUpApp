@@ -3,15 +3,15 @@
 
 class GoogleDriveAPI {
     constructor() {
-        // Google API設定（固定値）
-        this.CLIENT_ID = '537186649664-12ft0p2d5a3jkbkpvjoquugfgpoiov86.apps.googleusercontent.com';
-        this.API_KEY = 'AIzaSyDen7M5YfihnQYaiHtigRvNewb4f6utUbo';
+        // Google API設定（Vercel環境変数からビルド時に注入）
+        this.CLIENT_ID = typeof DRIVE_CONFIG !== 'undefined' ? DRIVE_CONFIG.CLIENT_ID : '';
+        this.API_KEY = typeof DRIVE_CONFIG !== 'undefined' ? DRIVE_CONFIG.API_KEY : '';
         // drive.file + ユーザー情報取得用スコープ
         this.SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email';
         this.DISCOVERY_DOCS = ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'];
 
-        // 保存先フォルダID（デフォルト値、プロファイルで上書き可能）
-        this.DEFAULT_FOLDER_ID = '1KvbKykAiUK6BKoqsFQQhyRqYQp7NQm77';
+        // 保存先フォルダID（デフォルト値はVercel環境変数から、プロファイルで上書き可能）
+        this.DEFAULT_FOLDER_ID = typeof DRIVE_CONFIG !== 'undefined' ? DRIVE_CONFIG.TARGET_FOLDER_ID : '';
         this.TARGET_FOLDER_ID = this.DEFAULT_FOLDER_ID;
 
         this.tokenClient = null;
