@@ -67,3 +67,32 @@ subagent_type: "media"    → メディア・サブエージェント
 
 - **アプリ名**: HeartUpApp
 - **用途**: 心の健康管理アプリケーション
+
+---
+
+## 重要な仕様・ルール
+
+### Google Drive保存の仕様
+
+- **保存先フォルダはユーザー（利用者）がGoogle Pickerで選択する**。サーバー側やコードで固定しない。
+- 選択されたフォルダIDは`localStorage`に保存され、次回以降自動で使用される。
+- `DRIVE_CONFIG.TARGET_FOLDER_ID`は常に空文字列とする（build.shでもハードコードしない）。
+- この仕様を勝手に変更しないこと。
+
+### Vercel環境変数
+
+| 環境変数 | 用途 | 備考 |
+|---------|------|------|
+| `GEMINI_API_KEY` | Gemini API + Google Drive API | GeminiとDriveで同一キーを使用 |
+| `GOOGLE_DRIVE_CLIENT_ID` | Google OAuth 2.0 クライアントID | Drive保存用 |
+| `GOOGLE_DRIVE_API_KEY` | （任意）Drive APIキー | 未設定時は`GEMINI_API_KEY`にフォールバック |
+
+- GeminiとDrive APIは同じAPIキーを使う運用。
+- そのため、Google CloudプロジェクトでGemini API **と** Google Drive API の両方を有効にすること。
+- `build.sh`がこれらの環境変数からconfig.jsを生成する。
+
+### デプロイ
+
+- Vercelでホスティング（`heartup.if-juku.net`）
+- `vercel.json`の`buildCommand`で`build.sh`を実行し、config.jsを生成
+- `config.js`は`.gitignore`に含まれておりgit管理外（ビルド時に生成）

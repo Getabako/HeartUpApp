@@ -15,4 +15,5 @@ Thumbs.db
 node_modules/
 
 # ログファイル
-*.logconfig.js
+*.log
+config.js

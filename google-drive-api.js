@@ -163,11 +163,25 @@ class GoogleDriveAPI {
     }
 
     /**
-     * 初期化処理
+     * 初期化処理（タイムアウト付き）
      */
     async initialize() {
+        // CLIENT_IDまたはAPI_KEYが未設定の場合は早期リターン
+        if (!this.CLIENT_ID || !this.API_KEY) {
+            console.error('Google Drive API: CLIENT_IDまたはAPI_KEYが未設定です。Vercel環境変数を確認してください。');
+            console.error('  CLIENT_ID:', this.CLIENT_ID ? 'SET' : 'NOT SET');
+            console.error('  API_KEY:', this.API_KEY ? 'SET' : 'NOT SET');
+            return false;
+        }
+
         try {
-            await this.loadGoogleAPIs();
+            // 15秒タイムアウト付きで初期化
+            await Promise.race([
+                this.loadGoogleAPIs(),
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Google API読み込みタイムアウト（15秒）')), 15000)
+                )
+            ]);
             console.log('Google Drive API: 初期化完了');
             return true;
         } catch (error) {

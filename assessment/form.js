@@ -203,8 +203,18 @@ document.getElementById('assessmentForm').addEventListener('submit', async funct
                         throw new Error('Google Driveへの保存に失敗しました');
                     }
                 } else {
-                    console.warn('Google Drive API が初期化されていません');
-                    throw new Error('Google Drive APIの初期化に失敗しました');
+                    const clientId = typeof DRIVE_CONFIG !== 'undefined' ? DRIVE_CONFIG.CLIENT_ID : '';
+                    const apiKey = typeof DRIVE_CONFIG !== 'undefined' ? DRIVE_CONFIG.API_KEY : '';
+                    console.warn('Google Drive API が初期化されていません', {
+                        driveInitialized,
+                        isInit: googleDriveAPI.isInitialized(),
+                        hasClientId: !!clientId,
+                        hasApiKey: !!apiKey
+                    });
+                    if (!clientId || !apiKey) {
+                        throw new Error('Google Drive APIキーが設定されていません。管理者にVercel環境変数の設定を依頼してください。');
+                    }
+                    throw new Error('Google Drive APIの初期化に失敗しました。ページを再読み込みしてお試しください。');
                 }
             } catch (driveError) {
                 console.error('Google Drive保存エラー:', driveError);
