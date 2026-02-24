@@ -150,27 +150,50 @@ function validatePriorityRanking() {
     return true;
 }
 
-// 順位selectにchangeイベントリスナーを追加
+// DOMContentLoaded でイベントリスナーを登録
 document.addEventListener('DOMContentLoaded', function() {
+    // 順位selectにchangeイベントリスナーを追加
     const prioritySelects = document.querySelectorAll('.priority-item select');
     prioritySelects.forEach(select => {
         select.addEventListener('change', validatePriorityRanking);
     });
+
+    // フォーム送信ハンドラ
+    const assessmentForm = document.getElementById('assessmentForm');
+    if (!assessmentForm) {
+        console.error('assessmentForm が見つかりません');
+        return;
+    }
+
+    assessmentForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        handleAssessmentSubmit(e).catch(function(error) {
+            console.error('フォーム送信エラー:', error);
+            alert('エラーが発生しました: ' + error.message);
+            const btn = e.target.querySelector('button[type="submit"]');
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'アセスメントシートを作成';
+            }
+        });
+    });
 });
 
-document.getElementById('assessmentForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-
+async function handleAssessmentSubmit(e) {
     // Show loading message
     const submitButton = e.target.querySelector('button[type="submit"]');
-    const originalButtonText = submitButton.textContent;
-    submitButton.disabled = true;
-    submitButton.textContent = '処理中...';
+    const originalButtonText = submitButton ? submitButton.textContent : '';
+    if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = '処理中...';
+    }
 
     // 優先課題領域のバリデーション
     if (!validatePriorityRanking()) {
-        submitButton.disabled = false;
-        submitButton.textContent = originalButtonText;
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.textContent = originalButtonText;
+        }
         document.getElementById('priorityError')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
     }
@@ -217,7 +240,7 @@ document.getElementById('assessmentForm').addEventListener('submit', async funct
         Object.entries(priorityFields).forEach(([key, field]) => {
             const el = document.getElementById(field.id);
             data.priorityRanking[key] = {
-                rank: el ? parseInt(el.value) || 0,
+                rank: el ? (parseInt(el.value) || 0) : 0,
                 label: field.label
             };
         });
@@ -244,7 +267,7 @@ document.getElementById('assessmentForm').addEventListener('submit', async funct
                 // 初期化されていなければ再度初期化を試みる
                 if (!driveInitialized) {
                     console.log('Google Drive API 再初期化中...');
-                    submitButton.textContent = 'Google Drive APIを初期化中...';
+                    if (submitButton) submitButton.textContent = 'Google Drive APIを初期化中...';
                     driveInitialized = await googleDriveAPI.initialize();
                 }
 
@@ -252,7 +275,7 @@ document.getElementById('assessmentForm').addEventListener('submit', async funct
                     // ユーザー認証を確認
                     if (!googleDriveAPI.isSignedIn) {
                         console.log('Google Driveへの認証を開始...');
-                        submitButton.textContent = 'Google Driveへの認証中...';
+                        if (submitButton) submitButton.textContent = 'Google Driveへの認証中...';
                         await googleDriveAPI.authorize();
                     }
 
@@ -260,7 +283,7 @@ document.getElementById('assessmentForm').addEventListener('submit', async funct
                     const targetFolderId = googleDriveAPI.getTargetFolderId();
                     if (!targetFolderId) {
                         console.warn('保存先フォルダIDが設定されていません。ユーザーにフォルダ選択を促します。');
-                        submitButton.textContent = '保存先フォルダを選択してください...';
+                        if (submitButton) submitButton.textContent = '保存先フォルダを選択してください...';
 
                         // フォルダ選択ダイアログを表示
                         await new Promise((resolve, reject) => {
@@ -278,7 +301,7 @@ document.getElementById('assessmentForm').addEventListener('submit', async funct
                         });
                     }
 
-                    submitButton.textContent = 'Google Driveに保存中...';
+                    if (submitButton) submitButton.textContent = 'Google Driveに保存中...';
 
                     // 生徒名フォルダに保存（フォルダがなければ自動作成）
                     driveResult = await googleDriveAPI.saveAssessmentToStudentFolder(
@@ -318,7 +341,7 @@ document.getElementById('assessmentForm').addEventListener('submit', async funct
         // AIによる支援計画自動生成
         let planResult = null;
         try {
-            submitButton.textContent = 'AIが支援計画を自動生成中...';
+            if (submitButton) submitButton.textContent = 'AIが支援計画を自動生成中...';
             planResult = await autoGeneratePlans(data);
         } catch (planError) {
             console.error('計画書自動生成エラー:', planError);
@@ -357,10 +380,12 @@ document.getElementById('assessmentForm').addEventListener('submit', async funct
     } catch (error) {
         console.error('Error creating assessment sheet:', error);
         alert(`エラーが発生しました: ${error.message}`);
-        submitButton.disabled = false;
-        submitButton.textContent = originalButtonText;
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.textContent = originalButtonText;
+        }
     }
-});
+}
 
 function calculateRatings(data) {
     // Convert form responses to ratings (○, △, ×)

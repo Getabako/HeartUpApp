@@ -1964,3 +1964,48 @@ main {
 .btn-delete-menu:hover {
     background: #ffcdd2;
 }
+
+.btn-add-video {
+    padding: 0.3rem 0.6rem;
+    background: #fff3e0;
+    color: #e65100;
+    border: 1px solid #ffcc80;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-add-video:hover {
+    background: #ffe0b2;
+}
+
+.btn-edit-video {
+    padding: 0.3rem 0.5rem;
+    background: #e3f2fd;
+    color: #1565c0;
+    border: 1px solid #90caf9;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-edit-video:hover {
+    background: #bbdefb;
+}
+
+.btn-edit-uploaded {
+    padding: 0.3rem 0.6rem;
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #a5d6a7;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-edit-uploaded:hover {
+    background: #c8e6c9;
+}

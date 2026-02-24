@@ -366,8 +366,20 @@
 
     <!-- html2pdf.js for PDF generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- デフォルトのAPI設定（config.jsが読み込めない場合のフォールバック） -->
+    <script>
+        window.API_CONFIG = {
+            GEMINI_API_KEY: '',
+            MODEL_NAME: 'gemini-2.5-flash'
+        };
+        window.DRIVE_CONFIG = {
+            CLIENT_ID: '',
+            API_KEY: '',
+            TARGET_FOLDER_ID: ''
+        };
+    </script>
     <!-- Google Drive API -->
-    <script src="../config.js"></script>
+    <script src="../config.js" onerror="console.log('config.js not found - using default config')"></script>
     <script src="../google-drive-api.js"></script>
     <script src="../gemini-api.js"></script>
     <script src="form.js"></script>

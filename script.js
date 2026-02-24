@@ -729,6 +729,7 @@ function displayPracticeMenus() {
             if (menu.pdfUrl) {
                 footerHTML += `<a href="${menu.pdfUrl}" target="_blank" rel="noopener" class="view-pdf-btn" onclick="event.stopPropagation()">PDFを見る</a>`;
             }
+            footerHTML += `<button class="btn-edit-uploaded" onclick="event.stopPropagation(); editUploadedMenu('${menu.id}')">編集</button>`;
             footerHTML += `<button class="btn-delete-menu" onclick="event.stopPropagation(); deleteUploadedMenu('${menu.id}')">削除</button>`;
 
             card.innerHTML = `
@@ -744,7 +745,22 @@ function displayPracticeMenus() {
                 </div>
             `;
         } else {
-            // 標準メニュー
+            // 標準メニュー - 紐付けられた動画があるかチェック
+            const menuVideos = JSON.parse(localStorage.getItem('practiceMenuVideos') || '{}');
+            const savedVideoUrl = menuVideos[menu.id] || '';
+
+            let standardFooterHTML = '';
+            if (savedVideoUrl) {
+                const videoId = getYouTubeVideoId(savedVideoUrl);
+                if (videoId) {
+                    standardFooterHTML += `<button class="btn-video" onclick="event.stopPropagation(); showYouTubeEmbed('${videoId}', '${menu.title.replace(/'/g, "\\'")}')">▶ 動画</button>`;
+                } else {
+                    standardFooterHTML += `<a href="${savedVideoUrl}" target="_blank" rel="noopener" class="btn-video" onclick="event.stopPropagation()">▶ 動画</a>`;
+                }
+                standardFooterHTML += `<button class="btn-edit-video" onclick="event.stopPropagation(); editMenuVideo(${menu.id}, '${menu.title.replace(/'/g, "\\'")}')" title="動画を編集">✏️</button>`;
+            } else {
+                standardFooterHTML += `<button class="btn-add-video" onclick="event.stopPropagation(); editMenuVideo(${menu.id}, '${menu.title.replace(/'/g, "\\'")}')" title="動画を追加">+ 動画</button>`;
+            }
             card.onclick = () => openPracticeMenuPDF(menu);
             card.innerHTML = `
                 <div class="practice-header">
@@ -753,8 +769,8 @@ function displayPracticeMenus() {
                 </div>
                 <h3>${menu.title}</h3>
                 <p>${menu.description}</p>
-                <div class="practice-footer">
-                    <span class="view-pdf-btn">PDFを見る</span>
+                <div class="practice-footer" style="gap: 0.5rem; flex-wrap: wrap;">
+                    ${standardFooterHTML}
                 </div>
             `;
         }
@@ -4607,4 +4623,173 @@ function deleteUploadedMenu(menuId) {
 
     displayPracticeMenus();
     alert('メニューを削除しました。');
+}
+
+/**
+ * 既存メニューに動画を追加/編集
+ */
+function editMenuVideo(menuId, menuTitle) {
+    const password = prompt('管理パスワードを入力してください:');
+    if (password !== PRACTICE_UPLOAD_PASSWORD) {
+        if (password !== null) alert('パスワードが正しくありません。');
+        return;
+    }
+
+    const menuVideos = JSON.parse(localStorage.getItem('practiceMenuVideos') || '{}');
+    const currentUrl = menuVideos[menuId] || '';
+
+    const modal = document.getElementById('modal');
+    const modalBody = document.getElementById('modalBody');
+
+    modalBody.innerHTML = `
+        <h2 style="color: #2e7d32; margin-bottom: 1rem;">「${menuTitle}」に動画を設定</h2>
+        <div class="form-group">
+            <label for="editVideoUrl">動画URL（YouTube等）</label>
+            <input type="url" id="editVideoUrl" value="${currentUrl}" placeholder="https://www.youtube.com/watch?v=...">
+        </div>
+        <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+            ${currentUrl ? `<button class="btn-danger" style="margin-right:auto;" onclick="removeMenuVideo(${menuId}); closeModal();">削除</button>` : ''}
+            <button class="btn-secondary" onclick="closeModal()">キャンセル</button>
+            <button class="btn-primary" onclick="saveMenuVideo(${menuId})">保存</button>
+        </div>
+    `;
+
+    modal.classList.remove('hidden');
+}
+
+/**
+ * 既存メニューの動画URLを保存
+ */
+function saveMenuVideo(menuId) {
+    const url = document.getElementById('editVideoUrl').value.trim();
+    const menuVideos = JSON.parse(localStorage.getItem('practiceMenuVideos') || '{}');
+
+    if (url) {
+        menuVideos[menuId] = url;
+    } else {
+        delete menuVideos[menuId];
+    }
+
+    localStorage.setItem('practiceMenuVideos', JSON.stringify(menuVideos));
+    closeModal();
+    displayPracticeMenus();
+}
+
+/**
+ * 既存メニューの動画URLを削除
+ */
+function removeMenuVideo(menuId) {
+    const menuVideos = JSON.parse(localStorage.getItem('practiceMenuVideos') || '{}');
+    delete menuVideos[menuId];
+    localStorage.setItem('practiceMenuVideos', JSON.stringify(menuVideos));
+    displayPracticeMenus();
+}
+
+/**
+ * アップロード済みメニューを編集
+ */
+function editUploadedMenu(menuId) {
+    const password = prompt('管理パスワードを入力してください:');
+    if (password !== PRACTICE_UPLOAD_PASSWORD) {
+        if (password !== null) alert('パスワードが正しくありません。');
+        return;
+    }
+
+    const uploaded = JSON.parse(localStorage.getItem('uploadedPracticeMenus') || '[]');
+    const menu = uploaded.find(m => m.id === menuId);
+    if (!menu) {
+        alert('メニューが見つかりません。');
+        return;
+    }
+
+    const modal = document.getElementById('modal');
+    const modalBody = document.getElementById('modalBody');
+
+    modalBody.innerHTML = `
+        <h2 style="color: #2e7d32; margin-bottom: 1rem;">メニューを編集</h2>
+        <form onsubmit="saveUploadedMenuEdit('${menuId}', event)">
+            <div class="form-group">
+                <label for="editUpTitle">タイトル</label>
+                <input type="text" id="editUpTitle" value="${menu.title.replace(/"/g, '&quot;')}" required>
+            </div>
+            <div class="form-group">
+                <label for="editUpDescription">説明</label>
+                <textarea id="editUpDescription" rows="3">${menu.description || ''}</textarea>
+            </div>
+            <div class="form-group">
+                <label for="editUpCategory">カテゴリ</label>
+                <select id="editUpCategory">
+                    <option value="warmup" ${menu.category === 'warmup' ? 'selected' : ''}>ウォーミングアップ</option>
+                    <option value="dribble" ${menu.category === 'dribble' ? 'selected' : ''}>ドリブル</option>
+                    <option value="shoot" ${menu.category === 'shoot' ? 'selected' : ''}>シュート</option>
+                    <option value="match" ${menu.category === 'match' ? 'selected' : ''}>対人・試合</option>
+                    <option value="game" ${menu.category === 'game' ? 'selected' : ''}>ゲーム</option>
+                    <option value="concentration" ${menu.category === 'concentration' ? 'selected' : ''}>集中力強化</option>
+                    <option value="switching" ${menu.category === 'switching' ? 'selected' : ''}>切り替え強化</option>
+                    <option value="competition" ${menu.category === 'competition' ? 'selected' : ''}>勝ち負け</option>
+                    <option value="vestibular" ${menu.category === 'vestibular' ? 'selected' : ''}>前庭覚刺激</option>
+                    <option value="proprioceptive" ${menu.category === 'proprioceptive' ? 'selected' : ''}>固有覚刺激</option>
+                    <option value="tactile" ${menu.category === 'tactile' ? 'selected' : ''}>触覚刺激</option>
+                    <option value="flexibility" ${menu.category === 'flexibility' ? 'selected' : ''}>柔軟性（稼働域）</option>
+                    <option value="bodyimage" ${menu.category === 'bodyimage' ? 'selected' : ''}>ボディイメージ</option>
+                    <option value="balance" ${menu.category === 'balance' ? 'selected' : ''}>バランス</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="editUpDifficulty">難易度</label>
+                <select id="editUpDifficulty">
+                    <option value="☆" ${menu.difficulty === '☆' ? 'selected' : ''}>☆（初級）</option>
+                    <option value="★☆" ${menu.difficulty === '★☆' ? 'selected' : ''}>★☆（中級）</option>
+                    <option value="★★" ${menu.difficulty === '★★' ? 'selected' : ''}>★★（上級）</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="editUpVideoUrl">動画URL（YouTube等）</label>
+                <input type="url" id="editUpVideoUrl" value="${menu.videoUrl || ''}" placeholder="https://www.youtube.com/watch?v=...">
+            </div>
+            <div class="form-group">
+                <label for="editUpPdfUrl">PDFファイルURL</label>
+                <input type="url" id="editUpPdfUrl" value="${menu.pdfUrl || ''}" placeholder="https://example.com/file.pdf">
+            </div>
+            <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+                <button type="button" class="btn-secondary" onclick="closeModal()">キャンセル</button>
+                <button type="submit" class="btn-primary">保存</button>
+            </div>
+        </form>
+    `;
+
+    modal.classList.remove('hidden');
+}
+
+/**
+ * アップロード済みメニューの編集を保存
+ */
+function saveUploadedMenuEdit(menuId, event) {
+    event.preventDefault();
+
+    const title = document.getElementById('editUpTitle').value.trim();
+    if (!title) {
+        alert('タイトルを入力してください。');
+        return;
+    }
+
+    const uploaded = JSON.parse(localStorage.getItem('uploadedPracticeMenus') || '[]');
+    const index = uploaded.findIndex(m => m.id === menuId);
+    if (index === -1) {
+        alert('メニューが見つかりません。');
+        return;
+    }
+
+    uploaded[index].title = title;
+    uploaded[index].description = document.getElementById('editUpDescription').value.trim() || '';
+    uploaded[index].category = document.getElementById('editUpCategory').value;
+    uploaded[index].categories = [document.getElementById('editUpCategory').value];
+    uploaded[index].difficulty = document.getElementById('editUpDifficulty').value;
+    uploaded[index].videoUrl = document.getElementById('editUpVideoUrl').value.trim() || '';
+    uploaded[index].pdfUrl = document.getElementById('editUpPdfUrl').value.trim() || '';
+
+    localStorage.setItem('uploadedPracticeMenus', JSON.stringify(uploaded));
+    closeModal();
+    displayPracticeMenus();
+    alert('メニューを更新しました。');
 }
