@@ -1063,6 +1063,10 @@ async function autoGeneratePlans(data) {
         const today = new Date().toISOString().split('T')[0];
         const supportPlans = JSON.parse(localStorage.getItem('supportPlans') || '{}');
         const results = { support: null, individual: null };
+        let supportPlanHTML = null;
+        let supportFileName = null;
+        let individualPlanHTML = null;
+        let individualFileName = null;
 
         // 専門的支援実施計画を生成
         try {
@@ -1074,8 +1078,8 @@ async function autoGeneratePlans(data) {
                 assessmentSummary: assessmentSummary
             });
 
-            const supportPlanHTML = renderOfficialSupportPlanHTML(data, supportPlanData);
-            const supportFileName = `${data.childName}_専門的支援実施計画_${today}.html`;
+            supportPlanHTML = renderOfficialSupportPlanHTML(data, supportPlanData);
+            supportFileName = `${data.childName}_専門的支援実施計画_${today}.html`;
             supportPlans[supportFileName] = {
                 html: supportPlanHTML,
                 childName: data.childName,
@@ -1099,8 +1103,8 @@ async function autoGeneratePlans(data) {
                 assessmentSummary: assessmentSummary
             });
 
-            const individualPlanHTML = renderOfficialIndividualPlanHTML(data, individualPlanData);
-            const individualFileName = `${data.childName}_個別支援計画_${today}.html`;
+            individualPlanHTML = renderOfficialIndividualPlanHTML(data, individualPlanData);
+            individualFileName = `${data.childName}_個別支援計画_${today}.html`;
             supportPlans[individualFileName] = {
                 html: individualPlanHTML,
                 childName: data.childName,
@@ -1114,6 +1118,41 @@ async function autoGeneratePlans(data) {
         }
 
         localStorage.setItem('supportPlans', JSON.stringify(supportPlans));
+
+        // Google Driveにも計画書を保存
+        if (typeof googleDriveAPI !== 'undefined' && driveInitialized && googleDriveAPI.isInitialized()) {
+            // 専門的支援実施計画をDriveに保存
+            if (supportPlanHTML && supportFileName) {
+                try {
+                    console.log('専門的支援実施計画をGoogle Driveに保存中...');
+                    await googleDriveAPI.saveSupportPlanToStudentFolder(
+                        data.childName,
+                        supportFileName,
+                        supportPlanHTML,
+                        supportPlans[supportFileName].planData
+                    );
+                    console.log('専門的支援実施計画のDrive保存完了');
+                } catch (e) {
+                    console.error('専門的支援実施計画のDrive保存に失敗:', e);
+                }
+            }
+
+            // 個別支援計画をDriveに保存
+            if (individualPlanHTML && individualFileName) {
+                try {
+                    console.log('個別支援計画をGoogle Driveに保存中...');
+                    await googleDriveAPI.saveSupportPlanToStudentFolder(
+                        data.childName,
+                        individualFileName,
+                        individualPlanHTML,
+                        supportPlans[individualFileName].planData
+                    );
+                    console.log('個別支援計画のDrive保存完了');
+                } catch (e) {
+                    console.error('個別支援計画のDrive保存に失敗:', e);
+                }
+            }
+        }
 
         return {
             success: results.support || results.individual,
