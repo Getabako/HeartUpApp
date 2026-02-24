@@ -97,6 +97,67 @@ async function generateAssessmentPDF(htmlContent, fileName) {
     }
 }
 
+// 優先課題領域のバリデーション
+function validatePriorityRanking() {
+    const selects = [
+        document.getElementById('priority_cognitive'),
+        document.getElementById('priority_language'),
+        document.getElementById('priority_health'),
+        document.getElementById('priority_motor'),
+        document.getElementById('priority_social')
+    ];
+    const errorEl = document.getElementById('priorityError');
+
+    // 全て未選択の場合はOK（任意項目として扱う）
+    const selectedValues = selects.map(s => s ? s.value : '').filter(v => v !== '');
+    if (selectedValues.length === 0) {
+        if (errorEl) errorEl.style.display = 'none';
+        selects.forEach(s => { if (s) s.closest('.priority-item')?.classList.remove('error'); });
+        return true;
+    }
+
+    // 一部選択されている場合は全て選択が必要
+    if (selectedValues.length < 5) {
+        if (errorEl) {
+            errorEl.textContent = 'すべての領域に順位を付けてください。';
+            errorEl.style.display = 'block';
+        }
+        return false;
+    }
+
+    // 重複チェック
+    const duplicates = selectedValues.filter((v, i) => selectedValues.indexOf(v) !== i);
+    if (duplicates.length > 0) {
+        if (errorEl) {
+            errorEl.textContent = `順位が重複しています。各領域に異なる順位を付けてください。`;
+            errorEl.style.display = 'block';
+        }
+        // 重複しているselectにエラースタイル
+        const counts = {};
+        selectedValues.forEach(v => { counts[v] = (counts[v] || 0) + 1; });
+        selects.forEach(s => {
+            if (s && counts[s.value] > 1) {
+                s.closest('.priority-item')?.classList.add('error');
+            } else if (s) {
+                s.closest('.priority-item')?.classList.remove('error');
+            }
+        });
+        return false;
+    }
+
+    if (errorEl) errorEl.style.display = 'none';
+    selects.forEach(s => { if (s) s.closest('.priority-item')?.classList.remove('error'); });
+    return true;
+}
+
+// 順位selectにchangeイベントリスナーを追加
+document.addEventListener('DOMContentLoaded', function() {
+    const prioritySelects = document.querySelectorAll('.priority-item select');
+    prioritySelects.forEach(select => {
+        select.addEventListener('change', validatePriorityRanking);
+    });
+});
+
 document.getElementById('assessmentForm').addEventListener('submit', async function(e) {
     e.preventDefault();
 
@@ -105,6 +166,14 @@ document.getElementById('assessmentForm').addEventListener('submit', async funct
     const originalButtonText = submitButton.textContent;
     submitButton.disabled = true;
     submitButton.textContent = '処理中...';
+
+    // 優先課題領域のバリデーション
+    if (!validatePriorityRanking()) {
+        submitButton.disabled = false;
+        submitButton.textContent = originalButtonText;
+        document.getElementById('priorityError')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+    }
 
     try {
         // Collect form data
@@ -135,6 +204,27 @@ document.getElementById('assessmentForm').addEventListener('submit', async funct
         } else {
             data.diagnosis = data.diagnosis || 'なし';
         }
+
+        // 優先課題領域の順位データを収集
+        const priorityFields = {
+            cognitive: { id: 'priority_cognitive', label: '認知や行動' },
+            language: { id: 'priority_language', label: '言語やコミュニケーション' },
+            health: { id: 'priority_health', label: '健康や生活' },
+            motor: { id: 'priority_motor', label: '運動や感覚' },
+            social: { id: 'priority_social', label: '人間関係や社会性' }
+        };
+        data.priorityRanking = {};
+        Object.entries(priorityFields).forEach(([key, field]) => {
+            const el = document.getElementById(field.id);
+            data.priorityRanking[key] = {
+                rank: el ? parseInt(el.value) || 0,
+                label: field.label
+            };
+        });
+        // ソート済み配列を作成（1位から順に）
+        data.sortedPriorities = Object.values(data.priorityRanking)
+            .filter(p => p.rank > 0)
+            .sort((a, b) => a.rank - b.rank);
 
         // Add rating data (will be filled in assessment sheet generation)
         data.ratings = calculateRatings(data);
@@ -225,6 +315,15 @@ document.getElementById('assessmentForm').addEventListener('submit', async funct
             console.warn('googleDriveAPI が利用できません');
         }
 
+        // AIによる支援計画自動生成
+        let planResult = null;
+        try {
+            submitButton.textContent = 'AIが支援計画を自動生成中...';
+            planResult = await autoGeneratePlans(data);
+        } catch (planError) {
+            console.error('計画書自動生成エラー:', planError);
+        }
+
         // Show success message
         let successMessage = `アセスメントシートが作成されました！\n\nファイル名: ${fileName}\nローカルにダウンロードされました。`;
 
@@ -240,12 +339,21 @@ document.getElementById('assessmentForm').addEventListener('submit', async funct
             successMessage += `\n（Google Drive APIが利用できないか、設定されていません）`;
         }
 
-        successMessage += `\n\nこのメッセージを閉じると支援計画作成画面に移動します。`;
+        if (planResult && planResult.success) {
+            successMessage += `\n\n✅ AIによる支援計画を自動生成しました！`;
+            if (planResult.support) successMessage += `\n📋 専門的支援実施計画`;
+            if (planResult.individual) successMessage += `\n📋 個別支援計画`;
+        } else if (planResult) {
+            successMessage += `\n\n⚠️ 支援計画の自動生成はスキップされました`;
+            if (planResult.message) successMessage += `\n（${planResult.message}）`;
+        }
+
+        successMessage += `\n\nこのメッセージを閉じるとアセスメント管理画面に移動します。`;
 
         alert(successMessage);
 
-        // Redirect to support plan creation page (AI Tools tab, Support Plan sub-tab)
-        window.location.href = '../index.html?tab=ai-tools&subtab=plan&childName=' + encodeURIComponent(data.childName);
+        // Redirect to assessment manager
+        window.location.href = '../assessment-manager.html';
     } catch (error) {
         console.error('Error creating assessment sheet:', error);
         alert(`エラーが発生しました: ${error.message}`);
@@ -604,6 +712,40 @@ async function generateAssessmentSheet(data) {
                     <td class="details">${data.overallOther || '特記事項なし'}</td>
                     <td></td>
                 </tr>
+
+                <!-- 保護者の希望・本人の強みと課題 -->
+                <tr class="category-header">
+                    <td colspan="3">保護者の希望・本人の強みと課題</td>
+                </tr>
+                <tr>
+                    <td>保護者の希望</td>
+                    <td class="details">${data.guardianWishes || '特記事項なし'}</td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td>本人の強み</td>
+                    <td class="details">${data.childStrengths || '特記事項なし'}</td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td>本人の課題</td>
+                    <td class="details">${data.childChallenges || '特記事項なし'}</td>
+                    <td></td>
+                </tr>
+
+                <!-- 優先課題領域 -->
+                ${data.sortedPriorities && data.sortedPriorities.length > 0 ? `
+                <tr class="category-header">
+                    <td colspan="3">優先課題領域（保護者評価）</td>
+                </tr>
+                ${data.sortedPriorities.map(p => `
+                <tr>
+                    <td>${p.rank}位: ${p.label}</td>
+                    <td class="details"></td>
+                    <td></td>
+                </tr>
+                `).join('')}
+                ` : ''}
             </tbody>
         </table>
 
@@ -677,5 +819,284 @@ async function saveAssessmentSheet(fileName, html, data) {
     } catch (error) {
         console.error('ファイル保存エラー:', error);
         throw new Error(`ファイルの保存に失敗しました: ${error.message}`);
+    }
+}
+
+/**
+ * アセスメントデータを文字列サマリーに変換
+ */
+function buildAssessmentSummary(data) {
+    let summary = '';
+    summary += `【保護者の希望】\n${data.guardianWishes || '未記入'}\n\n`;
+    summary += `【本人の強み】\n${data.childStrengths || '未記入'}\n\n`;
+    summary += `【本人の課題】\n${data.childChallenges || '未記入'}\n\n`;
+
+    if (data.sortedPriorities && data.sortedPriorities.length > 0) {
+        summary += `【優先課題領域】\n`;
+        data.sortedPriorities.forEach(p => {
+            summary += `${p.rank}位: ${p.label}\n`;
+        });
+        summary += '\n';
+    }
+
+    summary += `【対人社会性】\n`;
+    summary += `- 指示の理解: ${data.situationEpisode || '未記入'}\n`;
+    summary += `- コミュニケーション: ${data.communicationDetails || '未記入'}\n`;
+    summary += `- こだわり: ${data.persistence || '未記入'}\n\n`;
+
+    summary += `【行動情緒】\n`;
+    summary += `- 集中力: ${data.concentrationDetails || '未記入'}\n`;
+    summary += `- 衝動性: ${data.impulsivityDetails || '未記入'}\n`;
+    summary += `- パニック: ${data.panicDetails || '未記入'}\n\n`;
+
+    summary += `【身体運動】\n`;
+    summary += `- 粗大運動: ${data.grossMotorDetails || '未記入'}\n`;
+    summary += `- 微細運動: ${data.fineMotorDetails || '未記入'}\n`;
+    summary += `- バランス: ${data.balanceDetails || '未記入'}\n\n`;
+
+    summary += `【その他】\n`;
+    summary += `- 生活習慣: ${data.dailyLivingDetails || '未記入'}\n`;
+    summary += `- 登校しぶり: ${data.schoolRefusalDetails || '未記入'}\n`;
+    summary += `- その他: ${data.overallOther || '未記入'}\n`;
+
+    return summary;
+}
+
+/**
+ * 専門的支援実施計画のHTMLをレンダリング（form.js独立版）
+ */
+function renderOfficialSupportPlanHTML(childData, planData) {
+    const today = new Date().toLocaleDateString('ja-JP');
+    const items = planData.items || [];
+
+    let itemsHTML = '';
+    items.forEach(item => {
+        itemsHTML += `
+            <tr>
+                <td style="text-align:center; font-weight:bold; width:120px;">${item.category || ''}</td>
+                <td style="width:180px;">${item.goal || ''}</td>
+                <td>${item.content || ''}</td>
+                <td style="width:180px;">${item.method || ''}</td>
+                <td style="text-align:center; width:80px;">${item.period || ''}</td>
+            </tr>
+        `;
+    });
+
+    return `
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>${childData.childName}さんの専門的支援実施計画</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Hiragino Kaku Gothic ProN', sans-serif; font-size: 12px; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 1100px; margin: 0 auto; background: white; padding: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+        th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; }
+        th { background: #f0f0f0; font-weight: bold; }
+        @media print { body { padding: 0; background: white; } .container { box-shadow: none; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+            <div><h2 style="color: #d35400;">${childData.childName}さんの専門的支援実施計画</h2></div>
+            <div style="text-align: right; font-size: 11pt;">
+                <p>施設名：カラーズFC鳥栖</p>
+                <p>利用サービス：放課後等デイサービス</p>
+                <p>作成日：${today}</p>
+            </div>
+        </div>
+        <div style="margin-bottom: 15px; background: #f8f9fa; padding: 12px; border-radius: 8px;">
+            <h4 style="color: #d35400;">アセスメント結果</h4>
+            <p><strong>本人：</strong>${planData.assessmentSelf || ''}</p>
+            <p><strong>家族：</strong>${planData.assessmentFamily || ''}</p>
+        </div>
+        <div style="margin-bottom: 15px; background: #f8f9fa; padding: 12px; border-radius: 8px;">
+            <h4 style="color: #d35400;">総合的な支援の方針</h4>
+            <p>${planData.supportPolicy || ''}</p>
+        </div>
+        <table>
+            <tr><td style="background:#f8f9fa; font-weight:bold; color:#d35400; width:100px;">長期目標</td><td>${planData.longTermGoal || ''}</td></tr>
+            <tr><td style="background:#f8f9fa; font-weight:bold; color:#d35400;">短期目標</td><td>${planData.shortTermGoal || ''}</td></tr>
+        </table>
+        <table>
+            <thead><tr style="background:#f8f9fa;">
+                <th>特に支援を要する項目</th><th>目指すべき達成目標</th><th>具体的な支援の内容</th><th>実施方法</th><th>達成時期</th>
+            </tr></thead>
+            <tbody>${itemsHTML}</tbody>
+        </table>
+    </div>
+</body>
+</html>`;
+}
+
+/**
+ * 個別支援計画のHTMLをレンダリング（form.js独立版）
+ */
+function renderOfficialIndividualPlanHTML(childData, planData) {
+    const today = new Date().toLocaleDateString('ja-JP');
+    const selfSupport = planData.selfSupport || [];
+    const familySupport = planData.familySupport || {};
+    const transitionSupport = planData.transitionSupport || {};
+
+    let selfSupportHTML = '';
+    selfSupport.forEach((item, index) => {
+        const rowspanAttr = index === 0 ? `rowspan="${selfSupport.length}"` : '';
+        const categoryCell = index === 0 ? `<td style="text-align:center; font-weight:bold; width:60px; vertical-align:middle; background:#fafafa;" ${rowspanAttr}>本人支援</td>` : '';
+        selfSupportHTML += `<tr>${categoryCell}<td>${item.needs||''}</td><td>${item.goal||''}</td><td>${item.content||''}</td><td style="text-align:center;">${item.period||''}</td><td>${item.staff||''}</td><td>${item.notes||''}</td><td style="text-align:center;">${item.priority||''}</td></tr>`;
+    });
+
+    return `
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>${childData.childName}さんの個別支援計画</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Hiragino Kaku Gothic ProN', sans-serif; font-size: 12px; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 1100px; margin: 0 auto; background: white; padding: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 11px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; }
+        th { background: #f0f0f0; font-weight: bold; }
+        @media print { body { padding: 0; background: white; } .container { box-shadow: none; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+            <div>
+                <h2 style="color: #d35400;">${childData.childName}さんの個別支援計画</h2>
+                <p style="color: #666;">（代替支援用）</p>
+            </div>
+            <div style="text-align: right; font-size: 11pt;">
+                <p>施設名：カラーズFC鳥栖</p>
+                <p>利用サービス：放課後等デイサービス</p>
+                <p>作成日：${today}</p>
+            </div>
+        </div>
+        <div style="margin-bottom: 15px; background: #f8f9fa; padding: 12px; border-radius: 8px;">
+            <h4 style="color: #d35400;">利用児及び家族の生活に対する意向</h4>
+            <p><strong>本人：</strong>${planData.intentSelf || ''}</p>
+            <p><strong>家族：</strong>${planData.intentFamily || ''}</p>
+        </div>
+        <div style="margin-bottom: 15px; background: #f8f9fa; padding: 12px; border-radius: 8px;">
+            <h4 style="color: #d35400;">総合的な支援の方針</h4>
+            <p>${planData.supportPolicy || ''}</p>
+        </div>
+        <table>
+            <tr><td style="background:#f8f9fa; font-weight:bold; color:#d35400; width:150px;">長期目標</td><td>${planData.longTermGoal || ''}</td></tr>
+            <tr><td style="background:#f8f9fa; font-weight:bold; color:#d35400;">短期目標</td><td>${planData.shortTermGoal || ''}</td></tr>
+        </table>
+        <table>
+            <thead><tr style="background:#f8f9fa;">
+                <th colspan="2">項目（本人のニーズ等）</th><th>具体的な達成目標</th><th>支援内容</th><th>達成時期</th><th>担当者</th><th>留意事項</th><th>優先順位</th>
+            </tr></thead>
+            <tbody>
+                ${selfSupportHTML}
+                <tr>
+                    <td style="text-align:center; font-weight:bold; background:#fafafa;">家族支援</td>
+                    <td>${familySupport.needs||''}</td><td>${familySupport.goal||''}</td><td>${familySupport.content||''}</td>
+                    <td style="text-align:center;">${familySupport.period||''}</td><td>${familySupport.staff||''}</td><td>${familySupport.notes||''}</td><td></td>
+                </tr>
+                <tr>
+                    <td style="text-align:center; font-weight:bold; background:#fafafa;">移行支援</td>
+                    <td>${transitionSupport.needs||''}</td><td>${transitionSupport.goal||''}</td><td>${transitionSupport.content||''}</td>
+                    <td style="text-align:center;">${transitionSupport.period||''}</td><td>${transitionSupport.staff||''}</td><td>${transitionSupport.notes||''}</td><td></td>
+                </tr>
+            </tbody>
+        </table>
+        <div style="margin-top: 30px; display: flex; justify-content: space-between;">
+            <div><p>説明同意日　令和　　年　　月　　日</p><p>保護者氏名 ____________________</p></div>
+            <div><p>カラーズFC鳥栖</p><p>児童発達支援管理責任者　岡本　陸佑</p></div>
+        </div>
+    </div>
+</body>
+</html>`;
+}
+
+/**
+ * アセスメント送信後に支援計画を自動生成
+ */
+async function autoGeneratePlans(data) {
+    if (typeof geminiAPI === 'undefined') {
+        console.warn('geminiAPI が利用できません。計画書自動生成をスキップします。');
+        return { success: false, message: 'Gemini APIが利用できません' };
+    }
+
+    try {
+        // APIキー読み込み
+        geminiAPI.loadApiKey();
+        if (!geminiAPI.isInitialized()) {
+            console.warn('Gemini APIキーが設定されていません。計画書自動生成をスキップします。');
+            return { success: false, message: 'APIキーが未設定です' };
+        }
+
+        const assessmentSummary = buildAssessmentSummary(data);
+        const today = new Date().toISOString().split('T')[0];
+        const supportPlans = JSON.parse(localStorage.getItem('supportPlans') || '{}');
+        const results = { support: null, individual: null };
+
+        // 専門的支援実施計画を生成
+        try {
+            const supportPlanData = await geminiAPI.generateOfficialSupportPlan({
+                childName: data.childName,
+                diagnosis: data.diagnosis,
+                certificateNumber: '',
+                supportPeriod: '',
+                assessmentSummary: assessmentSummary
+            });
+
+            const supportPlanHTML = renderOfficialSupportPlanHTML(data, supportPlanData);
+            const supportFileName = `${data.childName}_専門的支援実施計画_${today}.html`;
+            supportPlans[supportFileName] = {
+                html: supportPlanHTML,
+                childName: data.childName,
+                planData: supportPlanData,
+                createdAt: new Date().toISOString(),
+                type: 'officialSupport'
+            };
+            results.support = supportFileName;
+        } catch (e) {
+            console.error('専門的支援実施計画の生成に失敗:', e);
+        }
+
+        // 個別支援計画を生成
+        try {
+            const individualPlanData = await geminiAPI.generateOfficialIndividualPlan({
+                childName: data.childName,
+                diagnosis: data.diagnosis,
+                certificateNumber: '',
+                startDate: '',
+                endDate: '',
+                assessmentSummary: assessmentSummary
+            });
+
+            const individualPlanHTML = renderOfficialIndividualPlanHTML(data, individualPlanData);
+            const individualFileName = `${data.childName}_個別支援計画_${today}.html`;
+            supportPlans[individualFileName] = {
+                html: individualPlanHTML,
+                childName: data.childName,
+                planData: individualPlanData,
+                createdAt: new Date().toISOString(),
+                type: 'officialIndividual'
+            };
+            results.individual = individualFileName;
+        } catch (e) {
+            console.error('個別支援計画の生成に失敗:', e);
+        }
+
+        localStorage.setItem('supportPlans', JSON.stringify(supportPlans));
+
+        return {
+            success: results.support || results.individual,
+            support: results.support,
+            individual: results.individual
+        };
+    } catch (error) {
+        console.error('計画書自動生成エラー:', error);
+        return { success: false, message: error.message };
     }
 }

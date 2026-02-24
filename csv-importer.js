@@ -122,6 +122,24 @@ class CSVImporter {
     }
 
     /**
+     * 名前をクリーンアップ（不要な接尾辞・括弧を除去）
+     * @param {string} name - 元の名前文字列
+     * @returns {string} クリーンアップされた名前
+     */
+    cleanName(name) {
+        if (!name) return '';
+        let cleaned = name;
+        // 全角・半角括弧内のふりがな等を除去
+        cleaned = cleaned.replace(/（.*?）/g, '').replace(/\(.*?\)/g, '');
+        // 「さんの支援計画書」「さんの個別支援計画書」「さんの記録」等のパターンを除去
+        cleaned = cleaned.replace(/さんの(専門的支援実施計画|個別支援計画書|支援計画書|個別支援計画|支援計画|記録|アセスメント(シート)?)/g, '');
+        // 末尾の「さん」を除去
+        cleaned = cleaned.replace(/さん$/, '');
+        // 前後空白除去
+        return cleaned.trim();
+    }
+
+    /**
      * 児童基本情報をインポート
      * @param {File} file - CSVファイル
      * @returns {Promise<Object>} インポート結果
@@ -144,9 +162,7 @@ class CSVImporter {
                 // 部分一致で検索
                 const matchingKey = Object.keys(data).find(k => k.includes(key));
                 if (matchingKey && data[matchingKey]) {
-                    childName = data[matchingKey];
-                    // 「さん」や括弧内のふりがなを除去
-                    childName = childName.replace(/（.*?）/g, '').replace(/\(.*?\)/g, '').replace(/　さん$/, '').replace(/ さん$/, '').trim();
+                    childName = this.cleanName(data[matchingKey]);
                     break;
                 }
             }
@@ -212,7 +228,7 @@ class CSVImporter {
             for (const row of rows) {
                 if (!row['氏名']) continue;
 
-                const childName = row['氏名'];
+                const childName = this.cleanName(row['氏名']);
                 const fileName = `${childName}_アセスメントシート_imported.html`;
 
                 const assessmentData = {
@@ -298,7 +314,7 @@ class CSVImporter {
             for (const row of rows) {
                 if (!row['児童名']) continue;
 
-                const childName = row['児童名'];
+                const childName = this.cleanName(row['児童名']);
                 const createdDate = row['作成日'] || new Date().toISOString().split('T')[0];
                 const fileName = `${childName}_支援計画_${createdDate}.html`;
 
@@ -377,9 +393,9 @@ class CSVImporter {
                 const match = firstCol.match(/児童名[：:]/);
                 if (match) {
                     // コロン以降を取得
-                    planData.childName = firstCol.replace(/児童名[：:]/, '').trim();
+                    planData.childName = this.cleanName(firstCol.replace(/児童名[：:]/, '').trim());
                 } else if (secondCol) {
-                    planData.childName = secondCol;
+                    planData.childName = this.cleanName(secondCol);
                 }
             }
 

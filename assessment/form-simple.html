@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>カラーズFC お子様の特性に関するアンケート（簡易版）</title>
+    <title>カラーズFC お子様の特性に関するアンケート</title>
     <link rel="stylesheet" href="form.css">
 </head>
 <body>
@@ -11,14 +11,10 @@
         <header>
             <div class="version-badge">v1.0.3</div>
             <h1>カラーズFC お子様の特性に関するアンケート</h1>
-            <p class="form-type-badge simple">簡易版</p>
             <p class="description">
                 この度は、カラーズFCへのお問い合わせ（ご入塾）、誠にありがとうございます。<br>
                 通塾を開始されるにあたり、お子様の特性について最低限の情報をお伺いします。<br>
                 わかる範囲でご記入ください。
-            </p>
-            <p class="form-switch">
-                <a href="form.html">詳細版フォームはこちら</a>
             </p>
         </header>
 
@@ -264,6 +260,100 @@
                 </div>
             </section>
 
+            <!-- セクション6: 保護者の希望・本人の強みと課題 -->
+            <section class="form-section">
+                <h2>セクション6: 保護者の希望・本人の強みと課題</h2>
+                <p class="section-description">お子様の支援に関する保護者のご希望と、お子様の強み・課題についてお伺いします。</p>
+
+                <h3>保護者の希望</h3>
+                <div class="form-group">
+                    <label for="guardianWishes">カラーズFCでの支援を通じて、お子様にどのようになってほしいですか？</label>
+                    <textarea id="guardianWishes" name="guardianWishes" rows="3" placeholder="例：友達とうまく関われるようになってほしい、感情のコントロールができるようになってほしいなど"></textarea>
+                </div>
+
+                <h3>本人の強み</h3>
+                <div class="form-group">
+                    <label for="childStrengths">お子様の得意なこと、好きなこと、良いところを教えてください。</label>
+                    <textarea id="childStrengths" name="childStrengths" rows="3" placeholder="例：記憶力が良い、動物が好き、優しい性格など"></textarea>
+                </div>
+
+                <h3>本人の課題</h3>
+                <div class="form-group">
+                    <label for="childChallenges">お子様の苦手なこと、改善したいことを教えてください。</label>
+                    <textarea id="childChallenges" name="childChallenges" rows="3" placeholder="例：感情のコントロール、集団行動、文字を書くことなど"></textarea>
+                </div>
+            </section>
+
+            <!-- セクション7: 優先課題領域の順位付け -->
+            <section class="form-section">
+                <h2>セクション7: 優先課題領域の順位付け</h2>
+                <p class="section-description">以下の5つの発達領域について、お子様にとって特に支援が必要だと思われる順に1位～5位の順位をつけてください。</p>
+
+                <div class="priority-ranking">
+                    <div class="priority-item">
+                        <label>認知や行動</label>
+                        <select id="priority_cognitive" name="priority_cognitive">
+                            <option value="">選択してください</option>
+                            <option value="1">1位</option>
+                            <option value="2">2位</option>
+                            <option value="3">3位</option>
+                            <option value="4">4位</option>
+                            <option value="5">5位</option>
+                        </select>
+                        <span class="priority-hint">理解力、判断力、注意力など</span>
+                    </div>
+                    <div class="priority-item">
+                        <label>言語やコミュニケーション</label>
+                        <select id="priority_language" name="priority_language">
+                            <option value="">選択してください</option>
+                            <option value="1">1位</option>
+                            <option value="2">2位</option>
+                            <option value="3">3位</option>
+                            <option value="4">4位</option>
+                            <option value="5">5位</option>
+                        </select>
+                        <span class="priority-hint">会話、表現、やりとりなど</span>
+                    </div>
+                    <div class="priority-item">
+                        <label>健康や生活</label>
+                        <select id="priority_health" name="priority_health">
+                            <option value="">選択してください</option>
+                            <option value="1">1位</option>
+                            <option value="2">2位</option>
+                            <option value="3">3位</option>
+                            <option value="4">4位</option>
+                            <option value="5">5位</option>
+                        </select>
+                        <span class="priority-hint">生活習慣、身辺自立など</span>
+                    </div>
+                    <div class="priority-item">
+                        <label>運動や感覚</label>
+                        <select id="priority_motor" name="priority_motor">
+                            <option value="">選択してください</option>
+                            <option value="1">1位</option>
+                            <option value="2">2位</option>
+                            <option value="3">3位</option>
+                            <option value="4">4位</option>
+                            <option value="5">5位</option>
+                        </select>
+                        <span class="priority-hint">粗大運動、微細運動、感覚統合など</span>
+                    </div>
+                    <div class="priority-item">
+                        <label>人間関係や社会性</label>
+                        <select id="priority_social" name="priority_social">
+                            <option value="">選択してください</option>
+                            <option value="1">1位</option>
+                            <option value="2">2位</option>
+                            <option value="3">3位</option>
+                            <option value="4">4位</option>
+                            <option value="5">5位</option>
+                        </select>
+                        <span class="priority-hint">対人関係、協調性、社会的ルールなど</span>
+                    </div>
+                </div>
+                <p id="priorityError" style="color: #e74c3c; font-weight: bold; display: none; margin-top: 10px;"></p>
+            </section>
+
             <div class="button-container">
                 <button type="submit" class="submit-button">アセスメントシートを作成</button>
             </div>
@@ -279,6 +369,7 @@
     <!-- Google Drive API -->
     <script src="../config.js"></script>
     <script src="../google-drive-api.js"></script>
+    <script src="../gemini-api.js"></script>
     <script src="form.js"></script>
 </body>
 </html>

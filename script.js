@@ -681,8 +681,9 @@ function displayPracticeMenus() {
 
     if (!grid) return;
 
-    // フィルタリング
-    let filteredMenus = practiceMenus;
+    // アップロードされたメニューを結合
+    const uploaded = JSON.parse(localStorage.getItem('uploadedPracticeMenus') || '[]');
+    let filteredMenus = [...practiceMenus, ...uploaded];
 
     // カテゴリフィルター（categories配列を使用）
     if (currentPracticeCategory !== 'all') {
@@ -710,22 +711,53 @@ function displayPracticeMenus() {
     filteredMenus.forEach(menu => {
         const card = document.createElement('div');
         card.className = 'practice-card';
-        card.onclick = () => openPracticeMenuPDF(menu);
 
         const categoryLabel = getPracticeCategoryLabel(menu.category);
         const difficultyClass = getDifficultyClass(menu.difficulty);
 
-        card.innerHTML = `
-            <div class="practice-header">
-                <span class="practice-category-label">${categoryLabel}</span>
-                <span class="practice-difficulty ${difficultyClass}">${menu.difficulty}</span>
-            </div>
-            <h3>${menu.title}</h3>
-            <p>${menu.description}</p>
-            <div class="practice-footer">
-                <span class="view-pdf-btn">PDFを見る</span>
-            </div>
-        `;
+        if (menu.isUploaded) {
+            // アップロードされたメニュー
+            let footerHTML = '';
+            if (menu.videoUrl) {
+                const videoId = getYouTubeVideoId(menu.videoUrl);
+                if (videoId) {
+                    footerHTML += `<button class="btn-video" onclick="event.stopPropagation(); showYouTubeEmbed('${videoId}', '${menu.title.replace(/'/g, "\\'")}')">▶ 動画を見る</button>`;
+                } else {
+                    footerHTML += `<a href="${menu.videoUrl}" target="_blank" rel="noopener" class="btn-video" onclick="event.stopPropagation()">▶ 動画を見る</a>`;
+                }
+            }
+            if (menu.pdfUrl) {
+                footerHTML += `<a href="${menu.pdfUrl}" target="_blank" rel="noopener" class="view-pdf-btn" onclick="event.stopPropagation()">PDFを見る</a>`;
+            }
+            footerHTML += `<button class="btn-delete-menu" onclick="event.stopPropagation(); deleteUploadedMenu('${menu.id}')">削除</button>`;
+
+            card.innerHTML = `
+                <div class="practice-header">
+                    <span class="practice-category-label">${categoryLabel}</span>
+                    <span class="practice-difficulty ${difficultyClass}">${menu.difficulty}</span>
+                    <span class="uploaded-badge">追加</span>
+                </div>
+                <h3>${menu.title}</h3>
+                <p>${menu.description}</p>
+                <div class="practice-footer" style="gap: 0.5rem; flex-wrap: wrap;">
+                    ${footerHTML}
+                </div>
+            `;
+        } else {
+            // 標準メニュー
+            card.onclick = () => openPracticeMenuPDF(menu);
+            card.innerHTML = `
+                <div class="practice-header">
+                    <span class="practice-category-label">${categoryLabel}</span>
+                    <span class="practice-difficulty ${difficultyClass}">${menu.difficulty}</span>
+                </div>
+                <h3>${menu.title}</h3>
+                <p>${menu.description}</p>
+                <div class="practice-footer">
+                    <span class="view-pdf-btn">PDFを見る</span>
+                </div>
+            `;
+        }
 
         grid.appendChild(card);
     });
@@ -4408,4 +4440,171 @@ function showImportResult(result) {
             </div>
         `;
     }
+}
+
+// ========================================
+// 練習メニューアップロード機能
+// ========================================
+
+const PRACTICE_UPLOAD_PASSWORD = 'heartup';
+
+/**
+ * 練習メニューアップロードフォームを表示
+ */
+function showPracticeUploadForm() {
+    const password = prompt('管理パスワードを入力してください:');
+    if (password !== PRACTICE_UPLOAD_PASSWORD) {
+        if (password !== null) alert('パスワードが正しくありません。');
+        return;
+    }
+
+    const modal = document.getElementById('modal');
+    const modalBody = document.getElementById('modalBody');
+
+    modalBody.innerHTML = `
+        <h2 style="color: #2e7d32; margin-bottom: 1.5rem;">練習メニューを追加</h2>
+        <form id="practiceUploadForm" onsubmit="submitPracticeUpload(event)">
+            <div class="form-group">
+                <label for="uploadTitle">タイトル <span style="color: #e74c3c;">*</span></label>
+                <input type="text" id="uploadTitle" required placeholder="例：ラダートレーニング">
+            </div>
+            <div class="form-group">
+                <label for="uploadDescription">説明</label>
+                <textarea id="uploadDescription" rows="3" placeholder="メニューの説明を入力"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="uploadCategory">カテゴリ</label>
+                <select id="uploadCategory">
+                    <option value="warmup">ウォーミングアップ</option>
+                    <option value="dribble">ドリブル</option>
+                    <option value="shoot">シュート</option>
+                    <option value="match">対人・試合</option>
+                    <option value="game">ゲーム</option>
+                    <option value="concentration">集中力強化</option>
+                    <option value="switching">切り替え強化</option>
+                    <option value="competition">勝ち負け</option>
+                    <option value="vestibular">前庭覚刺激</option>
+                    <option value="proprioceptive">固有覚刺激</option>
+                    <option value="tactile">触覚刺激</option>
+                    <option value="flexibility">柔軟性（稼働域）</option>
+                    <option value="bodyimage">ボディイメージ</option>
+                    <option value="balance">バランス</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="uploadDifficulty">難易度</label>
+                <select id="uploadDifficulty">
+                    <option value="☆">☆（初級）</option>
+                    <option value="★☆">★☆（中級）</option>
+                    <option value="★★">★★（上級）</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="uploadVideoUrl">動画URL（YouTube等）</label>
+                <input type="url" id="uploadVideoUrl" placeholder="https://www.youtube.com/watch?v=...">
+            </div>
+            <div class="form-group">
+                <label for="uploadPdfUrl">PDFファイルURL</label>
+                <input type="url" id="uploadPdfUrl" placeholder="https://example.com/file.pdf">
+            </div>
+            <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+                <button type="button" class="btn-secondary" onclick="closeModal()">キャンセル</button>
+                <button type="submit" class="btn-primary">保存</button>
+            </div>
+        </form>
+    `;
+
+    modal.classList.remove('hidden');
+}
+
+/**
+ * 練習メニューアップロードを保存
+ */
+function submitPracticeUpload(event) {
+    event.preventDefault();
+
+    const title = document.getElementById('uploadTitle').value.trim();
+    if (!title) {
+        alert('タイトルを入力してください。');
+        return;
+    }
+
+    const menu = {
+        id: 'uploaded_' + Date.now(),
+        title: title,
+        description: document.getElementById('uploadDescription').value.trim() || '',
+        category: document.getElementById('uploadCategory').value,
+        categories: [document.getElementById('uploadCategory').value],
+        difficulty: document.getElementById('uploadDifficulty').value,
+        videoUrl: document.getElementById('uploadVideoUrl').value.trim() || '',
+        pdfUrl: document.getElementById('uploadPdfUrl').value.trim() || '',
+        isUploaded: true,
+        createdAt: new Date().toISOString()
+    };
+
+    const uploaded = JSON.parse(localStorage.getItem('uploadedPracticeMenus') || '[]');
+    uploaded.push(menu);
+    localStorage.setItem('uploadedPracticeMenus', JSON.stringify(uploaded));
+
+    closeModal();
+    displayPracticeMenus();
+    alert('練習メニューを追加しました！');
+}
+
+/**
+ * YouTube URLからVideo IDを抽出
+ */
+function getYouTubeVideoId(url) {
+    if (!url) return null;
+    const patterns = [
+        /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+        /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/
+    ];
+    for (const pattern of patterns) {
+        const match = url.match(pattern);
+        if (match) return match[1];
+    }
+    return null;
+}
+
+/**
+ * YouTube動画をモーダルで表示
+ */
+function showYouTubeEmbed(videoId, title) {
+    const modal = document.getElementById('modal');
+    const modalBody = document.getElementById('modalBody');
+
+    modalBody.innerHTML = `
+        <h3 style="color: #2e7d32; margin-bottom: 1rem;">${title}</h3>
+        <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px;">
+            <iframe
+                src="https://www.youtube.com/embed/${videoId}?autoplay=1"
+                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;"
+                allow="autoplay; encrypted-media"
+                allowfullscreen>
+            </iframe>
+        </div>
+    `;
+
+    modal.classList.remove('hidden');
+}
+
+/**
+ * アップロードされた練習メニューを削除
+ */
+function deleteUploadedMenu(menuId) {
+    const password = prompt('管理パスワードを入力してください:');
+    if (password !== PRACTICE_UPLOAD_PASSWORD) {
+        if (password !== null) alert('パスワードが正しくありません。');
+        return;
+    }
+
+    if (!confirm('このメニューを削除しますか？')) return;
+
+    const uploaded = JSON.parse(localStorage.getItem('uploadedPracticeMenus') || '[]');
+    const filtered = uploaded.filter(m => m.id !== menuId);
+    localStorage.setItem('uploadedPracticeMenus', JSON.stringify(filtered));
+
+    displayPracticeMenus();
+    alert('メニューを削除しました。');
 }

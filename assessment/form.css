@@ -544,3 +544,72 @@ footer {
     color: #1565c0;
     border: 1px solid #90caf9;
 }
+
+/* 優先課題領域の順位付け */
+.priority-ranking {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.priority-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 16px;
+    background: #f9f9f9;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    transition: border-color 0.3s;
+}
+
+.priority-item:hover {
+    border-color: #4caf50;
+}
+
+.priority-item label {
+    font-weight: 600;
+    color: #333;
+    min-width: 200px;
+    margin-bottom: 0;
+}
+
+.priority-item select {
+    padding: 8px 12px;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    min-width: 140px;
+    transition: border-color 0.3s;
+}
+
+.priority-item select:focus {
+    outline: none;
+    border-color: #4caf50;
+}
+
+.priority-hint {
+    font-size: 13px;
+    color: #888;
+}
+
+.priority-item.error {
+    border-color: #e74c3c;
+    background: #fff5f5;
+}
+
+@media (max-width: 768px) {
+    .priority-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .priority-item label {
+        min-width: auto;
+    }
+
+    .priority-item select {
+        width: 100%;
+    }
+}

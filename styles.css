@@ -1896,3 +1896,71 @@ main {
         width: 100%;
     }
 }
+
+/* ============================================
+   練習メニューアップロードボタン
+   ============================================ */
+.btn-upload {
+    padding: 0.6rem 1.2rem;
+    background: linear-gradient(135deg, #ff9800 0%, #ffc107 100%);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);
+}
+
+.btn-upload:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+}
+
+.uploaded-badge {
+    display: inline-block;
+    background: #ff9800;
+    color: white;
+    padding: 0.15rem 0.5rem;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+}
+
+.btn-video {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.4rem 0.8rem;
+    background: #f44336;
+    color: white;
+    border: none;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-video:hover {
+    background: #d32f2f;
+    transform: scale(1.05);
+}
+
+.btn-delete-menu {
+    padding: 0.3rem 0.6rem;
+    background: #ffebee;
+    color: #c62828;
+    border: 1px solid #ef9a9a;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-delete-menu:hover {
+    background: #ffcdd2;
+}
