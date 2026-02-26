@@ -4288,82 +4288,108 @@ function downloadCsvTemplate() {
  * インポートを実行
  */
 async function executeImport() {
-    if (!window.selectedCsvFile) {
-        alert('CSVファイルを選択してください');
-        return;
-    }
-
-    const btn = document.getElementById('importBtn');
-    const originalText = btn.textContent;
-    btn.textContent = 'インポート中...';
-    btn.disabled = true;
-
     try {
-        // CSVの内容を先読みしてデータ種別を自動検出
-        const csvText = await new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target.result);
-            reader.onerror = () => reject(new Error('ファイルの読み込みに失敗しました'));
-            reader.readAsText(window.selectedCsvFile, 'UTF-8');
-        });
-
-        const detectedType = csvImporter.detectContentType(csvText);
-        const importType = detectedType || window.currentImportType;
-
-        // 自動検出でタイプが変わった場合、UIのタイプも更新
-        if (detectedType && detectedType !== window.currentImportType) {
-            console.log(`CSVの内容を自動検出: ${window.currentImportType} → ${detectedType}`);
-            window.currentImportType = detectedType;
+        if (!window.selectedCsvFile) {
+            alert('CSVファイルを選択してください');
+            return;
         }
 
-        let result;
-        const options = {
-            folderId: window.selectedFolderId || null,
-            folderName: window.selectedFolderName || null,
-            saveToGoogleDrive: !!window.selectedFolderId
-        };
-
-        switch (importType) {
-            case 'childInfo':
-                result = await csvImporter.importChildInfo(window.selectedCsvFile, options);
-                break;
-            case 'supportPlan':
-                result = await csvImporter.importSupportPlan(window.selectedCsvFile, options);
-                break;
-            case 'record':
-                result = await csvImporter.importRecords(window.selectedCsvFile, options);
-                break;
+        const btn = document.getElementById('importBtn');
+        if (!btn) {
+            alert('インポートボタンが見つかりません');
+            return;
         }
+        const originalText = btn.textContent;
+        btn.textContent = 'インポート中...';
+        btn.disabled = true;
 
-        // Google Driveに保存
-        if (options.saveToGoogleDrive && result.success) {
-            btn.textContent = 'Google Driveに保存中...';
-            await saveImportedDataToGoogleDrive(result, options);
-            result.message += `\n\nGoogle Drive「${options.folderName}」フォルダに保存しました`;
+        try {
+            // CSVの内容を先読みしてデータ種別を自動検出
+            const csvText = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = () => reject(new Error('ファイルの読み込みに失敗しました'));
+                reader.readAsText(window.selectedCsvFile, 'UTF-8');
+            });
+
+            const detectedType = csvImporter.detectContentType(csvText);
+            const importType = detectedType || window.currentImportType;
+
+            // 自動検出でタイプが変わった場合、UIのタイプも更新
+            if (detectedType && detectedType !== window.currentImportType) {
+                console.log(`CSVの内容を自動検出: ${window.currentImportType} → ${detectedType}`);
+                window.currentImportType = detectedType;
+            }
+
+            let result;
+            const options = {
+                folderId: window.selectedFolderId || null,
+                folderName: window.selectedFolderName || null,
+                saveToGoogleDrive: !!window.selectedFolderId
+            };
+
+            switch (importType) {
+                case 'childInfo':
+                    result = await csvImporter.importChildInfo(window.selectedCsvFile, options);
+                    break;
+                case 'supportPlan':
+                    result = await csvImporter.importSupportPlan(window.selectedCsvFile, options);
+                    break;
+                case 'record':
+                    result = await csvImporter.importRecords(window.selectedCsvFile, options);
+                    break;
+                default:
+                    throw new Error('不明なインポートタイプ: ' + importType);
+            }
+
+            if (!result) {
+                throw new Error('インポート結果が返されませんでした');
+            }
+
+            // Google Driveに保存
+            if (options.saveToGoogleDrive && result.success) {
+                btn.textContent = 'Google Driveに保存中...';
+                try {
+                    await saveImportedDataToGoogleDrive(result, options);
+                    result.message += `\n\nGoogle Drive「${options.folderName}」フォルダに保存しました`;
+                } catch (driveError) {
+                    console.error('Google Drive保存エラー:', driveError);
+                    result.message += '\n\n（Google Drive保存に失敗しましたが、ローカルには保存されています）';
+                }
+            }
+
+            // 成功メッセージをアラートで表示
+            alert(result.success ? result.message : 'インポートに失敗しました: ' + result.message);
+
+            // 結果を表示
+            showImportResult(result);
+
+            // 結果が見えるようにスクロール
+            const resultDiv = document.getElementById('importResult');
+            if (resultDiv) resultDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        } catch (error) {
+            console.error('インポートエラー:', error);
+            alert('インポートエラー: ' + error.message);
+            try {
+                showImportResult({
+                    success: false,
+                    message: error.message
+                });
+                const resultDiv = document.getElementById('importResult');
+                if (resultDiv) resultDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } catch (displayError) {
+                console.error('結果表示エラー:', displayError);
+            }
+        } finally {
+            btn.textContent = originalText;
+            btn.disabled = false;
+            window.selectedFolderId = null;
+            window.selectedFolderName = null;
         }
-
-        // 結果を表示
-        showImportResult(result);
-
-        // 結果が見えるようにスクロール
-        const resultDiv = document.getElementById('importResult');
-        if (resultDiv) resultDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-    } catch (error) {
-        console.error('インポートエラー:', error);
-        showImportResult({
-            success: false,
-            message: error.message
-        });
-        // エラー時もスクロールして結果を見せる
-        const resultDiv = document.getElementById('importResult');
-        if (resultDiv) resultDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    } finally {
-        btn.textContent = originalText;
-        btn.disabled = false;
-        // 選択状態をリセット
-        window.selectedFolderId = null;
-        window.selectedFolderName = null;
+    } catch (outerError) {
+        console.error('executeImport 外側エラー:', outerError);
+        alert('予期しないエラー: ' + outerError.message);
     }
 }
 
