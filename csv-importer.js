@@ -131,10 +131,14 @@ class CSVImporter {
         let cleaned = name;
         // 全角・半角括弧内のふりがな等を除去
         cleaned = cleaned.replace(/（.*?）/g, '').replace(/\(.*?\)/g, '');
-        // 「さんの支援計画書」「さんの個別支援計画書」「さんの記録」等のパターンを除去
-        cleaned = cleaned.replace(/さんの(専門的支援実施計画|個別支援計画書|支援計画書|個別支援計画|支援計画|記録|アセスメント(シート)?)/g, '');
+        // 「さんの〇〇計画」「の〇〇計画」系のパターンを広く除去
+        cleaned = cleaned.replace(/さんの(専門的支援実施計画|専門的支援計画|個別支援計画書|個別支援計画|支援実施計画|支援計画書|支援計画|発達支援計画|記録|アセスメント(シート)?)/g, '');
+        // 「さん」なしで直接つながるパターン（例：「末次陽向の個別支援計画」）
+        cleaned = cleaned.replace(/の(専門的支援実施計画|専門的支援計画|個別支援計画書|個別支援計画|支援実施計画|支援計画書|支援計画|発達支援計画)$/g, '');
         // 末尾の「さん」を除去
         cleaned = cleaned.replace(/さん$/, '');
+        // 日付パターンを除去（_2026-02-24 等）
+        cleaned = cleaned.replace(/[_＿]\d{4}-\d{2}-\d{2}/, '');
         // 前後空白除去
         return cleaned.trim();
     }
@@ -380,12 +384,28 @@ class CSVImporter {
         let currentSection = '';
         let currentSupportItem = null;
         let intentSection = false;
+        let titleCandidate = ''; // タイトル行から名前を抽出するためのフォールバック
 
         for (let i = 0; i < lines.length; i++) {
             const cols = this.parseCSVLine(lines[i]);
             // BOMを除去
             let firstCol = (cols[0] || '').replace(/^\ufeff/, '').trim();
             const secondCol = (cols[1] || '').trim();
+
+            // タイトル行から名前候補を抽出（「〇〇さんの個別支援計画」形式）
+            if (!titleCandidate && i < 5) {
+                const titleMatch = firstCol.match(/^(.+?)さんの(専門的支援実施計画|専門的支援計画|個別支援計画書|個別支援計画|支援実施計画|支援計画書|支援計画|発達支援計画)/);
+                if (titleMatch) {
+                    titleCandidate = titleMatch[1].trim();
+                }
+                // 「〇〇の個別支援計画」形式（「さん」なし）
+                if (!titleCandidate) {
+                    const titleMatch2 = firstCol.match(/^(.+?)の(専門的支援実施計画|専門的支援計画|個別支援計画書|個別支援計画|支援実施計画|支援計画書|支援計画|発達支援計画)/);
+                    if (titleMatch2 && titleMatch2[1].length <= 20) {
+                        titleCandidate = titleMatch2[1].trim();
+                    }
+                }
+            }
 
             // 児童名（「児童名：〇〇」形式）
             if (firstCol.includes('児童名')) {
@@ -394,6 +414,15 @@ class CSVImporter {
                 if (match) {
                     // コロン以降を取得
                     planData.childName = this.cleanName(firstCol.replace(/児童名[：:]/, '').trim());
+                } else if (secondCol) {
+                    planData.childName = this.cleanName(secondCol);
+                }
+            }
+
+            // 氏名フィールドからも名前を取得
+            if (!planData.childName && (firstCol === '氏名' || firstCol.match(/^氏名[：:]/))) {
+                if (firstCol.match(/^氏名[：:]/)) {
+                    planData.childName = this.cleanName(firstCol.replace(/^氏名[：:]/, '').trim());
                 } else if (secondCol) {
                     planData.childName = this.cleanName(secondCol);
                 }
@@ -520,6 +549,12 @@ class CSVImporter {
                     notes: (cols[6] || cols[7] || '').trim()
                 };
             }
+        }
+
+        // 児童名が取得できなかった場合、タイトル行の候補を使用
+        if (!planData.childName && titleCandidate) {
+            planData.childName = this.cleanName(titleCandidate);
+            console.log('タイトル行から児童名を抽出:', planData.childName);
         }
 
         return planData;
