@@ -10,6 +10,33 @@ class CSVImporter {
     }
 
     /**
+     * CSVの内容からデータ種別を自動検出
+     * @param {string} csvText - CSVテキスト
+     * @returns {string|null} 'supportPlan' | 'record' | 'childInfo' | null
+     */
+    detectContentType(csvText) {
+        const text = csvText.replace(/^\ufeff/, '');
+
+        const supportPlanKeywords = ['総合的な支援の方針', '長期目標', '短期目標', '本人支援', '家族支援', '移行支援', '個別支援計画', '支援実施計画', '支援計画書'];
+        const recordKeywords = ['活動内容', '本日の様子', '出席', '欠席', '活動記録'];
+
+        let supportPlanScore = 0;
+        let recordScore = 0;
+
+        for (const keyword of supportPlanKeywords) {
+            if (text.includes(keyword)) supportPlanScore++;
+        }
+
+        for (const keyword of recordKeywords) {
+            if (text.includes(keyword)) recordScore++;
+        }
+
+        if (supportPlanScore >= 2) return 'supportPlan';
+        if (recordScore >= 2) return 'record';
+        return null;
+    }
+
+    /**
      * CSVの形式を検出
      * @param {string} csvText - CSVテキスト
      * @returns {string} 'vertical' | 'horizontal'

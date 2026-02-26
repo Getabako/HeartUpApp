@@ -4299,6 +4299,23 @@ async function executeImport() {
     btn.disabled = true;
 
     try {
+        // CSVの内容を先読みしてデータ種別を自動検出
+        const csvText = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = () => reject(new Error('ファイルの読み込みに失敗しました'));
+            reader.readAsText(window.selectedCsvFile, 'UTF-8');
+        });
+
+        const detectedType = csvImporter.detectContentType(csvText);
+        const importType = detectedType || window.currentImportType;
+
+        // 自動検出でタイプが変わった場合、UIのタイプも更新
+        if (detectedType && detectedType !== window.currentImportType) {
+            console.log(`CSVの内容を自動検出: ${window.currentImportType} → ${detectedType}`);
+            window.currentImportType = detectedType;
+        }
+
         let result;
         const options = {
             folderId: window.selectedFolderId || null,
@@ -4306,7 +4323,7 @@ async function executeImport() {
             saveToGoogleDrive: !!window.selectedFolderId
         };
 
-        switch (window.currentImportType) {
+        switch (importType) {
             case 'childInfo':
                 result = await csvImporter.importChildInfo(window.selectedCsvFile, options);
                 break;
@@ -4328,12 +4345,19 @@ async function executeImport() {
         // 結果を表示
         showImportResult(result);
 
+        // 結果が見えるようにスクロール
+        const resultDiv = document.getElementById('importResult');
+        if (resultDiv) resultDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
     } catch (error) {
         console.error('インポートエラー:', error);
         showImportResult({
             success: false,
             message: error.message
         });
+        // エラー時もスクロールして結果を見せる
+        const resultDiv = document.getElementById('importResult');
+        if (resultDiv) resultDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
     } finally {
         btn.textContent = originalText;
         btn.disabled = false;
