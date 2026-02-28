@@ -4238,42 +4238,93 @@ async function showFolderSelection() {
     document.getElementById('folderLoadingIndicator').style.display = 'block';
     document.getElementById('folderList').style.display = 'none';
 
-    // Google Driveから既存フォルダを取得
+    // Google Driveから既存フォルダを取得（タイムアウト付き）
     try {
-        if (typeof googleDriveAPI !== 'undefined') {
-            // 未初期化の場合は自動初期化
-            if (!googleDriveAPI.isInitialized()) {
-                console.log('Google Drive APIを初期化中...');
-                await googleDriveAPI.initialize();
-            }
-            if (googleDriveAPI.isInitialized()) {
-                await googleDriveAPI.authorize();
-                const hasTargetFolder = await ensureDriveTargetFolderForImport();
-                if (!hasTargetFolder) {
-                    displayFolderList([]);
-                } else {
-                    const result = await googleDriveAPI.listStudentFolders();
-                    if (result.success && result.folders.length > 0) {
-                        displayFolderList(result.folders);
-                    } else {
-                        displayFolderList([]);
-                    }
-                }
-            } else {
-                console.warn('Google Drive APIの初期化に失敗');
-                displayFolderList([]);
-            }
-        } else {
-            // Google Drive未接続の場合
-            displayFolderList([]);
-        }
+        // 10秒タイムアウト付きで実行（認証ポップアップがブロックされた場合の対策）
+        await Promise.race([
+            _loadFolderList(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('タイムアウト')), 10000))
+        ]);
     } catch (error) {
         console.error('フォルダ取得エラー:', error);
         displayFolderList([]);
+    } finally {
+        // 必ずローディング表示を消す
+        const indicator = document.getElementById('folderLoadingIndicator');
+        const list = document.getElementById('folderList');
+        if (indicator) indicator.style.display = 'none';
+        if (list) list.style.display = 'block';
+    }
+}
+
+/**
+ * フォルダ一覧の実際の読み込み処理（showFolderSelectionから呼ばれる）
+ */
+async function _loadFolderList() {
+    if (typeof googleDriveAPI === 'undefined') {
+        displayFolderList([]);
+        return;
     }
 
-    document.getElementById('folderLoadingIndicator').style.display = 'none';
-    document.getElementById('folderList').style.display = 'block';
+    // 未初期化の場合は自動初期化
+    if (!googleDriveAPI.isInitialized()) {
+        await googleDriveAPI.initialize();
+    }
+    if (!googleDriveAPI.isInitialized()) {
+        displayFolderList([]);
+        return;
+    }
+
+    // 認証（既にサインイン済みならスキップ）
+    if (!googleDriveAPI.isSignedIn) {
+        try {
+            await googleDriveAPI.authorize();
+        } catch (authError) {
+            console.warn('Google Drive認証スキップ:', authError.message);
+            displayFolderList([]);
+            return;
+        }
+    }
+
+    // TARGET_FOLDER_IDを確認（Pickerは開かない、ローカル/Drive設定のみ）
+    let targetFolderId = googleDriveAPI.getTargetFolderId();
+    if (!targetFolderId) {
+        const settings = loadUserSettings();
+        if (settings.folderId) {
+            googleDriveAPI.setTargetFolderId(settings.folderId);
+            targetFolderId = settings.folderId;
+        }
+    }
+    if (!targetFolderId) {
+        // Drive設定ファイルから取得を試みる
+        try {
+            const driveConfig = await googleDriveAPI.loadConfigFromDrive();
+            if (driveConfig && driveConfig.targetFolderId) {
+                const s = loadUserSettings();
+                s.folderId = driveConfig.targetFolderId;
+                s.folderName = driveConfig.targetFolderName || '';
+                saveUserSettings(s);
+                googleDriveAPI.setTargetFolderId(driveConfig.targetFolderId);
+                targetFolderId = driveConfig.targetFolderId;
+            }
+        } catch (e) {
+            console.warn('Drive設定読み込みスキップ:', e);
+        }
+    }
+
+    if (!targetFolderId) {
+        // フォルダ未設定の場合は空リストを表示
+        displayFolderList([]);
+        return;
+    }
+
+    // フォルダ一覧を取得
+    const result = await googleDriveAPI.listStudentFolders();
+    if (result.success && result.folders.length > 0) {
+        displayFolderList(result.folders);
+    } else {
+        displayFolderList([]);
+    }
 }
 
 /**
