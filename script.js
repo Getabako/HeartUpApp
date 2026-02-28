@@ -3065,9 +3065,16 @@ async function runStudentDataSync({ silent = false } = {}) {
             await googleDriveAPI.initialize();
         }
 
-        // 認証確認
+        // 認証確認（既存トークンがあればフラグ更新、なければ手動同期時のみ認証）
         if (!googleDriveAPI.isSignedIn) {
-            await googleDriveAPI.authorize();
+            if (typeof gapi !== 'undefined' && gapi.client && gapi.client.getToken() !== null) {
+                googleDriveAPI.isSignedIn = true;
+            } else if (silent) {
+                // サイレント同期時は認証ポップアップを出さずスキップ
+                return { success: false, skipped: true, reason: 'NOT_SIGNED_IN' };
+            } else {
+                await googleDriveAPI.authorize();
+            }
         }
 
         // 保存先フォルダ確認（未選択時はDriveの設定ファイルから自動取得）

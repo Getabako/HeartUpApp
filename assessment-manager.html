@@ -380,10 +380,214 @@
     <script src="gemini-api.js"></script>
     <script>
         // APIキーを読み込み
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             geminiAPI.loadApiKey();
             loadChildren();
+
+            // Google Driveからデータ同期を試みる
+            await syncFromDriveOnLoad();
         });
+
+        /**
+         * ページ読み込み時にGoogle Driveからデータを同期
+         */
+        async function syncFromDriveOnLoad() {
+            if (typeof googleDriveAPI === 'undefined') return;
+
+            try {
+                // Google Drive API初期化
+                if (!googleDriveAPI.isInitialized()) {
+                    await googleDriveAPI.initialize();
+                }
+                if (!googleDriveAPI.isInitialized()) return;
+
+                // 既存トークンがあるかチェック（サインイン済みの場合のみ自動同期）
+                if (typeof gapi !== 'undefined' && gapi.client && gapi.client.getToken() !== null) {
+                    googleDriveAPI.isSignedIn = true;
+                } else {
+                    // 未認証 → 同期ボタンを表示
+                    showDriveSyncButton();
+                    return;
+                }
+
+                // TARGET_FOLDER_IDを確認
+                let targetFolderId = googleDriveAPI.getTargetFolderId();
+                if (!targetFolderId) {
+                    const settings = JSON.parse(localStorage.getItem('userSettings') || '{}');
+                    if (settings.folderId) {
+                        googleDriveAPI.setTargetFolderId(settings.folderId);
+                        targetFolderId = settings.folderId;
+                    }
+                }
+                if (!targetFolderId) {
+                    // Drive設定ファイルから取得
+                    try {
+                        const driveConfig = await googleDriveAPI.loadConfigFromDrive();
+                        if (driveConfig && driveConfig.targetFolderId) {
+                            localStorage.setItem('userSettings', JSON.stringify({
+                                ...JSON.parse(localStorage.getItem('userSettings') || '{}'),
+                                folderId: driveConfig.targetFolderId,
+                                folderName: driveConfig.targetFolderName || ''
+                            }));
+                            googleDriveAPI.setTargetFolderId(driveConfig.targetFolderId);
+                            targetFolderId = driveConfig.targetFolderId;
+                        }
+                    } catch (e) {
+                        console.warn('Drive設定読み込みスキップ:', e);
+                    }
+                }
+                if (!targetFolderId) {
+                    showDriveSyncButton();
+                    return;
+                }
+
+                // 同期中表示
+                showSyncStatus('同期中...');
+
+                // データ同期実行
+                const result = await googleDriveAPI.syncAllStudentData();
+                if (result.success) {
+                    showSyncStatus(`同期完了（${result.syncedStudents.length}名）`, true);
+                    // 一覧を再描画
+                    loadChildren();
+                } else {
+                    showSyncStatus('同期に失敗しました', false);
+                }
+            } catch (error) {
+                console.error('Drive同期エラー:', error);
+                showSyncStatus('同期エラー', false);
+            }
+        }
+
+        /**
+         * Drive同期ボタンを表示（未認証時）
+         */
+        function showDriveSyncButton() {
+            let syncBar = document.getElementById('driveSyncBar');
+            if (!syncBar) {
+                const container = document.querySelector('.container');
+                const actionsDiv = document.querySelector('.main-actions');
+                syncBar = document.createElement('div');
+                syncBar.id = 'driveSyncBar';
+                container.insertBefore(syncBar, actionsDiv);
+            }
+            syncBar.style.cssText = 'text-align:center; margin-bottom:20px; padding:12px; background:rgba(255,255,255,0.9); border-radius:12px;';
+            syncBar.innerHTML = `
+                <p style="margin-bottom:8px; color:#666; font-size:0.9rem;">別端末のデータを表示するにはGoogle Driveと同期してください</p>
+                <button onclick="manualDriveSync()" style="
+                    padding:10px 24px; background:linear-gradient(135deg,#4285f4,#34a853);
+                    color:white; border:none; border-radius:25px; font-size:0.95rem;
+                    font-weight:bold; cursor:pointer;">🔗 Google Driveと同期</button>
+            `;
+        }
+
+        /**
+         * 手動Drive同期（ボタンクリック時）
+         */
+        async function manualDriveSync() {
+            const syncBar = document.getElementById('driveSyncBar');
+            if (syncBar) {
+                syncBar.innerHTML = '<p style="padding:8px; color:#666;">⏳ Google Driveに接続中...</p>';
+            }
+
+            try {
+                if (!googleDriveAPI.isInitialized()) {
+                    await googleDriveAPI.initialize();
+                }
+
+                // 認証
+                await googleDriveAPI.authorize();
+
+                // TARGET_FOLDER_ID取得
+                let targetFolderId = googleDriveAPI.getTargetFolderId();
+                if (!targetFolderId) {
+                    const settings = JSON.parse(localStorage.getItem('userSettings') || '{}');
+                    if (settings.folderId) {
+                        googleDriveAPI.setTargetFolderId(settings.folderId);
+                        targetFolderId = settings.folderId;
+                    }
+                }
+                if (!targetFolderId) {
+                    const driveConfig = await googleDriveAPI.loadConfigFromDrive();
+                    if (driveConfig && driveConfig.targetFolderId) {
+                        localStorage.setItem('userSettings', JSON.stringify({
+                            ...JSON.parse(localStorage.getItem('userSettings') || '{}'),
+                            folderId: driveConfig.targetFolderId,
+                            folderName: driveConfig.targetFolderName || ''
+                        }));
+                        googleDriveAPI.setTargetFolderId(driveConfig.targetFolderId);
+                        targetFolderId = driveConfig.targetFolderId;
+                    }
+                }
+                if (!targetFolderId) {
+                    // Pickerで選択
+                    const selected = await new Promise((resolve) => {
+                        googleDriveAPI.openFolderPicker((folderId, folderName, error) => {
+                            if (error || !folderId) resolve(null);
+                            else resolve({ folderId, folderName });
+                        });
+                    });
+                    if (!selected) {
+                        if (syncBar) syncBar.innerHTML = '<p style="padding:8px; color:#e53935;">フォルダが選択されませんでした</p>';
+                        return;
+                    }
+                    localStorage.setItem('userSettings', JSON.stringify({
+                        ...JSON.parse(localStorage.getItem('userSettings') || '{}'),
+                        folderId: selected.folderId,
+                        folderName: selected.folderName
+                    }));
+                    googleDriveAPI.setTargetFolderId(selected.folderId);
+                    try {
+                        await googleDriveAPI.saveConfigToDrive({
+                            targetFolderId: selected.folderId,
+                            targetFolderName: selected.folderName,
+                            updatedAt: new Date().toISOString()
+                        });
+                    } catch (e) { /* ignore */ }
+                }
+
+                if (syncBar) syncBar.innerHTML = '<p style="padding:8px; color:#666;">⏳ データを同期中...</p>';
+
+                const result = await googleDriveAPI.syncAllStudentData();
+                if (result.success) {
+                    showSyncStatus(`同期完了（${result.syncedStudents.length}名）`, true);
+                    loadChildren();
+                } else {
+                    showSyncStatus('同期に失敗しました', false);
+                }
+            } catch (error) {
+                console.error('手動同期エラー:', error);
+                if (syncBar) {
+                    syncBar.innerHTML = `
+                        <p style="padding:8px; color:#e53935;">同期に失敗しました: ${error.message}</p>
+                        <button onclick="manualDriveSync()" style="
+                            margin-top:8px; padding:8px 20px; background:#4285f4;
+                            color:white; border:none; border-radius:20px; cursor:pointer;">再試行</button>
+                    `;
+                }
+            }
+        }
+
+        /**
+         * 同期ステータス表示
+         */
+        function showSyncStatus(message, success) {
+            let syncBar = document.getElementById('driveSyncBar');
+            if (!syncBar) {
+                const container = document.querySelector('.container');
+                const actionsDiv = document.querySelector('.main-actions');
+                syncBar = document.createElement('div');
+                syncBar.id = 'driveSyncBar';
+                container.insertBefore(syncBar, actionsDiv);
+            }
+            const color = success === true ? '#2e7d32' : success === false ? '#e53935' : '#666';
+            const icon = success === true ? '✅' : success === false ? '❌' : '⏳';
+            syncBar.style.cssText = 'text-align:center; margin-bottom:20px; padding:10px; background:rgba(255,255,255,0.9); border-radius:12px;';
+            syncBar.innerHTML = `<p style="color:${color}; font-size:0.9rem;">${icon} ${message}</p>`;
+            if (success === true) {
+                setTimeout(() => { if (syncBar.parentNode) syncBar.remove(); }, 3000);
+            }
+        }
 
         // Load and display children
         function loadChildren() {
