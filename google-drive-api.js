@@ -669,10 +669,15 @@ class GoogleDriveAPI {
         const targetParentFolderId = parentFolderId || this.TARGET_FOLDER_ID;
         const folderName = studentName;
 
+        if (!targetParentFolderId) {
+            throw new Error('保存先の親フォルダが未設定です。先に保存先フォルダを選択してください。');
+        }
+
         try {
+            const escapedFolderName = String(folderName).replace(/'/g, "\\'");
             // まず既存のフォルダを検索
             const searchResponse = await gapi.client.drive.files.list({
-                q: `name = '${folderName}' and '${targetParentFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+                q: `name = '${escapedFolderName}' and '${targetParentFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
                 fields: 'files(id, name)'
             });
 
@@ -924,6 +929,13 @@ class GoogleDriveAPI {
             await this.authorize();
         }
 
+        if (!this.TARGET_FOLDER_ID) {
+            return {
+                success: true,
+                folders: []
+            };
+        }
+
         try {
             // ターゲットフォルダ内のフォルダのみを取得
             const response = await gapi.client.drive.files.list({
@@ -1024,10 +1036,24 @@ class GoogleDriveAPI {
             localStorage.setItem('dailyReports', JSON.stringify(mergedRecords));
             localStorage.setItem('syncTimestamp', new Date().toISOString());
 
+            // 児童一覧をフォルダ名から構築して保存（端末間同期用）
+            const children = {};
+            for (const student of result.syncedStudents) {
+                children[student.name] = {
+                    folderId: student.folderId,
+                    syncedAt: new Date().toISOString()
+                };
+            }
+            // 既存のローカル児童リストとマージ
+            const existingChildren = JSON.parse(localStorage.getItem('children') || '{}');
+            const mergedChildren = { ...existingChildren, ...children };
+            localStorage.setItem('children', JSON.stringify(mergedChildren));
+
             result.success = true;
             result.assessments = mergedAssessments;
             result.supportPlans = mergedSupportPlans;
             result.records = mergedRecords;
+            result.children = mergedChildren;
 
             console.log('データ同期完了:', result.syncedStudents.length, '名の生徒データを同期');
             return result;
@@ -1035,6 +1061,95 @@ class GoogleDriveAPI {
             console.error('データ同期エラー:', error);
             result.error = error.message;
             return result;
+        }
+    }
+
+    /**
+     * アプリ設定をGoogle Driveに保存（端末間共有用）
+     * ユーザーのDrive appDataフォルダに設定を保存
+     */
+    async saveConfigToDrive(config) {
+        try {
+            if (!this.isSignedIn) await this.authorize();
+
+            // 既存の設定ファイルを検索
+            const response = await gapi.client.drive.files.list({
+                q: "name = 'heartup_config.json' and mimeType = 'application/json' and trashed = false",
+                fields: 'files(id, name)',
+                spaces: 'drive'
+            });
+
+            const configData = JSON.stringify(config);
+            const existingFile = response.result.files?.[0];
+
+            if (existingFile) {
+                // 既存ファイルを更新
+                await gapi.client.request({
+                    path: `/upload/drive/v3/files/${existingFile.id}`,
+                    method: 'PATCH',
+                    params: { uploadType: 'media' },
+                    headers: { 'Content-Type': 'application/json' },
+                    body: configData
+                });
+                console.log('Drive設定を更新:', existingFile.id);
+            } else {
+                // 新規作成
+                const metadata = {
+                    name: 'heartup_config.json',
+                    mimeType: 'application/json'
+                };
+                const form = new FormData();
+                form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+                form.append('file', new Blob([configData], { type: 'application/json' }));
+
+                const token = gapi.client.getToken();
+                const uploadResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token.access_token },
+                    body: form
+                });
+                const result = await uploadResponse.json();
+                console.log('Drive設定を作成:', result.id);
+            }
+            return true;
+        } catch (error) {
+            console.error('Drive設定保存エラー:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Google Driveからアプリ設定を読み込む（端末間共有用）
+     * @returns {Promise<Object|null>} 設定データ、見つからない場合はnull
+     */
+    async loadConfigFromDrive() {
+        try {
+            if (!this.isSignedIn) await this.authorize();
+
+            const response = await gapi.client.drive.files.list({
+                q: "name = 'heartup_config.json' and mimeType = 'application/json' and trashed = false",
+                fields: 'files(id, name, modifiedTime)',
+                spaces: 'drive',
+                orderBy: 'modifiedTime desc'
+            });
+
+            const file = response.result.files?.[0];
+            if (!file) return null;
+
+            const fileContent = await gapi.client.drive.files.get({
+                fileId: file.id,
+                alt: 'media'
+            });
+
+            const config = typeof fileContent.body === 'string'
+                ? JSON.parse(fileContent.body)
+                : fileContent.result;
+
+            console.log('Drive設定を読み込み:', config);
+            return config;
+        } catch (error) {
+            console.error('Drive設定読み込みエラー:', error);
+            return null;
         }
     }
 

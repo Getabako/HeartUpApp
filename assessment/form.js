@@ -293,6 +293,10 @@ async function handleAssessmentSubmit(e) {
                                     reject(new Error('保存先フォルダの選択に失敗しました'));
                                 } else if (folderId) {
                                     console.log('フォルダ選択完了:', folderName, folderId);
+                                    const settings = loadUserSettings();
+                                    settings.folderId = folderId;
+                                    settings.folderName = folderName || settings.folderName;
+                                    localStorage.setItem('userSettings', JSON.stringify(settings));
                                     resolve();
                                 } else {
                                     reject(new Error('フォルダが選択されませんでした'));
@@ -803,6 +807,15 @@ async function saveAssessmentSheet(fileName, html, data) {
             filePath: `temp/assessmentSheet/${fileName}`
         };
         localStorage.setItem('assessments', JSON.stringify(assessments));
+
+        // 児童一覧にも追加（端末間同期用）
+        if (data.childName) {
+            const children = JSON.parse(localStorage.getItem('children') || '{}');
+            if (!children[data.childName]) {
+                children[data.childName] = { createdAt: new Date().toISOString() };
+                localStorage.setItem('children', JSON.stringify(children));
+            }
+        }
 
         // Create downloadable file
         const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
