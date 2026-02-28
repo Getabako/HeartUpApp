@@ -4238,18 +4238,13 @@ async function showFolderSelection() {
     document.getElementById('folderLoadingIndicator').style.display = 'block';
     document.getElementById('folderList').style.display = 'none';
 
-    // Google Driveから既存フォルダを取得（タイムアウト付き）
+    // Google Driveからフォルダ取得を試みる
     try {
-        // 10秒タイムアウト付きで実行（認証ポップアップがブロックされた場合の対策）
-        await Promise.race([
-            _loadFolderList(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('タイムアウト')), 10000))
-        ]);
+        await _loadFolderList();
     } catch (error) {
         console.error('フォルダ取得エラー:', error);
         displayFolderList([]);
     } finally {
-        // 必ずローディング表示を消す
         const indicator = document.getElementById('folderLoadingIndicator');
         const list = document.getElementById('folderList');
         if (indicator) indicator.style.display = 'none';
@@ -4275,18 +4270,19 @@ async function _loadFolderList() {
         return;
     }
 
-    // 認証（既にサインイン済みならスキップ）
-    if (!googleDriveAPI.isSignedIn) {
-        try {
-            await googleDriveAPI.authorize();
-        } catch (authError) {
-            console.warn('Google Drive認証スキップ:', authError.message);
-            displayFolderList([]);
-            return;
-        }
+    // 既にトークンがあるかチェック（既存セッション or ページリロード後）
+    const hasToken = gapi.client.getToken() !== null;
+    if (hasToken) {
+        googleDriveAPI.isSignedIn = true;
     }
 
-    // TARGET_FOLDER_IDを確認（Pickerは開かない、ローカル/Drive設定のみ）
+    // 未認証の場合は「Google Driveに接続」ボタンを表示
+    if (!googleDriveAPI.isSignedIn) {
+        displayDriveConnectButton();
+        return;
+    }
+
+    // TARGET_FOLDER_IDを確認（ローカル設定 → Drive設定の順）
     let targetFolderId = googleDriveAPI.getTargetFolderId();
     if (!targetFolderId) {
         const settings = loadUserSettings();
@@ -4313,8 +4309,8 @@ async function _loadFolderList() {
     }
 
     if (!targetFolderId) {
-        // フォルダ未設定の場合は空リストを表示
-        displayFolderList([]);
+        // 認証済みだがフォルダ未設定 → フォルダ選択ボタンを表示
+        displayFolderPickerButton();
         return;
     }
 
@@ -4324,6 +4320,153 @@ async function _loadFolderList() {
         displayFolderList(result.folders);
     } else {
         displayFolderList([]);
+    }
+}
+
+/**
+ * Google Driveに接続ボタンを表示（未認証時）
+ */
+function displayDriveConnectButton() {
+    const folderList = document.getElementById('folderList');
+    if (!folderList) return;
+
+    folderList.innerHTML = `
+        <div style="text-align: center; padding: 1.5rem;">
+            <p style="margin-bottom: 1rem; color: #666;">Google Driveに接続すると、既存のフォルダが表示されます</p>
+            <button onclick="connectDriveAndLoadFolders()" style="
+                padding: 0.8rem 1.5rem;
+                background: linear-gradient(135deg, #4285f4, #34a853);
+                color: white;
+                border: none;
+                border-radius: 25px;
+                font-size: 0.95rem;
+                font-weight: bold;
+                cursor: pointer;
+            ">🔗 Google Driveに接続</button>
+        </div>
+    `;
+    // localStorageのみインポートも可能にする
+    window.selectedFolderId = null;
+    window.selectedFolderName = null;
+    document.getElementById('importBtn').disabled = false;
+}
+
+/**
+ * フォルダ選択Pickerボタンを表示（認証済み・フォルダ未設定時）
+ */
+function displayFolderPickerButton() {
+    const folderList = document.getElementById('folderList');
+    if (!folderList) return;
+
+    folderList.innerHTML = `
+        <div style="text-align: center; padding: 1.5rem;">
+            <p style="margin-bottom: 1rem; color: #666;">保存先の親フォルダを選択してください</p>
+            <button onclick="pickParentFolderAndLoadList()" style="
+                padding: 0.8rem 1.5rem;
+                background: linear-gradient(135deg, #ff9800, #ffc107);
+                color: white;
+                border: none;
+                border-radius: 25px;
+                font-size: 0.95rem;
+                font-weight: bold;
+                cursor: pointer;
+            ">📂 Driveフォルダを選択</button>
+        </div>
+    `;
+    window.selectedFolderId = null;
+    window.selectedFolderName = null;
+    document.getElementById('importBtn').disabled = false;
+}
+
+/**
+ * Google Driveに接続してフォルダ一覧を読み込む（ボタンクリック時）
+ */
+async function connectDriveAndLoadFolders() {
+    const folderList = document.getElementById('folderList');
+    if (folderList) {
+        folderList.innerHTML = '<div style="text-align:center; padding:1rem;"><span class="loading-spinner">⏳</span> 接続中...</div>';
+    }
+
+    try {
+        await googleDriveAPI.authorize();
+        // 認証成功 → フォルダ読み込みを再実行
+        await _loadFolderList();
+    } catch (error) {
+        console.error('Drive接続エラー:', error);
+        if (folderList) {
+            folderList.innerHTML = `
+                <div style="text-align: center; padding: 1rem;">
+                    <p style="color: #e53935;">接続に失敗しました</p>
+                    <button onclick="connectDriveAndLoadFolders()" style="
+                        margin-top: 0.5rem; padding: 0.5rem 1rem;
+                        background: #4285f4; color: white; border: none;
+                        border-radius: 20px; cursor: pointer;
+                    ">再試行</button>
+                </div>
+            `;
+        }
+    } finally {
+        const indicator = document.getElementById('folderLoadingIndicator');
+        if (indicator) indicator.style.display = 'none';
+    }
+}
+
+/**
+ * 親フォルダをPickerで選択してフォルダ一覧を読み込む（ボタンクリック時）
+ */
+async function pickParentFolderAndLoadList() {
+    const folderList = document.getElementById('folderList');
+    if (folderList) {
+        folderList.innerHTML = '<div style="text-align:center; padding:1rem;"><span class="loading-spinner">⏳</span> フォルダ選択中...</div>';
+    }
+
+    try {
+        const selected = await new Promise((resolve) => {
+            googleDriveAPI.openFolderPicker((folderId, folderName, error) => {
+                if (error || !folderId) {
+                    resolve(null);
+                } else {
+                    resolve({ folderId, folderName });
+                }
+            });
+        });
+
+        if (!selected) {
+            displayFolderPickerButton();
+            return;
+        }
+
+        // 設定を保存
+        const settings = loadUserSettings();
+        settings.folderId = selected.folderId;
+        settings.folderName = selected.folderName;
+        saveUserSettings(settings);
+        googleDriveAPI.setTargetFolderId(selected.folderId);
+
+        // Driveにも設定を保存（他端末共有用）
+        try {
+            await googleDriveAPI.saveConfigToDrive({
+                targetFolderId: selected.folderId,
+                targetFolderName: selected.folderName,
+                updatedAt: new Date().toISOString()
+            });
+        } catch (e) {
+            console.warn('Drive設定保存スキップ:', e);
+        }
+
+        // フォルダ一覧を取得
+        const result = await googleDriveAPI.listStudentFolders();
+        if (result.success && result.folders.length > 0) {
+            displayFolderList(result.folders);
+        } else {
+            displayFolderList([]);
+        }
+    } catch (error) {
+        console.error('フォルダ選択エラー:', error);
+        displayFolderPickerButton();
+    } finally {
+        const indicator = document.getElementById('folderLoadingIndicator');
+        if (indicator) indicator.style.display = 'none';
     }
 }
 
@@ -4410,7 +4553,9 @@ async function createNewImportFolder() {
                 alert('Google Driveの初期化に失敗しました。ページを再読み込みしてください。');
                 return;
             }
-            await googleDriveAPI.authorize();
+            if (!googleDriveAPI.isSignedIn) {
+                await googleDriveAPI.authorize();
+            }
 
             const hasTargetFolder = await ensureDriveTargetFolderForImport();
             if (!hasTargetFolder) {
