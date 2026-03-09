@@ -194,7 +194,7 @@ class GoogleDriveAPI {
      * 認証状態を確認
      */
     isInitialized() {
-        return this.gapiInited && this.gisInited && this.CLIENT_ID && this.API_KEY;
+        return this.gapiInited && this.gisInited && this.pickerInited && this.CLIENT_ID && this.API_KEY;
     }
 
     /**
