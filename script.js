@@ -2868,144 +2868,6 @@ function saveUserSettings(settings) {
     }
 }
 
-// 設定モーダルを開く
-function openProfileSettingsModal() {
-    const modal = document.getElementById('profileSettingsModal');
-    modal.classList.remove('hidden');
-    updateSettingsDisplay();
-}
-
-// 設定モーダルを閉じる
-function closeProfileSettingsModal() {
-    const modal = document.getElementById('profileSettingsModal');
-    modal.classList.add('hidden');
-}
-
-// 設定表示を更新
-function updateSettingsDisplay() {
-    const settings = loadUserSettings();
-
-    // Googleアカウント表示
-    const accountDisplay = document.getElementById('googleAccountDisplay');
-    const loginBtnText = document.getElementById('googleLoginBtnText');
-    if (settings.email) {
-        accountDisplay.innerHTML = `<span class="account-status connected">${settings.email}</span>`;
-        loginBtnText.textContent = '別のアカウントでログイン';
-    } else {
-        accountDisplay.innerHTML = `<span class="account-status not-connected">未連携</span>`;
-        loginBtnText.textContent = 'Googleでログイン';
-    }
-
-    // フォルダ表示
-    const folderDisplay = document.getElementById('folderDisplay');
-    if (settings.folderId) {
-        const displayName = settings.folderName || settings.folderId;
-        folderDisplay.innerHTML = `<span class="folder-status selected">${displayName}</span>`;
-    } else {
-        folderDisplay.innerHTML = `<span class="folder-status not-selected">未選択（デフォルトフォルダを使用）</span>`;
-    }
-}
-
-// Googleアカウント連携
-async function connectGoogleAccount() {
-    try {
-        // Google Drive API初期化
-        if (!googleDriveAPI.isInitialized()) {
-            await googleDriveAPI.initialize();
-        }
-
-        // 認証実行
-        await googleDriveAPI.authorize();
-
-        // メールアドレス取得
-        const email = await googleDriveAPI.getCurrentUserEmail();
-        if (email) {
-            const settings = loadUserSettings();
-            settings.email = email;
-            saveUserSettings(settings);
-            updateSettingsDisplay();
-            showSettingComplete();
-        }
-    } catch (error) {
-        console.error('Googleログインエラー:', error);
-        alert('Googleログインに失敗しました: ' + error.message);
-    }
-}
-
-// フォルダ選択
-async function selectFolder() {
-    try {
-        // Google Drive API初期化・認証
-        if (!googleDriveAPI.isInitialized()) {
-            await googleDriveAPI.initialize();
-        }
-        if (!googleDriveAPI.isSignedIn) {
-            await googleDriveAPI.authorize();
-            // メールアドレスも取得して保存
-            const email = await googleDriveAPI.getCurrentUserEmail();
-            if (email) {
-                const settings = loadUserSettings();
-                settings.email = email;
-                saveUserSettings(settings);
-                updateSettingsDisplay();
-            }
-        }
-
-        // フォルダ選択Picker起動
-        googleDriveAPI.openFolderPicker(async (folderId, folderName, error) => {
-            if (error) {
-                alert('フォルダ選択エラー: ' + error);
-                return;
-            }
-            if (folderId) {
-                const settings = loadUserSettings();
-                settings.folderId = folderId;
-                settings.folderName = folderName;
-                saveUserSettings(settings);
-
-                // Google Drive APIにも設定
-                googleDriveAPI.setTargetFolderId(folderId);
-
-                // Driveにも設定を保存（他端末との共有用）
-                try {
-                    await googleDriveAPI.saveConfigToDrive({
-                        targetFolderId: folderId,
-                        targetFolderName: folderName,
-                        updatedAt: new Date().toISOString()
-                    });
-                } catch (e) {
-                    console.warn('Drive設定の保存に失敗:', e);
-                }
-
-                updateSettingsDisplay();
-                showSettingComplete();
-
-                // フォルダ設定後に自動同期
-                autoSyncStudentData();
-            }
-        });
-    } catch (error) {
-        console.error('フォルダ選択エラー:', error);
-        alert('フォルダ選択の準備に失敗しました: ' + error.message);
-    }
-}
-
-// 設定完了メッセージを表示
-function showSettingComplete() {
-    const completeMsg = document.getElementById('settingComplete');
-    completeMsg.classList.remove('hidden');
-    setTimeout(() => {
-        completeMsg.classList.add('hidden');
-    }, 2000);
-}
-
-// モーダル外クリックで閉じる
-document.addEventListener('click', function(event) {
-    const profileModal = document.getElementById('profileSettingsModal');
-    if (event.target === profileModal) {
-        closeProfileSettingsModal();
-    }
-});
 
 // ============================================
 // アプリ起動時の設定初期化
@@ -3022,11 +2884,12 @@ function initializeUserSettings() {
 document.addEventListener('DOMContentLoaded', function() {
     initializeUserSettings();
 
-    // 起動時に静かに同期（同一アカウント別端末の登録反映）
-    // 同期完了後にUIを更新
+    // トークン自動復元 → 同期
     setTimeout(async () => {
+        if (typeof googleDriveAPI !== 'undefined') {
+            await googleDriveAPI.tryRestoreAuth();
+        }
         const result = await autoSyncStudentData();
-        // 同期成功・失敗に関わらずUIを更新（ローカルデータがあれば表示）
         refreshStudentSelects();
     }, 800);
 });
@@ -3060,21 +2923,10 @@ async function runStudentDataSync({ silent = false } = {}) {
             syncBtn.disabled = true;
         }
 
-        // Google Drive APIの初期化確認
-        if (!googleDriveAPI.isInitialized()) {
-            await googleDriveAPI.initialize();
-        }
-
-        // 認証確認（既存トークンがあればフラグ更新、なければ手動同期時のみ認証）
-        if (!googleDriveAPI.isSignedIn) {
-            if (typeof gapi !== 'undefined' && gapi.client && gapi.client.getToken() !== null) {
-                googleDriveAPI.isSignedIn = true;
-            } else if (silent) {
-                // サイレント同期時は認証ポップアップを出さずスキップ
-                return { success: false, skipped: true, reason: 'NOT_SIGNED_IN' };
-            } else {
-                await googleDriveAPI.authorize();
-            }
+        // 認証確保（silentならポップアップなし、手動なら許可）
+        const authed = await googleDriveAPI.ensureAuth(!silent);
+        if (!authed) {
+            return { success: false, skipped: true, reason: 'NOT_SIGNED_IN' };
         }
 
         // 保存先フォルダ確認（未選択時はDriveの設定ファイルから自動取得）

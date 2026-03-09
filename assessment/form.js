@@ -37,8 +37,14 @@ async function initGoogleDrive() {
     }
 }
 
-// ページロード時にGoogle Drive APIを初期化
-document.addEventListener('DOMContentLoaded', initGoogleDrive);
+// ページロード時にGoogle Drive APIを初期化（トークン自動復元付き）
+document.addEventListener('DOMContentLoaded', async function() {
+    await initGoogleDrive();
+    // 保存済みトークンがあれば自動復元
+    if (typeof googleDriveAPI !== 'undefined') {
+        await googleDriveAPI.tryRestoreAuth();
+    }
+});
 
 /**
  * HTMLコンテンツからPDFを生成（アセスメント用）
@@ -272,11 +278,11 @@ async function handleAssessmentSubmit(e) {
                 }
 
                 if (driveInitialized && googleDriveAPI.isInitialized()) {
-                    // ユーザー認証を確認
+                    // 認証を確保（トークン復元 → サイレント再認証 → ポップアップ）
                     if (!googleDriveAPI.isSignedIn) {
                         console.log('Google Driveへの認証を開始...');
                         if (submitButton) submitButton.textContent = 'Google Driveへの認証中...';
-                        await googleDriveAPI.authorize();
+                        await googleDriveAPI.ensureAuth(true);
                     }
 
                     // TARGET_FOLDER_IDが設定されているか確認
