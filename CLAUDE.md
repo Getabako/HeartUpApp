@@ -72,12 +72,14 @@ subagent_type: "media"    → メディア・サブエージェント
 
 ## 重要な仕様・ルール
 
-### Google Drive保存の仕様
+### Google Drive連携の仕様（手動バックアップ/復元方式）
 
-- **保存先フォルダはユーザー（利用者）がGoogle Pickerで選択する**。サーバー側やコードで固定しない。
-- 選択されたフォルダIDは`localStorage`に保存され、次回以降自動で使用される。
-- `DRIVE_CONFIG.TARGET_FOLDER_ID`は常に空文字列とする（build.shでもハードコードしない）。
-- この仕様を勝手に変更しないこと。
+- **普段はlocalStorageのみで動作**。自動同期やPicker連携は行わない。
+- ユーザーが「バックアップ」ボタンを押した時だけGoogle Driveにバックアップ（`マイドライブ/HeartUp_Data/`フォルダに保存）。
+- ユーザーが「復元」ボタンを押した時だけGoogle Driveからデータを復元。
+- バックアップUIは`assessment-manager.html`のヘッダー下に配置。
+- `google-drive-api.js`は`assessment-manager.html`でのみ読み込む（`index.html`と`form-simple.html`では不要）。
+- この方式を自動同期に戻さないこと。
 
 ### Vercel環境変数
 

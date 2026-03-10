@@ -927,9 +927,7 @@ function showRecordForm() {
                 <div class="student-select-container">
                     <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem;">
                         <input type="text" id="childNameSearch" placeholder="名前で検索..." oninput="filterRecordStudentOptions(this.value)" style="flex: 1;">
-                        <button type="button" class="sync-btn" onclick="syncStudentDataFromDrive()" style="padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;">
-                            <span class="sync-icon">↻</span> 更新
-                        </button>
+                        <button type="button" onclick="refreshStudentSelects()" style="padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;">更新</button>
                     </div>
                     <select id="childNameSelect" required onchange="onRecordStudentSelect(this.value)">
                         ${studentOptions}
@@ -1020,9 +1018,7 @@ function showPlanForm() {
                 <div class="student-select-container">
                     <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem;">
                         <input type="text" id="planChildNameSearch" placeholder="名前で検索..." oninput="filterPlanStudentOptions(this.value)" style="flex: 1;">
-                        <button type="button" class="sync-btn" onclick="syncStudentDataFromDrive()" style="padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;">
-                            <span class="sync-icon">↻</span> 更新
-                        </button>
+                        <button type="button" onclick="refreshStudentSelects()" style="padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;">更新</button>
                     </div>
                     <select id="planChildNameSelect" required onchange="onPlanStudentSelect(this.value)">
                         ${studentOptions}
@@ -1130,9 +1126,7 @@ function showReviewForm() {
                 <div class="student-select-container">
                     <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem;">
                         <input type="text" id="reviewChildNameSearch" placeholder="名前で検索..." oninput="filterReviewStudentOptions(this.value)" style="flex: 1;">
-                        <button type="button" class="sync-btn" onclick="syncStudentDataFromDrive()" style="padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;">
-                            <span class="sync-icon">↻</span> 更新
-                        </button>
+                        <button type="button" onclick="refreshStudentSelects()" style="padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;">更新</button>
                     </div>
                     <select id="reviewChildNameSelect" required onchange="loadStudentDataForReview(this.value)">
                         ${studentOptions}
@@ -1140,10 +1134,6 @@ function showReviewForm() {
                     </select>
                     <input type="text" id="reviewChildNameManual" placeholder="児童名を入力" style="display: none; margin-top: 0.5rem;">
                 </div>
-            </div>
-
-            <div id="driveDataStatus" style="display: none; margin-bottom: 1rem; padding: 1rem; background: #e3f2fd; border-radius: 8px;">
-                <strong>Google Driveからデータを読み込み中...</strong>
             </div>
 
             <div class="form-group">
@@ -1162,16 +1152,13 @@ function showReviewForm() {
 
             <div class="form-group">
                 <label>期間中の主な活動記録</label>
-                <textarea id="activities" placeholder="例: 週2回の個別練習、月1回のミニゲーム参加（Google Driveから自動取得されます）" required></textarea>
+                <textarea id="activities" placeholder="例: 週2回の個別練習、月1回のミニゲーム参加" required></textarea>
             </div>
 
             <div class="form-group">
                 <label>観察された変化</label>
                 <textarea id="changes" placeholder="例: ボールコントロールが向上、積極的に参加するようになった" required></textarea>
             </div>
-
-            <input type="hidden" id="driveAssessmentData" value="">
-            <input type="hidden" id="driveRecordsData" value="">
 
             <div style="display: flex; gap: 1rem;">
                 <button type="submit" class="btn-primary">振り返りを生成</button>
@@ -1198,7 +1185,7 @@ function showReviewForm() {
     `;
 }
 
-// 生徒選択時にGoogle Driveからデータを読み込む
+// 生徒選択時にlocalStorageからデータを読み込む
 async function loadStudentDataForReview(studentName) {
     const manualInput = document.getElementById('reviewChildNameManual');
 
@@ -1213,65 +1200,22 @@ async function loadStudentDataForReview(studentName) {
 
     if (!studentName) return;
 
-    const statusDiv = document.getElementById('driveDataStatus');
+    // localStorageからデータを自動入力
+    const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
+    const dailyReports = JSON.parse(localStorage.getItem('dailyReports') || '{}');
 
-    // Google Drive APIが利用可能な場合、データを取得
-    if (typeof googleDriveAPI !== 'undefined') {
-        try {
-            statusDiv.style.display = 'block';
-            statusDiv.innerHTML = '<strong>Google Driveからデータを読み込み中...</strong>';
-
-            // 初期化確認
-            if (!googleDriveAPI.isInitialized()) {
-                await googleDriveAPI.initialize();
-            }
-
-            // 生徒フォルダからデータを取得
-            const studentData = await googleDriveAPI.getStudentDataForReview(studentName);
-
-            if (studentData.success) {
-                // アセスメントデータを保存
-                if (studentData.assessments.length > 0) {
-                    document.getElementById('driveAssessmentData').value = JSON.stringify(studentData.assessments);
-                }
-
-                // 記録データを保存
-                if (studentData.records.length > 0) {
-                    document.getElementById('driveRecordsData').value = JSON.stringify(studentData.records);
-
-                    // 活動記録を自動入力
-                    const activitiesSummary = studentData.records.map(r => {
-                        const date = r.data?.date || r.createdAt?.split('T')[0] || '';
-                        const activity = r.data?.activityType || '';
-                        return `${date}: ${activity}`;
-                    }).join('\n');
-
-                    document.getElementById('activities').value = activitiesSummary;
-                }
-
-                statusDiv.innerHTML = `<strong>データを読み込みました</strong><br>
-                    アセスメント: ${studentData.assessments.length}件、記録: ${studentData.records.length}件`;
-                statusDiv.style.background = '#e8f5e9';
-            } else {
-                statusDiv.innerHTML = '<strong>データの取得に失敗しました</strong>';
-                statusDiv.style.background = '#fff3e0';
-            }
-        } catch (error) {
-            console.error('Google Driveデータ取得エラー:', error);
-            statusDiv.innerHTML = '<strong>Google Driveに接続できません（手動入力をご利用ください）</strong>';
-            statusDiv.style.background = '#fff3e0';
-        }
-    } else {
-        // localStorageからデータを取得
-        const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
-        const matchingAssessment = Object.values(assessments).find(a => a.data?.childName === studentName);
-
-        if (matchingAssessment) {
-            document.getElementById('driveAssessmentData').value = JSON.stringify([{ data: matchingAssessment.data }]);
-            statusDiv.style.display = 'block';
-            statusDiv.innerHTML = '<strong>ローカルデータを読み込みました</strong>';
-            statusDiv.style.background = '#e8f5e9';
-        }
+    // 該当児童の記録を活動記録に自動入力
+    const childReports = Object.values(dailyReports).filter(r => r.childName === studentName);
+    if (childReports.length > 0) {
+        const activitiesSummary = childReports
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+            .slice(0, 10)
+            .map(r => {
+                const date = new Date(r.createdAt).toLocaleDateString('ja-JP');
+                const activity = r.activity || '';
+                return `${date}: ${activity}`;
+            }).join('\n');
+        document.getElementById('activities').value = activitiesSummary;
     }
 }
 
@@ -1297,7 +1241,7 @@ function printReview() {
     printWindow.document.close();
 }
 
-// 振り返りレポートを手動保存
+// 振り返りレポートを手動保存（localStorageに保存）
 async function saveReviewManually() {
     if (!lastGeneratedReview || !lastReviewData) {
         alert('先に振り返りレポートを生成してください');
@@ -1306,14 +1250,15 @@ async function saveReviewManually() {
 
     const childName = lastReviewData.childName;
     const endDate = lastReviewData.endDate;
-
-    try {
-        await saveReviewToDrive(childName, endDate, lastGeneratedReview, lastReviewData);
-        alert('振り返りレポートを保存しました');
-    } catch (error) {
-        console.error('保存エラー:', error);
-        alert('保存に失敗しました: ' + error.message);
-    }
+    const reviews = JSON.parse(localStorage.getItem('reviews') || '{}');
+    const fileName = `${childName}_振り返り_${endDate}.html`;
+    reviews[fileName] = {
+        html: lastGeneratedReview,
+        childName: childName,
+        createdAt: new Date().toISOString()
+    };
+    localStorage.setItem('reviews', JSON.stringify(reviews));
+    alert('振り返りレポートを保存しました');
 }
 
 // ツール詳細を閉じる（現在は使用していないが、互換性のため残す）
@@ -1428,9 +1373,6 @@ ${notes ? `特に、${notes}という点が印象的でした。` : ''}
             lastRecordData = { date, childName, activityType: activityTypeLabels, activities: selectedActivities, observation, notes };
         }
 
-        // Google Driveに保存
-        await saveRecordToDrive(childName, date, generatedText, lastRecordData);
-
     } catch (error) {
         console.error('記録生成エラー:', error);
         document.getElementById('recordContent').innerHTML = `
@@ -1439,46 +1381,6 @@ ${notes ? `特に、${notes}という点が印象的でした。` : ''}
                 <small>APIキーはVercel環境変数から自動的に注入されます。</small>
             </div>
         `;
-    }
-}
-
-// 記録をGoogle Driveに保存（HTML形式）
-async function saveRecordToDrive(childName, date, content, recordData) {
-    if (typeof googleDriveAPI === 'undefined') {
-        console.warn('googleDriveAPI が利用できません');
-        return null;
-    }
-
-    try {
-        // Google Drive APIの初期化確認
-        if (!googleDriveAPI.isInitialized()) {
-            await googleDriveAPI.initialize();
-        }
-
-        // HTML形式で保存
-        const fileName = `${childName}_記録_${date}.html`;
-        const htmlContent = generateRecordHTML(childName, date, content, recordData);
-
-        const driveResult = await googleDriveAPI.saveRecordToStudentFolder(
-            childName,
-            fileName,
-            htmlContent,
-            recordData
-        );
-
-        if (driveResult.success) {
-            console.log('記録をGoogle Driveに保存しました:', driveResult);
-            // 保存成功メッセージを表示
-            const saveStatus = document.createElement('div');
-            saveStatus.style.cssText = 'margin-top: 1rem; padding: 0.75rem; background: #e8f5e9; border-radius: 8px; color: #2e7d32;';
-            saveStatus.innerHTML = `Google Driveに保存しました（${driveResult.folder.folderName}フォルダ）`;
-            document.getElementById('generatedRecord').appendChild(saveStatus);
-        }
-
-        return driveResult;
-    } catch (error) {
-        console.error('記録のGoogle Drive保存エラー:', error);
-        return null;
     }
 }
 
@@ -1624,7 +1526,7 @@ function generateRecordHTML(childName, date, content, recordData) {
 </html>`;
 }
 
-// 記録を手動保存
+// 記録を手動保存（localStorageに保存）
 async function saveRecordManually() {
     if (!lastGeneratedRecord || !lastRecordData) {
         alert('先に記録を生成してください');
@@ -1635,20 +1537,16 @@ async function saveRecordManually() {
     const date = lastRecordData.date;
     const statusDiv = document.getElementById('recordSaveStatus');
 
-    try {
-        statusDiv.innerHTML = '<div style="padding: 0.5rem; background: #e3f2fd; border-radius: 8px; color: #1565c0;">Google Driveに保存中...</div>';
-
-        const result = await saveRecordToDrive(childName, date, lastGeneratedRecord, lastRecordData);
-
-        if (result && result.success) {
-            statusDiv.innerHTML = `<div style="padding: 0.75rem; background: #e8f5e9; border-radius: 8px; color: #2e7d32;">Google Driveに保存しました（${result.folder.folderName}フォルダ）</div>`;
-        } else {
-            statusDiv.innerHTML = '<div style="padding: 0.5rem; background: #fff3e0; border-radius: 8px; color: #e65100;">保存に失敗しました</div>';
-        }
-    } catch (error) {
-        console.error('記録保存エラー:', error);
-        statusDiv.innerHTML = `<div style="padding: 0.5rem; background: #ffebee; border-radius: 8px; color: #c62828;">エラー: ${error.message}</div>`;
-    }
+    const dailyReports = JSON.parse(localStorage.getItem('dailyReports') || '{}');
+    const fileName = `${childName}_記録_${date}.html`;
+    dailyReports[fileName] = {
+        html: lastGeneratedRecord,
+        childName: childName,
+        activity: lastRecordData.activityType,
+        createdAt: new Date().toISOString()
+    };
+    localStorage.setItem('dailyReports', JSON.stringify(dailyReports));
+    statusDiv.innerHTML = '<div style="padding: 0.75rem; background: #e8f5e9; border-radius: 8px; color: #2e7d32;">保存しました</div>';
 }
 
 // 記録を印刷
@@ -1857,18 +1755,20 @@ async function generateReview(event) {
     const activities = document.getElementById('activities').value;
     const changes = document.getElementById('changes').value;
 
-    // Google Driveから取得したデータ
-    const driveAssessmentData = document.getElementById('driveAssessmentData')?.value;
-    const driveRecordsData = document.getElementById('driveRecordsData')?.value;
-
+    // localStorageからアセスメント・記録データを取得
     let assessmentData = null;
     let recordsData = null;
 
     try {
-        if (driveAssessmentData) assessmentData = JSON.parse(driveAssessmentData);
-        if (driveRecordsData) recordsData = JSON.parse(driveRecordsData);
+        const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
+        const matchingAssessment = Object.values(assessments).find(a => a.data?.childName === childName);
+        if (matchingAssessment) assessmentData = [{ data: matchingAssessment.data }];
+
+        const dailyReports = JSON.parse(localStorage.getItem('dailyReports') || '{}');
+        const childReports = Object.values(dailyReports).filter(r => r.childName === childName);
+        if (childReports.length > 0) recordsData = childReports;
     } catch (e) {
-        console.warn('Drive data parse error:', e);
+        console.warn('データ取得エラー:', e);
     }
 
     // ローディング表示
@@ -1956,9 +1856,6 @@ async function generateReview(event) {
             lastReviewData = { childName, startDate, endDate, goals, activities, changes };
         }
 
-        // Google Driveに自動保存
-        await saveReviewToDrive(childName, endDate, generatedText, lastReviewData);
-
     } catch (error) {
         console.error('振り返り生成エラー:', error);
         document.getElementById('reviewContent').innerHTML = `
@@ -1967,46 +1864,6 @@ async function generateReview(event) {
                 <small>APIキーはVercel環境変数から自動的に注入されます。</small>
             </div>
         `;
-    }
-}
-
-// 振り返りレポートをGoogle Driveに保存（HTML形式）
-async function saveReviewToDrive(childName, endDate, content, reviewData) {
-    if (typeof googleDriveAPI === 'undefined') {
-        console.warn('googleDriveAPI が利用できません');
-        return null;
-    }
-
-    try {
-        // Google Drive APIの初期化確認
-        if (!googleDriveAPI.isInitialized()) {
-            await googleDriveAPI.initialize();
-        }
-
-        // HTML形式で保存
-        const fileName = `${childName}_振り返りレポート_${endDate}.html`;
-        const htmlContent = generateReviewHTML(childName, reviewData, content);
-
-        const driveResult = await googleDriveAPI.saveReviewToStudentFolder(
-            childName,
-            fileName,
-            htmlContent,
-            reviewData
-        );
-
-        if (driveResult.success) {
-            console.log('振り返りレポートをGoogle Driveに保存しました:', driveResult);
-            // 保存成功メッセージを表示
-            const saveStatus = document.createElement('div');
-            saveStatus.style.cssText = 'margin-top: 1rem; padding: 0.75rem; background: #e8f5e9; border-radius: 8px; color: #2e7d32;';
-            saveStatus.innerHTML = `Google Driveに保存しました（${driveResult.folder.folderName}フォルダ）`;
-            document.getElementById('generatedReview').appendChild(saveStatus);
-        }
-
-        return driveResult;
-    } catch (error) {
-        console.error('振り返りレポートのGoogle Drive保存エラー:', error);
-        return null;
     }
 }
 
@@ -2241,67 +2098,17 @@ async function saveSupportPlanManually() {
     const childName = lastPlanData.childName;
     const statusDiv = document.getElementById('planSaveStatus');
 
-    try {
-        statusDiv.innerHTML = '<div style="padding: 0.5rem; background: #e3f2fd; border-radius: 8px; color: #1565c0;">Google Driveに保存中...</div>';
-
-        const result = await saveSupportPlanToDrive(childName, lastGeneratedPlan, lastPlanData);
-
-        if (result && result.success) {
-            statusDiv.innerHTML = `<div style="padding: 0.75rem; background: #e8f5e9; border-radius: 8px; color: #2e7d32;">Google Driveに保存しました（${result.folder.folderName}フォルダ）</div>`;
-        } else {
-            statusDiv.innerHTML = '<div style="padding: 0.5rem; background: #fff3e0; border-radius: 8px; color: #e65100;">保存に失敗しました。ローカルには保存されています。</div>';
-        }
-    } catch (error) {
-        console.error('支援計画保存エラー:', error);
-        statusDiv.innerHTML = `<div style="padding: 0.5rem; background: #ffebee; border-radius: 8px; color: #c62828;">エラー: ${error.message}</div>`;
-    }
-}
-
-// 支援計画をGoogle Driveに保存（HTML形式）
-async function saveSupportPlanToDrive(childName, content, planData) {
-    if (typeof googleDriveAPI === 'undefined') {
-        console.warn('googleDriveAPI が利用できません');
-        return null;
-    }
-
-    try {
-        // Google Drive APIの初期化確認
-        if (!googleDriveAPI.isInitialized()) {
-            await googleDriveAPI.initialize();
-        }
-
-        // HTML形式で保存
-        const today = new Date().toISOString().split('T')[0];
-        const fileName = `${childName}_支援計画_${today}.html`;
-        const htmlContent = generateSupportPlanHTML(childName, planData, content);
-
-        const driveResult = await googleDriveAPI.saveSupportPlanToStudentFolder(
-            childName,
-            fileName,
-            htmlContent,
-            planData
-        );
-
-        if (driveResult.success) {
-            console.log('支援計画をGoogle Driveに保存しました:', driveResult);
-
-            // localStorageにも保存
-            const supportPlans = JSON.parse(localStorage.getItem('supportPlans') || '{}');
-            supportPlans[fileName] = {
-                html: htmlContent,
-                data: planData,
-                content: content,
-                createdAt: new Date().toISOString(),
-                driveFileId: driveResult.html.fileId
-            };
-            localStorage.setItem('supportPlans', JSON.stringify(supportPlans));
-        }
-
-        return driveResult;
-    } catch (error) {
-        console.error('支援計画のGoogle Drive保存エラー:', error);
-        return null;
-    }
+    const supportPlans = JSON.parse(localStorage.getItem('supportPlans') || '{}');
+    const today = new Date().toISOString().split('T')[0];
+    const fileName = `${childName}_支援計画_${today}.html`;
+    supportPlans[fileName] = {
+        html: lastGeneratedPlan,
+        childName: childName,
+        data: lastPlanData,
+        createdAt: new Date().toISOString()
+    };
+    localStorage.setItem('supportPlans', JSON.stringify(supportPlans));
+    statusDiv.innerHTML = '<div style="padding: 0.75rem; background: #e8f5e9; border-radius: 8px; color: #2e7d32;">保存しました</div>';
 }
 
 // 支援計画のHTMLを生成
@@ -2870,136 +2677,15 @@ function saveUserSettings(settings) {
 
 
 // ============================================
-// アプリ起動時の設定初期化
+// アプリ起動時の初期化
 // ============================================
-function initializeUserSettings() {
-    const settings = loadUserSettings();
-    if (settings.folderId) {
-        googleDriveAPI.setTargetFolderId(settings.folderId);
-        console.log('保存先フォルダIDを設定:', settings.folderId);
-    }
-}
-
-// DOMContentLoadedイベントで設定初期化
 document.addEventListener('DOMContentLoaded', function() {
-    initializeUserSettings();
-
-    // トークン自動復元 → 同期
-    setTimeout(async () => {
-        if (typeof googleDriveAPI !== 'undefined' && googleDriveAPI.isInitialized()) {
-            const restored = googleDriveAPI.restoreToken();
-            if (restored) {
-                await googleDriveAPI.validateToken();
-            }
-        }
-        const result = await autoSyncStudentData();
-        refreshStudentSelects();
-    }, 800);
-});
-
-// タブ復帰時にも同期して差分を取り込む
-if (typeof document !== 'undefined') {
-    document.addEventListener('visibilitychange', async () => {
-        if (document.visibilityState === 'visible') {
-            await autoSyncStudentData();
-            refreshStudentSelects();
-        }
-    });
-}
-
-// ============================================
-// データ同期機能（Google Drive → localStorage）
-// ============================================
-
-/**
- * Google Driveから児童データを同期
- * 別端末で登録した児童データを反映する
- */
-async function runStudentDataSync({ silent = false } = {}) {
-    const syncBtn = document.querySelector('.sync-btn');
-    const originalText = syncBtn ? syncBtn.innerHTML : '';
-
     try {
-        // ボタンの状態を更新
-        if (syncBtn) {
-            syncBtn.innerHTML = '<span class="sync-icon spinning">↻</span> 同期中...';
-            syncBtn.disabled = true;
-        }
-
-        // 認証確保
-        if (!googleDriveAPI.isSignedIn) {
-            if (silent) {
-                return { success: false, skipped: true, reason: 'NOT_SIGNED_IN' };
-            }
-            // 手動同期の場合はauthorize()でポップアップ許可
-            await googleDriveAPI.authorize();
-        }
-
-        // 保存先フォルダ確認（未選択時はDriveの設定ファイルから自動取得）
-        const settings = loadUserSettings();
-        let targetFolderId = googleDriveAPI.getTargetFolderId() || settings.folderId;
-
-        if (!targetFolderId) {
-            // 他端末で設定されたフォルダIDをDriveから取得
-            try {
-                const driveConfig = await googleDriveAPI.loadConfigFromDrive();
-                if (driveConfig && driveConfig.targetFolderId) {
-                    targetFolderId = driveConfig.targetFolderId;
-                    // ローカルにも保存
-                    const s = loadUserSettings();
-                    s.folderId = driveConfig.targetFolderId;
-                    s.folderName = driveConfig.targetFolderName || '';
-                    saveUserSettings(s);
-                    googleDriveAPI.setTargetFolderId(targetFolderId);
-                    console.log('他端末の設定からフォルダIDを取得:', targetFolderId);
-                }
-            } catch (e) {
-                console.warn('Drive設定の読み込みに失敗:', e);
-            }
-        }
-
-        if (!targetFolderId) {
-            if (!silent) {
-                alert('同期には保存先フォルダの選択が必要です。設定からフォルダを選択してください。');
-            }
-            return { success: false, skipped: true, reason: 'NO_TARGET_FOLDER' };
-        }
-        googleDriveAPI.setTargetFolderId(targetFolderId);
-
-        // データ同期実行
-        const result = await googleDriveAPI.syncAllStudentData();
-
-        if (result.success) {
-            const studentCount = result.syncedStudents.length;
-            if (!silent) {
-                alert(`同期完了: ${studentCount}名の児童データを更新しました`);
-            }
-            refreshStudentSelects();
-            return result;
-        }
-
-        throw new Error(result.error || '同期に失敗しました');
-    } catch (error) {
-        console.error('データ同期エラー:', error);
-        if (!silent) {
-            alert('データ同期に失敗しました: ' + error.message);
-        }
-        return { success: false, error: error.message };
-    } finally {
-        if (syncBtn) {
-            syncBtn.innerHTML = originalText;
-            syncBtn.disabled = false;
-        }
+        refreshStudentSelects();
+    } catch (e) {
+        console.error('refreshStudentSelectsエラー:', e);
     }
-}
-
-async function syncStudentDataFromDrive() {
-    return runStudentDataSync({ silent: false });
-}
-
-async function autoSyncStudentData() {
-    return runStudentDataSync({ silent: true });
-}
+});
 
 /**
  * 児童選択プルダウンを更新
@@ -3009,7 +2695,7 @@ function refreshStudentSelects() {
     const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
     const assessmentNames = Object.values(assessments).map(a => a.data?.childName).filter(Boolean);
 
-    // Google Driveから同期した児童一覧も取得（端末間同期用）
+    // バックアップから復元した児童一覧も取得
     const children = JSON.parse(localStorage.getItem('children') || '{}');
     const childrenNames = Object.keys(children);
 
@@ -3050,17 +2736,6 @@ function refreshStudentSelects() {
     }
 
     console.log('児童選択肢を更新しました:', studentNames.length, '名');
-}
-
-/**
- * 最終同期日時を取得
- */
-function getLastSyncTime() {
-    const timestamp = localStorage.getItem('syncTimestamp');
-    if (!timestamp) return '未同期';
-
-    const date = new Date(timestamp);
-    return date.toLocaleString('ja-JP');
 }
 
 // ============================================
@@ -3215,9 +2890,7 @@ function renderBatchRecordStep2(container) {
                     <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
                         <button type="button" class="btn-small" onclick="selectAllBatchChildren()">全選択</button>
                         <button type="button" class="btn-small" onclick="deselectAllBatchChildren()">選択解除</button>
-                        <button type="button" class="sync-btn" onclick="syncAndRefreshBatchChildren()" style="padding: 0.3rem 0.8rem; font-size: 0.85rem;">
-                            <span class="sync-icon">↻</span> 更新
-                        </button>
+                        <button type="button" onclick="refreshBatchChildren()" style="padding: 0.3rem 0.8rem; font-size: 0.85rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">更新</button>
                     </div>
                     <div class="children-selection" id="batchChildrenList">
                         ${childrenCheckboxes}
@@ -3255,8 +2928,8 @@ function deselectAllBatchChildren() {
 /**
  * 同期して児童リストを更新
  */
-async function syncAndRefreshBatchChildren() {
-    await syncStudentDataFromDrive();
+function refreshBatchChildren() {
+    refreshStudentSelects();
     const container = document.getElementById('batchRecordContent');
     renderBatchRecordStep2(container);
 }
@@ -3447,14 +3120,24 @@ async function generateBatchRecords() {
                 generatedText = `【活動記録】\n\n日付: ${batchRecordState.date}\n対象児童: ${childName}\n活動内容: ${selectedActivityLabels}\n\n◆ 活動の様子\n${observation}\n\n※ Gemini APIを設定すると、より詳細な記録が自動生成されます`;
             }
 
+            // localStorageに保存
+            const dailyReports = JSON.parse(localStorage.getItem('dailyReports') || '{}');
+            const reportKey = `${childName}_記録_${batchRecordState.date}_batch.html`;
+            dailyReports[reportKey] = {
+                html: generatedText,
+                childName: childName,
+                activity: recordData.activityType,
+                observation: recordData.observation,
+                createdAt: new Date().toISOString()
+            };
+            localStorage.setItem('dailyReports', JSON.stringify(dailyReports));
+
             results.push({
                 childName,
                 recordData,
                 generatedText
             });
 
-            // Google Driveに保存
-            await saveRecordToDrive(childName, batchRecordState.date, generatedText, recordData);
         }
 
         // 結果表示
@@ -3511,7 +3194,7 @@ function renderBatchRecordResults(container, results) {
 
             <div class="batch-summary" style="background: #e8f5e9; border-color: #4CAF50;">
                 <h3 style="color: #2e7d32; margin-bottom: 0.5rem;">一括生成完了</h3>
-                <p>${results.length}名分の記録をGoogle Driveに保存しました。</p>
+                <p>${results.length}名分の記録を保存しました。</p>
             </div>
 
             <div class="batch-results">
@@ -4011,446 +3694,10 @@ async function handleCsvFile(file) {
     await showFolderSelection();
 }
 
-/**
- * フォルダ選択UIを表示
- */
-async function ensureDriveTargetFolderForImport() {
-    if (typeof googleDriveAPI === 'undefined' || !googleDriveAPI.isInitialized()) return false;
-
-    let targetFolderId = googleDriveAPI.getTargetFolderId();
-    if (targetFolderId) return true;
-
-    const settings = loadUserSettings();
-    if (settings.folderId) {
-        googleDriveAPI.setTargetFolderId(settings.folderId);
-        return true;
-    }
-
-    // 他端末で設定されたフォルダIDをDriveから自動取得
-    try {
-        const driveConfig = await googleDriveAPI.loadConfigFromDrive();
-        if (driveConfig && driveConfig.targetFolderId) {
-            const s = loadUserSettings();
-            s.folderId = driveConfig.targetFolderId;
-            s.folderName = driveConfig.targetFolderName || '';
-            saveUserSettings(s);
-            googleDriveAPI.setTargetFolderId(driveConfig.targetFolderId);
-            console.log('Drive設定からフォルダIDを自動取得:', driveConfig.targetFolderId);
-            return true;
-        }
-    } catch (e) {
-        console.warn('Drive設定の読み込みに失敗:', e);
-    }
-
-    // それでも見つからない場合はPickerで選択
-    await googleDriveAPI.ensurePickerReady();
-    return await new Promise((resolve) => {
-        googleDriveAPI.openFolderPicker(async (folderId, folderName, error) => {
-            if (error || !folderId) {
-                resolve(false);
-                return;
-            }
-            const latest = loadUserSettings();
-            latest.folderId = folderId;
-            latest.folderName = folderName;
-            saveUserSettings(latest);
-            googleDriveAPI.setTargetFolderId(folderId);
-
-            // Driveにも設定を保存（他端末共有用）
-            try {
-                await googleDriveAPI.saveConfigToDrive({
-                    targetFolderId: folderId,
-                    targetFolderName: folderName,
-                    updatedAt: new Date().toISOString()
-                });
-            } catch (e) {
-                console.warn('Drive設定の保存に失敗:', e);
-            }
-
-            resolve(true);
-        });
-    });
-}
-
+// フォルダ選択は不要（localStorageのみで動作）
 async function showFolderSelection() {
-    const folderSection = document.getElementById('folderSelectionSection');
-    if (!folderSection) {
-        // フォルダ選択セクションを追加
-        const importForm = document.querySelector('.csv-import-form');
-        const folderHTML = `
-            <div id="folderSelectionSection" class="folder-selection-section">
-                <h4>保存先フォルダを選択</h4>
-                <p class="folder-hint">Google Driveの生徒フォルダを選択、または新規作成できます</p>
-
-                <div id="folderLoadingIndicator" class="folder-loading">
-                    <span class="loading-spinner">⏳</span> フォルダ一覧を読み込み中...
-                </div>
-
-                <div id="folderList" class="folder-list" style="display:none;">
-                    <!-- フォルダ一覧がここに表示 -->
-                </div>
-
-                <div class="folder-actions">
-                    <button class="btn-new-folder" onclick="createNewImportFolder()">
-                        ➕ 新規フォルダを作成
-                    </button>
-                </div>
-            </div>
-        `;
-        importForm.insertAdjacentHTML('beforeend', folderHTML);
-    }
-
-    document.getElementById('folderSelectionSection').style.display = 'block';
-    document.getElementById('folderLoadingIndicator').style.display = 'block';
-    document.getElementById('folderList').style.display = 'none';
-
-    // Google Driveからフォルダ取得を試みる
-    try {
-        await _loadFolderList();
-    } catch (error) {
-        console.error('フォルダ取得エラー:', error);
-        displayFolderList([]);
-    } finally {
-        const indicator = document.getElementById('folderLoadingIndicator');
-        const list = document.getElementById('folderList');
-        if (indicator) indicator.style.display = 'none';
-        if (list) list.style.display = 'block';
-    }
-}
-
-/**
- * フォルダ一覧の実際の読み込み処理（showFolderSelectionから呼ばれる）
- */
-async function _loadFolderList() {
-    if (typeof googleDriveAPI === 'undefined') {
-        displayFolderList([]);
-        return;
-    }
-
-    // 未初期化の場合は自動初期化
-    if (!googleDriveAPI.isInitialized()) {
-        await googleDriveAPI.initialize();
-    }
-    if (!googleDriveAPI.isInitialized()) {
-        displayFolderList([]);
-        return;
-    }
-
-    // 既にトークンがあるかチェック（既存セッション or ページリロード後）
-    const hasToken = gapi.client.getToken() !== null;
-    if (hasToken) {
-        googleDriveAPI.isSignedIn = true;
-    }
-
-    // 未認証の場合は「Google Driveに接続」ボタンを表示
-    if (!googleDriveAPI.isSignedIn) {
-        displayDriveConnectButton();
-        return;
-    }
-
-    // TARGET_FOLDER_IDを確認（ローカル設定 → Drive設定の順）
-    let targetFolderId = googleDriveAPI.getTargetFolderId();
-    if (!targetFolderId) {
-        const settings = loadUserSettings();
-        if (settings.folderId) {
-            googleDriveAPI.setTargetFolderId(settings.folderId);
-            targetFolderId = settings.folderId;
-        }
-    }
-    if (!targetFolderId) {
-        // Drive設定ファイルから取得を試みる
-        try {
-            const driveConfig = await googleDriveAPI.loadConfigFromDrive();
-            if (driveConfig && driveConfig.targetFolderId) {
-                const s = loadUserSettings();
-                s.folderId = driveConfig.targetFolderId;
-                s.folderName = driveConfig.targetFolderName || '';
-                saveUserSettings(s);
-                googleDriveAPI.setTargetFolderId(driveConfig.targetFolderId);
-                targetFolderId = driveConfig.targetFolderId;
-            }
-        } catch (e) {
-            console.warn('Drive設定読み込みスキップ:', e);
-        }
-    }
-
-    if (!targetFolderId) {
-        // 認証済みだがフォルダ未設定 → フォルダ選択ボタンを表示
-        displayFolderPickerButton();
-        return;
-    }
-
-    // フォルダ一覧を取得
-    const result = await googleDriveAPI.listStudentFolders();
-    if (result.success && result.folders.length > 0) {
-        displayFolderList(result.folders);
-    } else {
-        displayFolderList([]);
-    }
-}
-
-/**
- * Google Driveに接続ボタンを表示（未認証時）
- */
-function displayDriveConnectButton() {
-    const folderList = document.getElementById('folderList');
-    if (!folderList) return;
-
-    folderList.innerHTML = `
-        <div style="text-align: center; padding: 1.5rem;">
-            <p style="margin-bottom: 1rem; color: #666;">Google Driveに接続すると、既存のフォルダが表示されます</p>
-            <button onclick="connectDriveAndLoadFolders()" style="
-                padding: 0.8rem 1.5rem;
-                background: linear-gradient(135deg, #4285f4, #34a853);
-                color: white;
-                border: none;
-                border-radius: 25px;
-                font-size: 0.95rem;
-                font-weight: bold;
-                cursor: pointer;
-            ">🔗 Google Driveに接続</button>
-        </div>
-    `;
-    // localStorageのみインポートも可能にする
-    window.selectedFolderId = null;
-    window.selectedFolderName = null;
+    // CSVインポートはlocalStorageに直接保存するため、フォルダ選択は不要
     document.getElementById('importBtn').disabled = false;
-}
-
-/**
- * フォルダ選択Pickerボタンを表示（認証済み・フォルダ未設定時）
- */
-function displayFolderPickerButton() {
-    const folderList = document.getElementById('folderList');
-    if (!folderList) return;
-
-    folderList.innerHTML = `
-        <div style="text-align: center; padding: 1.5rem;">
-            <p style="margin-bottom: 1rem; color: #666;">保存先の親フォルダを選択してください</p>
-            <button onclick="pickParentFolderAndLoadList()" style="
-                padding: 0.8rem 1.5rem;
-                background: linear-gradient(135deg, #ff9800, #ffc107);
-                color: white;
-                border: none;
-                border-radius: 25px;
-                font-size: 0.95rem;
-                font-weight: bold;
-                cursor: pointer;
-            ">📂 Driveフォルダを選択</button>
-        </div>
-    `;
-    window.selectedFolderId = null;
-    window.selectedFolderName = null;
-    document.getElementById('importBtn').disabled = false;
-}
-
-/**
- * Google Driveに接続してフォルダ一覧を読み込む（ボタンクリック時）
- */
-async function connectDriveAndLoadFolders() {
-    const folderList = document.getElementById('folderList');
-    if (folderList) {
-        folderList.innerHTML = '<div style="text-align:center; padding:1rem;"><span class="loading-spinner">⏳</span> 接続中...</div>';
-    }
-
-    try {
-        await googleDriveAPI.authorize();
-        // 認証成功 → フォルダ読み込みを再実行
-        await _loadFolderList();
-    } catch (error) {
-        console.error('Drive接続エラー:', error);
-        if (folderList) {
-            folderList.innerHTML = `
-                <div style="text-align: center; padding: 1rem;">
-                    <p style="color: #e53935;">接続に失敗しました</p>
-                    <button onclick="connectDriveAndLoadFolders()" style="
-                        margin-top: 0.5rem; padding: 0.5rem 1rem;
-                        background: #4285f4; color: white; border: none;
-                        border-radius: 20px; cursor: pointer;
-                    ">再試行</button>
-                </div>
-            `;
-        }
-    } finally {
-        const indicator = document.getElementById('folderLoadingIndicator');
-        if (indicator) indicator.style.display = 'none';
-    }
-}
-
-/**
- * 親フォルダをPickerで選択してフォルダ一覧を読み込む（ボタンクリック時）
- */
-async function pickParentFolderAndLoadList() {
-    const folderList = document.getElementById('folderList');
-    if (folderList) {
-        folderList.innerHTML = '<div style="text-align:center; padding:1rem;"><span class="loading-spinner">⏳</span> フォルダ選択中...</div>';
-    }
-
-    try {
-        await googleDriveAPI.ensurePickerReady();
-        const selected = await new Promise((resolve) => {
-            googleDriveAPI.openFolderPicker((folderId, folderName, error) => {
-                if (error || !folderId) {
-                    resolve(null);
-                } else {
-                    resolve({ folderId, folderName });
-                }
-            });
-        });
-
-        if (!selected) {
-            displayFolderPickerButton();
-            return;
-        }
-
-        // 設定を保存
-        const settings = loadUserSettings();
-        settings.folderId = selected.folderId;
-        settings.folderName = selected.folderName;
-        saveUserSettings(settings);
-        googleDriveAPI.setTargetFolderId(selected.folderId);
-
-        // Driveにも設定を保存（他端末共有用）
-        try {
-            await googleDriveAPI.saveConfigToDrive({
-                targetFolderId: selected.folderId,
-                targetFolderName: selected.folderName,
-                updatedAt: new Date().toISOString()
-            });
-        } catch (e) {
-            console.warn('Drive設定保存スキップ:', e);
-        }
-
-        // フォルダ一覧を取得
-        const result = await googleDriveAPI.listStudentFolders();
-        if (result.success && result.folders.length > 0) {
-            displayFolderList(result.folders);
-        } else {
-            displayFolderList([]);
-        }
-    } catch (error) {
-        console.error('フォルダ選択エラー:', error);
-        displayFolderPickerButton();
-    } finally {
-        const indicator = document.getElementById('folderLoadingIndicator');
-        if (indicator) indicator.style.display = 'none';
-    }
-}
-
-/**
- * フォルダ一覧を表示
- */
-function displayFolderList(folders) {
-    const folderList = document.getElementById('folderList');
-    if (!folderList) return;
-
-    if (folders.length === 0) {
-        folderList.innerHTML = `
-            <div class="no-folders">
-                <p>既存のフォルダがありません</p>
-                <p class="hint">新規フォルダを作成するか、localStorageのみに保存されます</p>
-            </div>
-        `;
-        // インポートボタンを有効化（localStorageのみ）
-        window.selectedFolderId = null;
-        window.selectedFolderName = null;
-        document.getElementById('importBtn').disabled = false;
-        return;
-    }
-
-    folderList.innerHTML = '<div class="folder-grid"></div>';
-    const grid = folderList.querySelector('.folder-grid');
-
-    folders.forEach(folder => {
-        const item = document.createElement('div');
-        item.className = 'folder-item';
-        item.dataset.folderId = folder.id;
-        item.dataset.folderName = folder.name;
-        item.innerHTML = `
-            <span class="folder-icon">📁</span>
-            <span class="folder-name"></span>
-        `;
-        item.querySelector('.folder-name').textContent = folder.name;
-        item.addEventListener('click', () => selectImportFolder(folder.id, folder.name));
-        grid.appendChild(item);
-    });
-
-    // インポートボタンはまだ無効（フォルダ選択待ち）
-    document.getElementById('importBtn').disabled = true;
-}
-
-/**
- * インポート先フォルダを選択
- */
-function selectImportFolder(folderId, folderName) {
-    window.selectedFolderId = folderId;
-    window.selectedFolderName = folderName;
-
-    // 選択状態を更新
-    document.querySelectorAll('.folder-item').forEach(item => {
-        item.classList.toggle('selected', item.dataset.folderId === folderId);
-    });
-
-    // 選択されたフォルダを表示
-    let selectedIndicator = document.getElementById('selectedFolderIndicator');
-    if (!selectedIndicator) {
-        const folderSection = document.getElementById('folderSelectionSection');
-        folderSection.insertAdjacentHTML('beforeend', '<div id="selectedFolderIndicator" class="selected-folder-indicator"></div>');
-        selectedIndicator = document.getElementById('selectedFolderIndicator');
-    }
-    selectedIndicator.innerHTML = `<span class="check-icon">✓</span> 選択中: <strong>${folderName}</strong>`;
-
-    // インポートボタンを有効化
-    document.getElementById('importBtn').disabled = false;
-}
-
-/**
- * 新規フォルダを作成
- */
-async function createNewImportFolder() {
-    const folderName = prompt('新規フォルダ名を入力してください（児童名など）:');
-    if (!folderName || !folderName.trim()) return;
-
-    try {
-        if (typeof googleDriveAPI !== 'undefined') {
-            if (!googleDriveAPI.isInitialized()) {
-                await googleDriveAPI.initialize();
-            }
-            if (!googleDriveAPI.isInitialized()) {
-                alert('Google Driveの初期化に失敗しました。ページを再読み込みしてください。');
-                return;
-            }
-            if (!googleDriveAPI.isSignedIn) {
-                await googleDriveAPI.authorize();
-            }
-
-            const hasTargetFolder = await ensureDriveTargetFolderForImport();
-            if (!hasTargetFolder) {
-                alert('保存先の親フォルダが未選択です。先に保存先フォルダを選択してください。');
-                return;
-            }
-
-            const result = await googleDriveAPI.getOrCreateStudentFolder(folderName.trim());
-
-            if (result.folderId) {
-                alert(`フォルダ「${result.folderName}」を${result.isNew ? '作成' : '選択'}しました`);
-                selectImportFolder(result.folderId, result.folderName);
-
-                // フォルダ一覧を更新
-                const folders = await googleDriveAPI.listStudentFolders();
-                if (folders.success) {
-                    displayFolderList(folders.folders);
-                    // 再度選択状態を設定
-                    selectImportFolder(result.folderId, result.folderName);
-                }
-            }
-        } else {
-            alert('Google Driveに接続されていません。設定からGoogle Driveを連携してください。');
-        }
-    } catch (error) {
-        console.error('フォルダ作成エラー:', error);
-        alert('フォルダの作成に失敗しました: ' + error.message);
-    }
 }
 
 /**
@@ -4466,18 +3713,10 @@ function clearCsvFile() {
  */
 function resetCsvSelection() {
     window.selectedCsvFile = null;
-    window.selectedFolderId = null;
-    window.selectedFolderName = null;
     document.getElementById('csvFileInput').value = '';
     document.getElementById('fileUploadArea').style.display = 'flex';
     document.getElementById('selectedFileInfo').style.display = 'none';
     document.getElementById('importBtn').disabled = true;
-
-    // フォルダ選択セクションを非表示
-    const folderSection = document.getElementById('folderSelectionSection');
-    if (folderSection) {
-        folderSection.style.display = 'none';
-    }
 }
 
 /**
@@ -4555,11 +3794,7 @@ async function executeImport() {
             }
 
             let result;
-            const options = {
-                folderId: window.selectedFolderId || null,
-                folderName: window.selectedFolderName || null,
-                saveToGoogleDrive: !!window.selectedFolderId
-            };
+            const options = {};
 
             switch (importType) {
                 case 'childInfo':
@@ -4577,18 +3812,6 @@ async function executeImport() {
 
             if (!result) {
                 throw new Error('インポート結果が返されませんでした');
-            }
-
-            // Google Driveに保存
-            if (options.saveToGoogleDrive && result.success) {
-                btn.textContent = 'Google Driveに保存中...';
-                try {
-                    await saveImportedDataToGoogleDrive(result, options);
-                    result.message += `\n\nGoogle Drive「${options.folderName}」フォルダに保存しました`;
-                } catch (driveError) {
-                    console.error('Google Drive保存エラー:', driveError);
-                    result.message += '\n\n（Google Drive保存に失敗しましたが、ローカルには保存されています）';
-                }
             }
 
             // 成功メッセージをアラートで表示
@@ -4617,90 +3840,10 @@ async function executeImport() {
         } finally {
             btn.textContent = originalText;
             btn.disabled = false;
-            window.selectedFolderId = null;
-            window.selectedFolderName = null;
         }
     } catch (outerError) {
         console.error('executeImport 外側エラー:', outerError);
         alert('予期しないエラー: ' + outerError.message);
-    }
-}
-
-/**
- * インポートしたデータをGoogle Driveに保存
- */
-async function saveImportedDataToGoogleDrive(result, options) {
-    if (!options.folderId || typeof googleDriveAPI === 'undefined') return;
-
-    try {
-        // インポートタイプに応じてlocalStorageからデータを取得して保存
-        const type = window.currentImportType;
-
-        if (type === 'childInfo') {
-            const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
-            for (const name of result.importedNames || []) {
-                const key = Object.keys(assessments).find(k => k.includes(name));
-                if (key && assessments[key]) {
-                    const data = assessments[key];
-                    await googleDriveAPI.uploadHTMLFile(
-                        `${name}_基本情報.html`,
-                        data.html,
-                        options.folderId
-                    );
-                    // JSONも保存
-                    await googleDriveAPI.uploadJSONFile(
-                        `${name}_基本情報.json`,
-                        { type: 'assessment', ...data },
-                        options.folderId
-                    );
-                }
-            }
-        } else if (type === 'supportPlan') {
-            const plans = JSON.parse(localStorage.getItem('supportPlans') || '{}');
-            for (const name of result.importedNames || []) {
-                const key = Object.keys(plans).find(k => k.includes(name));
-                if (key && plans[key]) {
-                    const data = plans[key];
-                    await googleDriveAPI.uploadHTMLFile(
-                        key,
-                        data.html,
-                        options.folderId
-                    );
-                    await googleDriveAPI.uploadJSONFile(
-                        key.replace('.html', '.json'),
-                        { type: 'supportPlan', ...data },
-                        options.folderId
-                    );
-                }
-            }
-        } else if (type === 'record') {
-            const reports = JSON.parse(localStorage.getItem('dailyReports') || '{}');
-            for (const nameDate of result.importedNames || []) {
-                // "森田亜羅斗 (2026/1/19)" 形式から名前を抽出
-                const name = nameDate.split(' (')[0];
-                const keys = Object.keys(reports).filter(k => k.includes(name));
-                for (const key of keys) {
-                    if (reports[key]) {
-                        const data = reports[key];
-                        await googleDriveAPI.uploadHTMLFile(
-                            key,
-                            data.html,
-                            options.folderId
-                        );
-                        await googleDriveAPI.uploadJSONFile(
-                            key.replace('.html', '.json'),
-                            { type: 'record', ...data },
-                            options.folderId
-                        );
-                    }
-                }
-            }
-        }
-
-        console.log('Google Driveへの保存完了');
-    } catch (error) {
-        console.error('Google Drive保存エラー:', error);
-        throw error;
     }
 }
 

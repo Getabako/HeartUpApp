@@ -1,54 +1,5 @@
 // Remove import as it's causing issues - we don't need Gemini API for this form
 
-// Google Drive API初期化
-let driveInitialized = false;
-
-// ユーザー設定をlocalStorageから読み込み
-function loadUserSettings() {
-    try {
-        const saved = localStorage.getItem('userSettings');
-        if (saved) {
-            return JSON.parse(saved);
-        }
-    } catch (e) {
-        console.error('設定読み込みエラー:', e);
-    }
-    return { email: '', folderId: '', folderName: '' };
-}
-
-async function initGoogleDrive() {
-    console.log('Google Drive API 初期化開始...');
-    if (typeof googleDriveAPI !== 'undefined') {
-        try {
-            driveInitialized = await googleDriveAPI.initialize();
-            console.log('Google Drive API 初期化結果:', driveInitialized);
-
-            // 保存されたフォルダIDを設定
-            const settings = loadUserSettings();
-            if (settings.folderId) {
-                googleDriveAPI.setTargetFolderId(settings.folderId);
-                console.log('保存先フォルダIDを設定:', settings.folderId);
-            }
-        } catch (error) {
-            console.error('Google Drive API 初期化エラー:', error);
-        }
-    } else {
-        console.warn('googleDriveAPI が定義されていません');
-    }
-}
-
-// ページロード時にGoogle Drive APIを初期化（トークン自動復元付き）
-document.addEventListener('DOMContentLoaded', async function() {
-    await initGoogleDrive();
-    // 保存済みトークンがあれば自動復元
-    if (typeof googleDriveAPI !== 'undefined' && googleDriveAPI.isInitialized()) {
-        const restored = googleDriveAPI.restoreToken();
-        if (restored) {
-            await googleDriveAPI.validateToken();
-        }
-    }
-});
-
 /**
  * HTMLコンテンツからPDFを生成（アセスメント用）
  * @param {string} htmlContent - 完全なHTMLドキュメント
@@ -268,89 +219,6 @@ async function handleAssessmentSubmit(e) {
         const fileName = `${data.childName}_アセスメントシート.html`;
         await saveAssessmentSheet(fileName, assessmentHTML, data);
 
-        // Google Driveへ自動保存（生徒名フォルダに保存）
-        let driveResult = null;
-        if (typeof googleDriveAPI !== 'undefined') {
-            console.log('Google Drive保存開始...', { driveInitialized, isInit: googleDriveAPI.isInitialized() });
-            try {
-                // 初期化されていなければ再度初期化を試みる
-                if (!driveInitialized) {
-                    console.log('Google Drive API 再初期化中...');
-                    if (submitButton) submitButton.textContent = 'Google Drive APIを初期化中...';
-                    driveInitialized = await googleDriveAPI.initialize();
-                }
-
-                if (driveInitialized && googleDriveAPI.isInitialized()) {
-                    // 認証を確保（トークン復元 → サイレント再認証 → ポップアップ）
-                    if (!googleDriveAPI.isSignedIn) {
-                        console.log('Google Driveへの認証を開始...');
-                        if (submitButton) submitButton.textContent = 'Google Driveへの認証中...';
-                        await googleDriveAPI.authorize();
-                    }
-
-                    // TARGET_FOLDER_IDが設定されているか確認
-                    const targetFolderId = googleDriveAPI.getTargetFolderId();
-                    if (!targetFolderId) {
-                        console.warn('保存先フォルダIDが設定されていません。ユーザーにフォルダ選択を促します。');
-                        if (submitButton) submitButton.textContent = '保存先フォルダを選択してください...';
-
-                        // フォルダ選択ダイアログを表示
-                        await new Promise((resolve, reject) => {
-                            googleDriveAPI.openFolderPicker((folderId, folderName, error) => {
-                                if (error) {
-                                    console.error('フォルダ選択エラー:', error);
-                                    reject(new Error('保存先フォルダの選択に失敗しました'));
-                                } else if (folderId) {
-                                    console.log('フォルダ選択完了:', folderName, folderId);
-                                    const settings = loadUserSettings();
-                                    settings.folderId = folderId;
-                                    settings.folderName = folderName || settings.folderName;
-                                    localStorage.setItem('userSettings', JSON.stringify(settings));
-                                    resolve();
-                                } else {
-                                    reject(new Error('フォルダが選択されませんでした'));
-                                }
-                            });
-                        });
-                    }
-
-                    if (submitButton) submitButton.textContent = 'Google Driveに保存中...';
-
-                    // 生徒名フォルダに保存（フォルダがなければ自動作成）
-                    driveResult = await googleDriveAPI.saveAssessmentToStudentFolder(
-                        data.childName,
-                        fileName,
-                        assessmentHTML,
-                        data
-                    );
-                    console.log('Google Drive保存結果:', driveResult);
-
-                    if (!driveResult || !driveResult.success) {
-                        throw new Error('Google Driveへの保存に失敗しました');
-                    }
-                } else {
-                    const clientId = typeof DRIVE_CONFIG !== 'undefined' ? DRIVE_CONFIG.CLIENT_ID : '';
-                    const apiKey = typeof DRIVE_CONFIG !== 'undefined' ? DRIVE_CONFIG.API_KEY : '';
-                    console.warn('Google Drive API が初期化されていません', {
-                        driveInitialized,
-                        isInit: googleDriveAPI.isInitialized(),
-                        hasClientId: !!clientId,
-                        hasApiKey: !!apiKey
-                    });
-                    if (!clientId || !apiKey) {
-                        throw new Error('Google Drive APIキーが設定されていません。管理者にVercel環境変数の設定を依頼してください。');
-                    }
-                    throw new Error('Google Drive APIの初期化に失敗しました。ページを再読み込みしてお試しください。');
-                }
-            } catch (driveError) {
-                console.error('Google Drive保存エラー:', driveError);
-                // エラーをユーザーに通知
-                alert(`Google Driveへの保存に失敗しました: ${driveError.message}\n\nローカルには保存されています。`);
-            }
-        } else {
-            console.warn('googleDriveAPI が利用できません');
-        }
-
         // AIによる支援計画自動生成
         let planResult = null;
         try {
@@ -361,27 +229,10 @@ async function handleAssessmentSubmit(e) {
         }
 
         // Show success message
-        let successMessage = `アセスメントシートが作成されました！\n\nファイル名: ${fileName}\nローカルにダウンロードされました。`;
-
-        if (driveResult && driveResult.success) {
-            const folderStatus = driveResult.folder.isNew ? '（新規作成）' : '（既存）';
-            successMessage += `\n\n✅ Google Driveに保存されました！`;
-            successMessage += `\n📁 保存先フォルダ: ${driveResult.folder.folderName} ${folderStatus}`;
-            if (driveResult.html && driveResult.html.webViewLink) {
-                successMessage += `\n🔗 ファイルリンク: ${driveResult.html.webViewLink}`;
-            }
-        } else if (driveResult === null) {
-            successMessage += `\n\n⚠️ Google Driveへの保存はスキップされました`;
-            successMessage += `\n（Google Drive APIが利用できないか、設定されていません）`;
-        }
+        let successMessage = `アセスメントシートが作成されました！\n\nファイル名: ${fileName}\nローカルに保存されました。`;
 
         if (planResult && planResult.success) {
-            successMessage += `\n\n✅ AIによる支援計画を自動生成しました！`;
-            if (planResult.support) successMessage += `\n📋 専門的支援実施計画`;
-            if (planResult.individual) successMessage += `\n📋 個別支援計画`;
-        } else if (planResult) {
-            successMessage += `\n\n⚠️ 支援計画の自動生成はスキップされました`;
-            if (planResult.message) successMessage += `\n（${planResult.message}）`;
+            successMessage += `\n\nAIによる支援計画を自動生成しました！`;
         }
 
         successMessage += `\n\nこのメッセージを閉じるとアセスメント管理画面に移動します。`;
@@ -1140,41 +991,6 @@ async function autoGeneratePlans(data) {
         }
 
         localStorage.setItem('supportPlans', JSON.stringify(supportPlans));
-
-        // Google Driveにも計画書を保存
-        if (typeof googleDriveAPI !== 'undefined' && driveInitialized && googleDriveAPI.isInitialized()) {
-            // 専門的支援実施計画をDriveに保存
-            if (supportPlanHTML && supportFileName) {
-                try {
-                    console.log('専門的支援実施計画をGoogle Driveに保存中...');
-                    await googleDriveAPI.saveSupportPlanToStudentFolder(
-                        data.childName,
-                        supportFileName,
-                        supportPlanHTML,
-                        supportPlans[supportFileName].planData
-                    );
-                    console.log('専門的支援実施計画のDrive保存完了');
-                } catch (e) {
-                    console.error('専門的支援実施計画のDrive保存に失敗:', e);
-                }
-            }
-
-            // 個別支援計画をDriveに保存
-            if (individualPlanHTML && individualFileName) {
-                try {
-                    console.log('個別支援計画をGoogle Driveに保存中...');
-                    await googleDriveAPI.saveSupportPlanToStudentFolder(
-                        data.childName,
-                        individualFileName,
-                        individualPlanHTML,
-                        supportPlans[individualFileName].planData
-                    );
-                    console.log('個別支援計画のDrive保存完了');
-                } catch (e) {
-                    console.error('個別支援計画のDrive保存に失敗:', e);
-                }
-            }
-        }
 
         return {
             success: results.support || results.individual,
