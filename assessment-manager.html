@@ -491,71 +491,75 @@
             const btnText = document.getElementById('driveSetupBtnText');
             const statusEl = document.getElementById('driveSetupStatus');
             if (btn) btn.disabled = true;
+            if (statusEl) statusEl.textContent = '';
 
             try {
-                // Step 1: 初期化（常に実行して確実にPicker含め初期化する）
-                if (btnText) btnText.textContent = '初期化中...';
-                await googleDriveAPI.initialize();
-
-                // Step 2: 認証（ポップアップあり）
-                if (btnText) btnText.textContent = 'Googleにログイン中...';
-                await googleDriveAPI.authorize();
-
-                // Step 3: メールアドレス取得
-                const email = await googleDriveAPI.getCurrentUserEmail();
-                if (email) {
-                    const settings = JSON.parse(localStorage.getItem('userSettings') || '{}');
-                    settings.email = email;
-                    localStorage.setItem('userSettings', JSON.stringify(settings));
-                    if (statusEl) statusEl.textContent = email + ' でログインしました';
+                // Step 1: 認証（ensureAuthで初期化+トークン復元+必要時ポップアップ）
+                if (btnText) btnText.textContent = 'ログイン中...';
+                const authed = await googleDriveAPI.ensureAuth(true);
+                if (!authed) {
+                    if (statusEl) statusEl.textContent = 'ログインがキャンセルされました';
+                    return;
                 }
 
-                // Step 4: Driveから既存フォルダ設定を読み込み
+                // Step 2: メールアドレス取得
+                const email = await googleDriveAPI.getCurrentUserEmail();
+                if (email) {
+                    const s = JSON.parse(localStorage.getItem('userSettings') || '{}');
+                    s.email = email;
+                    localStorage.setItem('userSettings', JSON.stringify(s));
+                    if (statusEl) statusEl.textContent = email + ' でログイン済み';
+                }
+
+                // Step 3: フォルダ設定を確認（localStorage → Drive設定ファイル）
                 let folderId = null;
                 let folderName = null;
                 if (btnText) btnText.textContent = '設定を確認中...';
-                try {
-                    const driveConfig = await googleDriveAPI.loadConfigFromDrive();
-                    if (driveConfig && driveConfig.targetFolderId) {
-                        folderId = driveConfig.targetFolderId;
-                        folderName = driveConfig.targetFolderName || '';
-                        console.log('Driveから既存フォルダ設定を取得:', folderName, folderId);
-                    }
-                } catch (e) {
-                    console.warn('Drive設定読み込みスキップ:', e);
+
+                // まずlocalStorageから
+                const localSettings = JSON.parse(localStorage.getItem('userSettings') || '{}');
+                if (localSettings.folderId) {
+                    folderId = localSettings.folderId;
+                    folderName = localSettings.folderName || '';
                 }
 
-                // Step 5: フォルダが未設定ならPickerで選択
+                // localStorageになければDriveから
                 if (!folderId) {
-                    if (btnText) btnText.textContent = 'フォルダを選択してください...';
-                    // Picker APIの初期化を保証
+                    try {
+                        const driveConfig = await googleDriveAPI.loadConfigFromDrive();
+                        if (driveConfig && driveConfig.targetFolderId) {
+                            folderId = driveConfig.targetFolderId;
+                            folderName = driveConfig.targetFolderName || '';
+                        }
+                    } catch (e) {
+                        console.warn('Drive設定読み込みスキップ:', e);
+                    }
+                }
+
+                // Step 4: フォルダが未設定ならPickerで選択
+                if (!folderId) {
+                    if (btnText) btnText.textContent = 'フォルダを選択...';
                     await googleDriveAPI.ensurePickerReady();
                     const selected = await new Promise((resolve) => {
                         googleDriveAPI.openFolderPicker((id, name, error) => {
-                            if (error) {
-                                resolve({ error });
-                            } else if (id) {
-                                resolve({ folderId: id, folderName: name });
-                            } else {
-                                resolve(null);
-                            }
+                            if (error) resolve({ error });
+                            else if (id) resolve({ folderId: id, folderName: name });
+                            else resolve(null);
                         });
                     });
 
                     if (selected && selected.error) {
-                        alert('フォルダ選択エラー: ' + selected.error);
+                        if (statusEl) statusEl.textContent = 'フォルダ選択エラー: ' + selected.error;
                         return;
                     }
                     if (!selected) {
-                        if (btnText) btnText.textContent = 'Google Driveを設定';
-                        if (btn) btn.disabled = false;
+                        if (statusEl) statusEl.textContent = 'フォルダ選択がキャンセルされました';
                         return;
                     }
                     folderId = selected.folderId;
                     folderName = selected.folderName;
 
-                    // Driveにも設定を保存
-                    if (btnText) btnText.textContent = '設定を保存中...';
+                    // Driveに設定を保存（他端末共有用）
                     try {
                         await googleDriveAPI.saveConfigToDrive({
                             targetFolderId: folderId,
@@ -563,40 +567,30 @@
                             updatedAt: new Date().toISOString()
                         });
                     } catch (e) {
-                        console.warn('Drive設定の保存に失敗:', e);
+                        console.warn('Drive設定保存スキップ:', e);
                     }
                 }
 
-                // Step 6: フォルダ設定をローカルに保存
+                // Step 5: フォルダ設定をローカルに保存
                 const settings = JSON.parse(localStorage.getItem('userSettings') || '{}');
                 settings.folderId = folderId;
                 settings.folderName = folderName;
                 localStorage.setItem('userSettings', JSON.stringify(settings));
                 googleDriveAPI.setTargetFolderId(folderId);
 
-                // Step 7: データ同期
+                // Step 6: データ同期
                 if (btnText) btnText.textContent = 'データを同期中...';
                 const result = await googleDriveAPI.syncAllStudentData();
                 if (result.success) {
                     loadChildren();
-                    // 設定ボタンを同期完了表示に切り替え
-                    const syncBar = document.getElementById('driveSyncBar');
-                    if (syncBar) {
-                        syncBar.innerHTML = `
-                            <p style="color:#2e7d32; font-size:0.9rem; font-weight:bold;">Google Drive連携完了（${result.syncedStudents.length}名同期）</p>
-                            <p style="color:#666; font-size:0.85rem; margin-top:4px;">${email || ''} | フォルダ: ${folderName || folderId}</p>
-                            <button onclick="setupGoogleDriveFromAssessment()" style="
-                                margin-top:8px; padding:6px 16px; border:1px solid #ccc; border-radius:6px;
-                                background:white; color:#666; font-size:0.85rem; cursor:pointer;
-                            ">設定を変更</button>
-                        `;
-                    }
+                    showSyncComplete(result.syncedStudents.length, email, folderName || folderId);
                 } else {
                     showSyncStatus('同期に失敗しました', false);
                 }
             } catch (error) {
                 console.error('Google Drive設定エラー:', error);
-                if (statusEl) statusEl.textContent = '設定に失敗しました: ' + error.message;
+                if (statusEl) statusEl.textContent = 'エラー: ' + error.message;
+                showSyncStatus('設定エラーが発生しました', false);
             } finally {
                 if (btn) btn.disabled = false;
                 if (btnText && btnText.textContent.includes('...')) {

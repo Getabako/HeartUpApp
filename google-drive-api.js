@@ -556,7 +556,7 @@ class GoogleDriveAPI {
      */
     async getFolderName(folderId) {
         if (!this.isSignedIn) {
-            await this.authorize();
+            throw new Error('Google Driveに未接続です');
         }
 
         try {
@@ -579,7 +579,7 @@ class GoogleDriveAPI {
      */
     async uploadHTMLFile(fileName, htmlContent, folderId = null) {
         if (!this.isSignedIn) {
-            await this.authorize();
+            throw new Error('Google Driveに未接続です');
         }
 
         const targetFolderId = folderId || this.TARGET_FOLDER_ID;
@@ -638,7 +638,7 @@ class GoogleDriveAPI {
      */
     async uploadPDFFile(fileName, pdfBlob, folderId = null) {
         if (!this.isSignedIn) {
-            await this.authorize();
+            throw new Error('Google Driveに未接続です');
         }
 
         const targetFolderId = folderId || this.TARGET_FOLDER_ID;
@@ -719,7 +719,7 @@ class GoogleDriveAPI {
      */
     async uploadJSONFile(fileName, jsonData, folderId = null) {
         if (!this.isSignedIn) {
-            await this.authorize();
+            throw new Error('Google Driveに未接続です');
         }
 
         const targetFolderId = folderId || this.TARGET_FOLDER_ID;
@@ -774,7 +774,7 @@ class GoogleDriveAPI {
      */
     async deleteFile(fileName, folderId = null) {
         if (!this.isSignedIn) {
-            await this.authorize();
+            throw new Error('Google Driveに未接続です');
         }
 
         try {
@@ -850,7 +850,7 @@ class GoogleDriveAPI {
      */
     async listFiles(folderId = null) {
         if (!this.isSignedIn) {
-            await this.authorize();
+            throw new Error('Google Driveに未接続です');
         }
 
         const targetFolderId = folderId || this.TARGET_FOLDER_ID;
@@ -880,7 +880,7 @@ class GoogleDriveAPI {
      */
     async getOrCreateStudentFolder(studentName, parentFolderId = null) {
         if (!this.isSignedIn) {
-            await this.authorize();
+            throw new Error('Google Driveに未接続です');
         }
 
         const targetParentFolderId = parentFolderId || this.TARGET_FOLDER_ID;
@@ -1143,7 +1143,7 @@ class GoogleDriveAPI {
      */
     async listStudentFolders() {
         if (!this.isSignedIn) {
-            await this.authorize();
+            throw new Error('Google Driveに未接続です');
         }
 
         if (!this.TARGET_FOLDER_ID) {
@@ -1332,7 +1332,7 @@ class GoogleDriveAPI {
      */
     async saveConfigToDrive(config) {
         try {
-            if (!this.isSignedIn) await this.authorize();
+            if (!this.isSignedIn) throw new Error('未認証');
 
             // 既存の設定ファイルを検索
             const response = await gapi.client.drive.files.list({
@@ -1386,7 +1386,7 @@ class GoogleDriveAPI {
      */
     async loadConfigFromDrive() {
         try {
-            if (!this.isSignedIn) await this.authorize();
+            if (!this.isSignedIn) throw new Error('未認証');
 
             const response = await gapi.client.drive.files.list({
                 q: "name = 'heartup_config.json' and mimeType = 'application/json' and trashed = false",
