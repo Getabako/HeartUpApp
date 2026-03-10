@@ -396,9 +396,14 @@
             if (typeof googleDriveAPI === 'undefined') return;
 
             try {
-                // トークン自動復元を試みる（ポップアップなし）
-                const authed = await googleDriveAPI.ensureAuth(false);
-                if (!authed) {
+                // API初期化（ポップアップなし）
+                if (!googleDriveAPI.isInitialized()) {
+                    const ok = await googleDriveAPI.initialize();
+                    if (!ok) { showDriveHint(); return; }
+                }
+                // トークン復元のみ試みる（ポップアップは一切開かない）
+                const hasToken = googleDriveAPI.restoreToken();
+                if (!hasToken) {
                     showDriveHint();
                     return;
                 }
@@ -494,15 +499,19 @@
             if (statusEl) statusEl.textContent = '';
 
             try {
-                // Step 1: 認証（ensureAuthで初期化+トークン復元+必要時ポップアップ）
-                if (btnText) btnText.textContent = 'ログイン中...';
-                const authed = await googleDriveAPI.ensureAuth(true);
-                if (!authed) {
-                    if (statusEl) statusEl.textContent = 'ログインがキャンセルされました';
-                    return;
+                // Step 1: 初期化（ポップアップは開かない。silentDriveSyncで済んでいるはず）
+                if (!googleDriveAPI.isInitialized()) {
+                    if (btnText) btnText.textContent = '初期化中...';
+                    await googleDriveAPI.initialize();
                 }
 
-                // Step 2: メールアドレス取得
+                // Step 2: 認証（ボタンクリック直後にauthorize()を呼び、ポップアップブロックを回避）
+                if (btnText) btnText.textContent = 'ログイン中...';
+                if (!(googleDriveAPI.isSignedIn && typeof gapi !== 'undefined' && gapi.client && gapi.client.getToken())) {
+                    await googleDriveAPI.authorize();
+                }
+
+                // Step 3: メールアドレス取得
                 const email = await googleDriveAPI.getCurrentUserEmail();
                 if (email) {
                     const s = JSON.parse(localStorage.getItem('userSettings') || '{}');
@@ -511,7 +520,7 @@
                     if (statusEl) statusEl.textContent = email + ' でログイン済み';
                 }
 
-                // Step 3: フォルダ設定を確認（localStorage → Drive設定ファイル）
+                // Step 4: フォルダ設定を確認（localStorage → Drive設定ファイル）
                 let folderId = null;
                 let folderName = null;
                 if (btnText) btnText.textContent = '設定を確認中...';
@@ -536,7 +545,7 @@
                     }
                 }
 
-                // Step 4: フォルダが未設定ならPickerで選択
+                // Step 5: フォルダが未設定ならPickerで選択
                 if (!folderId) {
                     if (btnText) btnText.textContent = 'フォルダを選択...';
                     await googleDriveAPI.ensurePickerReady();
@@ -571,14 +580,14 @@
                     }
                 }
 
-                // Step 5: フォルダ設定をローカルに保存
+                // Step 6: フォルダ設定をローカルに保存
                 const settings = JSON.parse(localStorage.getItem('userSettings') || '{}');
                 settings.folderId = folderId;
                 settings.folderName = folderName;
                 localStorage.setItem('userSettings', JSON.stringify(settings));
                 googleDriveAPI.setTargetFolderId(folderId);
 
-                // Step 6: データ同期
+                // Step 7: データ同期
                 if (btnText) btnText.textContent = 'データを同期中...';
                 const result = await googleDriveAPI.syncAllStudentData();
                 if (result.success) {
