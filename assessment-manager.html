@@ -401,14 +401,30 @@
                     const ok = await googleDriveAPI.initialize();
                     if (!ok) { showDriveHint(); return; }
                 }
-                // トークン復元のみ試みる（ポップアップは一切開かない）
+
+                // トークン復元（ポップアップなし）
                 const hasToken = googleDriveAPI.restoreToken();
-                if (!hasToken) {
+                if (!hasToken) { showDriveHint(); return; }
+
+                // トークンが本当に有効か検証（userinfo API）
+                try {
+                    const token = gapi.client.getToken();
+                    const resp = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+                        headers: { 'Authorization': 'Bearer ' + token.access_token }
+                    });
+                    if (!resp.ok) {
+                        console.warn('トークン無効 → 再認証が必要');
+                        googleDriveAPI.clearPersistedToken();
+                        googleDriveAPI.isSignedIn = false;
+                        showDriveHint();
+                        return;
+                    }
+                } catch (e) {
                     showDriveHint();
                     return;
                 }
 
-                // TARGET_FOLDER_IDを確認
+                // フォルダIDを確認
                 let targetFolderId = googleDriveAPI.getTargetFolderId();
                 if (!targetFolderId) {
                     const settings = JSON.parse(localStorage.getItem('userSettings') || '{}');
@@ -418,15 +434,13 @@
                     }
                 }
                 if (!targetFolderId) {
-                    // Drive設定ファイルから取得
                     try {
                         const driveConfig = await googleDriveAPI.loadConfigFromDrive();
                         if (driveConfig && driveConfig.targetFolderId) {
-                            localStorage.setItem('userSettings', JSON.stringify({
-                                ...JSON.parse(localStorage.getItem('userSettings') || '{}'),
-                                folderId: driveConfig.targetFolderId,
-                                folderName: driveConfig.targetFolderName || ''
-                            }));
+                            const s = JSON.parse(localStorage.getItem('userSettings') || '{}');
+                            s.folderId = driveConfig.targetFolderId;
+                            s.folderName = driveConfig.targetFolderName || '';
+                            localStorage.setItem('userSettings', JSON.stringify(s));
                             googleDriveAPI.setTargetFolderId(driveConfig.targetFolderId);
                             targetFolderId = driveConfig.targetFolderId;
                         }
@@ -434,26 +448,34 @@
                         console.warn('Drive設定読み込みスキップ:', e);
                     }
                 }
-                if (!targetFolderId) {
-                    showDriveHint();
-                    return;
-                }
+                if (!targetFolderId) { showDriveHint(); return; }
 
-                // 同期中表示
+                // 同期実行
                 showSyncStatus('同期中...');
-
-                // データ同期実行
                 const result = await googleDriveAPI.syncAllStudentData();
                 if (result.success) {
                     const settings = JSON.parse(localStorage.getItem('userSettings') || '{}');
                     showSyncComplete(result.syncedStudents.length, settings.email, settings.folderName || targetFolderId);
                     loadChildren();
                 } else {
-                    showSyncStatus('同期に失敗しました', false);
+                    // 同期失敗 → 設定ボタンを表示
+                    showDriveHintWithError('同期に失敗しました。再接続してください。');
                 }
             } catch (error) {
                 console.error('Drive同期エラー:', error);
-                showSyncStatus('同期エラー', false);
+                showDriveHintWithError('同期エラーが発生しました。再接続してください。');
+            }
+        }
+
+        /**
+         * エラーメッセージ付きの設定ボタン表示
+         */
+        function showDriveHintWithError(msg) {
+            showDriveHint();
+            const statusEl = document.getElementById('driveSetupStatus');
+            if (statusEl) {
+                statusEl.textContent = msg;
+                statusEl.style.color = '#e53935';
             }
         }
 
