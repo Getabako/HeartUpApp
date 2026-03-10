@@ -528,6 +528,8 @@
                 // Step 5: フォルダが未設定ならPickerで選択
                 if (!folderId) {
                     if (btnText) btnText.textContent = 'フォルダを選択してください...';
+                    // Picker APIの初期化を保証
+                    await googleDriveAPI.ensurePickerReady();
                     const selected = await new Promise((resolve) => {
                         googleDriveAPI.openFolderPicker((id, name, error) => {
                             if (error) {
