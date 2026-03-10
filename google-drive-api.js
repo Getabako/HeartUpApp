@@ -398,11 +398,28 @@ class GoogleDriveAPI {
      * Google Picker でフォルダを選択
      * @param {function} callback - 選択完了時のコールバック (folderId, folderName)
      */
-    openFolderPicker(callback) {
+    async openFolderPicker(callback) {
+        // Pickerが未初期化なら今ここでロードする
         if (!this.pickerInited) {
-            console.error('Picker APIが初期化されていません');
-            if (callback) callback(null, null, 'Picker APIが初期化されていません');
-            return;
+            if (typeof gapi !== 'undefined') {
+                try {
+                    await new Promise((resolve, reject) => {
+                        gapi.load('picker', {
+                            callback: () => { this.pickerInited = true; resolve(); },
+                            onerror: () => reject(new Error('Picker load failed'))
+                        });
+                    });
+                    console.log('Picker APIをオンデマンド初期化しました');
+                } catch (e) {
+                    console.error('Picker APIロード失敗:', e);
+                    if (callback) callback(null, null, 'Picker APIが初期化できません');
+                    return;
+                }
+            } else {
+                console.error('gapi未ロード');
+                if (callback) callback(null, null, 'Google APIが読み込まれていません');
+                return;
+            }
         }
 
         const token = gapi.client.getToken();
