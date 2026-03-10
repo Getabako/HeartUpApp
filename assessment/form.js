@@ -41,8 +41,11 @@ async function initGoogleDrive() {
 document.addEventListener('DOMContentLoaded', async function() {
     await initGoogleDrive();
     // 保存済みトークンがあれば自動復元
-    if (typeof googleDriveAPI !== 'undefined') {
-        await googleDriveAPI.tryRestoreAuth();
+    if (typeof googleDriveAPI !== 'undefined' && googleDriveAPI.isInitialized()) {
+        const restored = googleDriveAPI.restoreToken();
+        if (restored) {
+            await googleDriveAPI.validateToken();
+        }
     }
 });
 
@@ -282,7 +285,7 @@ async function handleAssessmentSubmit(e) {
                     if (!googleDriveAPI.isSignedIn) {
                         console.log('Google Driveへの認証を開始...');
                         if (submitButton) submitButton.textContent = 'Google Driveへの認証中...';
-                        await googleDriveAPI.ensureAuth(true);
+                        await googleDriveAPI.authorize();
                     }
 
                     // TARGET_FOLDER_IDが設定されているか確認

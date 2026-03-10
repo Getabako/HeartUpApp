@@ -126,17 +126,8 @@ class GoogleDriveAPI {
 
             // 既に両方ロード済みの場合
             if (this.gapiInited && this.gisInited) {
-                // Pickerが未初期化の場合は追加で初期化
-                if (!this.pickerInited && typeof gapi !== 'undefined') {
-                    gapi.load('picker', () => {
-                        this.pickerInited = true;
-                        console.log('Picker 追加初期化完了');
-                        resolve();
-                    });
-                } else {
-                    console.log('Google APIs 既に初期化済み');
-                    resolve();
-                }
+                console.log('Google APIs 既に初期化済み');
+                resolve();
             }
         });
     }
@@ -200,31 +191,10 @@ class GoogleDriveAPI {
     }
 
     /**
-     * 認証状態を確認
+     * 認証状態を確認（pickerInitedは含めない。Pickerはinitialize()内で自動初期化される）
      */
     isInitialized() {
-        return this.gapiInited && this.gisInited && this.pickerInited && this.CLIENT_ID && this.API_KEY;
-    }
-
-    /**
-     * Picker APIが使える状態を保証する
-     */
-    async ensurePickerReady() {
-        if (this.pickerInited) return true;
-        // まずフル初期化を試行
-        await this.initialize();
-        if (this.pickerInited) return true;
-        // それでもダメならpickerだけ直接ロード
-        if (typeof gapi !== 'undefined') {
-            return new Promise((resolve) => {
-                gapi.load('picker', () => {
-                    this.pickerInited = true;
-                    console.log('Picker単独初期化完了');
-                    resolve(true);
-                });
-            });
-        }
-        return false;
+        return this.gapiInited && this.gisInited && this.CLIENT_ID && this.API_KEY;
     }
 
     /**
@@ -239,7 +209,7 @@ class GoogleDriveAPI {
 
             this.tokenClient.callback = async (response) => {
                 if (response.error !== undefined) {
-                    reject(new Error(response.error));
+                    reject(response);
                     return;
                 }
                 this.isSignedIn = true;
@@ -249,7 +219,7 @@ class GoogleDriveAPI {
 
             this.tokenClient.error_callback = (err) => {
                 console.warn('Google認証エラーまたはポップアップブロック:', err);
-                reject(err || new Error('認証がキャンセルされたか、ポップアップがブロックされました'));
+                reject(new Error('認証がキャンセルされたか、ポップアップがブロックされました'));
             };
 
             if (gapi.client.getToken() === null) {
@@ -275,6 +245,8 @@ class GoogleDriveAPI {
         }
         this.clearPersistedToken();
     }
+
+    // === トークン永続化（別端末同期用） ===
 
     /**
      * トークンをlocalStorageに永続化
@@ -342,123 +314,34 @@ class GoogleDriveAPI {
     }
 
     /**
-     * ページ読み込み時にトークンを自動復元
-     * @returns {Promise<boolean>} 認証復元に成功したらtrue
+     * トークンが有効か検証（userinfo APIで確認）
+     * @returns {Promise<boolean>}
      */
-    async tryRestoreAuth() {
+    async validateToken() {
         try {
-            // API初期化
-            const initialized = await this.initialize();
-            if (!initialized) return false;
-
-            // トークン復元
-            if (!this.restoreToken()) return false;
-
-            // userinfo APIでトークン有効性を検証
             const token = gapi.client.getToken();
             if (!token) return false;
 
             const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-                headers: { 'Authorization': `Bearer ${token.access_token}` }
+                headers: { 'Authorization': 'Bearer ' + token.access_token }
             });
 
             if (response.ok) {
                 const userInfo = await response.json();
                 this.currentUserEmail = userInfo.email;
                 this.isSignedIn = true;
-                console.log('認証復元成功:', this.currentUserEmail);
                 return true;
-            } else {
-                // トークン無効 → クリア
-                this.clearPersistedToken();
-                gapi.client.setToken('');
-                this.isSignedIn = false;
-                return false;
             }
+
+            // トークン無効
+            this.clearPersistedToken();
+            gapi.client.setToken('');
+            this.isSignedIn = false;
+            return false;
         } catch (e) {
-            console.warn('認証復元エラー:', e);
+            console.warn('トークン検証エラー:', e);
             return false;
         }
-    }
-
-    /**
-     * ポップアップなしで再認証を試みる
-     * @returns {Promise<boolean>} 成功ならtrue
-     */
-    async silentReauth() {
-        if (!this.tokenClient) return false;
-
-        return new Promise((resolve) => {
-            this.tokenClient.callback = async (response) => {
-                if (response.error !== undefined) {
-                    resolve(false);
-                    return;
-                }
-                this.isSignedIn = true;
-                this.persistToken();
-                resolve(true);
-            };
-
-            this.tokenClient.error_callback = () => {
-                resolve(false);
-            };
-
-            try {
-                this.tokenClient.requestAccessToken({ prompt: '' });
-            } catch (e) {
-                resolve(false);
-            }
-        });
-    }
-
-    /**
-     * 認証を確保する（優先順位: 既存トークン → 復元 → サイレント再認証 → ポップアップ）
-     * @param {boolean} allowPopup - ポップアップ認証を許可するか
-     * @returns {Promise<boolean>} 認証成功ならtrue
-     */
-    async ensureAuth(allowPopup = false) {
-        // 1. 既にサインイン済みでトークンがあるか確認
-        if (this.isSignedIn && typeof gapi !== 'undefined' && gapi.client && gapi.client.getToken()) {
-            return true;
-        }
-
-        // 2. API初期化
-        if (!this.isInitialized()) {
-            const initialized = await this.initialize();
-            if (!initialized) return false;
-        }
-
-        // 3. メモリ上のトークン確認
-        if (typeof gapi !== 'undefined' && gapi.client && gapi.client.getToken()) {
-            this.isSignedIn = true;
-            return true;
-        }
-
-        // 4. localStorageからトークン復元
-        if (this.restoreToken()) {
-            return true;
-        }
-
-        // 5. サイレント再認証（ポップアップなし）
-        try {
-            const silentResult = await this.silentReauth();
-            if (silentResult) return true;
-        } catch (e) {
-            console.warn('サイレント再認証失敗:', e);
-        }
-
-        // 6. ポップアップ認証（許可されている場合のみ）
-        if (allowPopup) {
-            try {
-                await this.authorize();
-                return true;
-            } catch (e) {
-                console.warn('ポップアップ認証失敗:', e);
-                return false;
-            }
-        }
-
-        return false;
     }
 
     /**
@@ -561,7 +444,7 @@ class GoogleDriveAPI {
      */
     async getFolderName(folderId) {
         if (!this.isSignedIn) {
-            throw new Error('Google Driveに未接続です');
+            await this.authorize();
         }
 
         try {
@@ -584,7 +467,7 @@ class GoogleDriveAPI {
      */
     async uploadHTMLFile(fileName, htmlContent, folderId = null) {
         if (!this.isSignedIn) {
-            throw new Error('Google Driveに未接続です');
+            await this.authorize();
         }
 
         const targetFolderId = folderId || this.TARGET_FOLDER_ID;
@@ -643,7 +526,7 @@ class GoogleDriveAPI {
      */
     async uploadPDFFile(fileName, pdfBlob, folderId = null) {
         if (!this.isSignedIn) {
-            throw new Error('Google Driveに未接続です');
+            await this.authorize();
         }
 
         const targetFolderId = folderId || this.TARGET_FOLDER_ID;
@@ -724,7 +607,7 @@ class GoogleDriveAPI {
      */
     async uploadJSONFile(fileName, jsonData, folderId = null) {
         if (!this.isSignedIn) {
-            throw new Error('Google Driveに未接続です');
+            await this.authorize();
         }
 
         const targetFolderId = folderId || this.TARGET_FOLDER_ID;
@@ -779,7 +662,7 @@ class GoogleDriveAPI {
      */
     async deleteFile(fileName, folderId = null) {
         if (!this.isSignedIn) {
-            throw new Error('Google Driveに未接続です');
+            await this.authorize();
         }
 
         try {
@@ -855,7 +738,7 @@ class GoogleDriveAPI {
      */
     async listFiles(folderId = null) {
         if (!this.isSignedIn) {
-            throw new Error('Google Driveに未接続です');
+            await this.authorize();
         }
 
         const targetFolderId = folderId || this.TARGET_FOLDER_ID;
@@ -885,7 +768,7 @@ class GoogleDriveAPI {
      */
     async getOrCreateStudentFolder(studentName, parentFolderId = null) {
         if (!this.isSignedIn) {
-            throw new Error('Google Driveに未接続です');
+            await this.authorize();
         }
 
         const targetParentFolderId = parentFolderId || this.TARGET_FOLDER_ID;
@@ -1148,7 +1031,7 @@ class GoogleDriveAPI {
      */
     async listStudentFolders() {
         if (!this.isSignedIn) {
-            throw new Error('Google Driveに未接続です');
+            await this.authorize();
         }
 
         if (!this.TARGET_FOLDER_ID) {
@@ -1187,8 +1070,7 @@ class GoogleDriveAPI {
             syncedStudents: [],
             assessments: {},
             supportPlans: {},
-            records: {},
-            reviews: {}
+            records: {}
         };
 
         try {
@@ -1197,27 +1079,14 @@ class GoogleDriveAPI {
 
             for (const folder of folderList.folders) {
                 try {
-                    // 各フォルダ内のファイル（JSON + HTML）を取得
+                    // 各フォルダ内のJSONファイルを取得
                     const filesResponse = await gapi.client.drive.files.list({
-                        q: `'${folder.id}' in parents and trashed = false`,
-                        fields: 'files(id, name, mimeType, createdTime)',
+                        q: `'${folder.id}' in parents and mimeType = 'application/json' and trashed = false`,
+                        fields: 'files(id, name, createdTime)',
                         orderBy: 'createdTime desc'
                     });
 
-                    const allFiles = filesResponse.result.files || [];
-                    // HTMLファイルをID→内容のマップにする（後でJSONとマッチ）
-                    const htmlFilesById = {};
-                    const htmlFilesByName = {};
-                    for (const f of allFiles) {
-                        if (f.mimeType === 'text/html' || f.name.endsWith('.html')) {
-                            htmlFilesByName[f.name] = f.id;
-                        }
-                    }
-
-                    // JSONファイルを処理
-                    for (const file of allFiles) {
-                        if (file.mimeType !== 'application/json' && !file.name.endsWith('.json')) continue;
-
+                    for (const file of filesResponse.result.files || []) {
                         try {
                             // JSONファイルの内容を取得
                             const fileContent = await gapi.client.drive.files.get({
@@ -1229,47 +1098,20 @@ class GoogleDriveAPI {
                                 ? JSON.parse(fileContent.body)
                                 : fileContent.result;
 
-                            // 対応するHTMLファイルの内容を取得
-                            let htmlContent = data.html || '';
-                            if (!htmlContent) {
-                                // driveFileIdからHTMLを取得
-                                let htmlFileId = data.driveFileId;
-                                // driveFileIdがなければファイル名からマッチ
-                                if (!htmlFileId) {
-                                    const htmlName = file.name.replace('.json', '.html');
-                                    htmlFileId = htmlFilesByName[htmlName];
-                                }
-                                if (htmlFileId) {
-                                    try {
-                                        const htmlResponse = await gapi.client.drive.files.get({
-                                            fileId: htmlFileId,
-                                            alt: 'media'
-                                        });
-                                        htmlContent = htmlResponse.body || '';
-                                    } catch (he) {
-                                        console.warn('HTMLダウンロードスキップ:', file.name, he.message);
-                                    }
-                                }
-                            }
-
                             // ファイルタイプに応じて振り分け
+                            // キーはlocalStorageと同じ形式を使用（重複防止）
                             const key = data.fileName || file.name;
                             if (data.type === 'assessment') {
                                 result.assessments[key] = {
-                                    html: htmlContent,
+                                    html: data.html || '',
                                     data: data.data || data,
                                     createdAt: data.createdAt,
                                     filePath: data.filePath || `drive/${file.name}`
                                 };
                             } else if (data.type === 'supportPlan') {
-                                if (!data.html && htmlContent) data.html = htmlContent;
                                 result.supportPlans[key] = data;
                             } else if (data.type === 'record') {
-                                if (!data.html && htmlContent) data.html = htmlContent;
                                 result.records[key] = data;
-                            } else if (data.type === 'review') {
-                                if (!data.html && htmlContent) data.html = htmlContent;
-                                result.reviews[key] = data;
                             }
                         } catch (e) {
                             console.warn('ファイル読み込みスキップ:', file.name, e.message);
@@ -1289,17 +1131,14 @@ class GoogleDriveAPI {
             const existingAssessments = JSON.parse(localStorage.getItem('assessments') || '{}');
             const existingSupportPlans = JSON.parse(localStorage.getItem('supportPlans') || '{}');
             const existingRecords = JSON.parse(localStorage.getItem('dailyReports') || '{}');
-            const existingReviews = JSON.parse(localStorage.getItem('reviews') || '{}');
 
             const mergedAssessments = { ...existingAssessments, ...result.assessments };
             const mergedSupportPlans = { ...existingSupportPlans, ...result.supportPlans };
             const mergedRecords = { ...existingRecords, ...result.records };
-            const mergedReviews = { ...existingReviews, ...result.reviews };
 
             localStorage.setItem('assessments', JSON.stringify(mergedAssessments));
             localStorage.setItem('supportPlans', JSON.stringify(mergedSupportPlans));
             localStorage.setItem('dailyReports', JSON.stringify(mergedRecords));
-            localStorage.setItem('reviews', JSON.stringify(mergedReviews));
             localStorage.setItem('syncTimestamp', new Date().toISOString());
 
             // 児童一覧をフォルダ名から構築して保存（端末間同期用）
@@ -1319,7 +1158,6 @@ class GoogleDriveAPI {
             result.assessments = mergedAssessments;
             result.supportPlans = mergedSupportPlans;
             result.records = mergedRecords;
-            result.reviews = mergedReviews;
             result.children = mergedChildren;
 
             console.log('データ同期完了:', result.syncedStudents.length, '名の生徒データを同期');
@@ -1337,7 +1175,7 @@ class GoogleDriveAPI {
      */
     async saveConfigToDrive(config) {
         try {
-            if (!this.isSignedIn) throw new Error('未認証');
+            if (!this.isSignedIn) await this.authorize();
 
             // 既存の設定ファイルを検索
             const response = await gapi.client.drive.files.list({
@@ -1391,7 +1229,7 @@ class GoogleDriveAPI {
      */
     async loadConfigFromDrive() {
         try {
-            if (!this.isSignedIn) throw new Error('未認証');
+            if (!this.isSignedIn) await this.authorize();
 
             const response = await gapi.client.drive.files.list({
                 q: "name = 'heartup_config.json' and mimeType = 'application/json' and trashed = false",

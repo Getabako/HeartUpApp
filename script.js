@@ -2886,8 +2886,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // トークン自動復元 → 同期
     setTimeout(async () => {
-        if (typeof googleDriveAPI !== 'undefined') {
-            await googleDriveAPI.tryRestoreAuth();
+        if (typeof googleDriveAPI !== 'undefined' && googleDriveAPI.isInitialized()) {
+            const restored = googleDriveAPI.restoreToken();
+            if (restored) {
+                await googleDriveAPI.validateToken();
+            }
         }
         const result = await autoSyncStudentData();
         refreshStudentSelects();
@@ -2923,10 +2926,13 @@ async function runStudentDataSync({ silent = false } = {}) {
             syncBtn.disabled = true;
         }
 
-        // 認証確保（silentならポップアップなし、手動なら許可）
-        const authed = await googleDriveAPI.ensureAuth(!silent);
-        if (!authed) {
-            return { success: false, skipped: true, reason: 'NOT_SIGNED_IN' };
+        // 認証確保
+        if (!googleDriveAPI.isSignedIn) {
+            if (silent) {
+                return { success: false, skipped: true, reason: 'NOT_SIGNED_IN' };
+            }
+            // 手動同期の場合はauthorize()でポップアップ許可
+            await googleDriveAPI.authorize();
         }
 
         // 保存先フォルダ確認（未選択時はDriveの設定ファイルから自動取得）
@@ -4037,7 +4043,6 @@ async function ensureDriveTargetFolderForImport() {
     }
 
     // それでも見つからない場合はPickerで選択
-    await googleDriveAPI.ensurePickerReady();
     return await new Promise((resolve) => {
         googleDriveAPI.openFolderPicker(async (folderId, folderName, error) => {
             if (error || !folderId) {
@@ -4281,7 +4286,6 @@ async function pickParentFolderAndLoadList() {
     }
 
     try {
-        await googleDriveAPI.ensurePickerReady();
         const selected = await new Promise((resolve) => {
             googleDriveAPI.openFolderPicker((folderId, folderName, error) => {
                 if (error || !folderId) {
