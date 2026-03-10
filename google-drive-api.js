@@ -163,31 +163,41 @@ class GoogleDriveAPI {
     }
 
     /**
-     * 初期化処理（タイムアウト付き）
+     * 初期化処理（タイムアウト付き、リトライあり）
      */
     async initialize() {
+        // 既に初期化済みならスキップ
+        if (this.gapiInited && this.gisInited) {
+            console.log('Google Drive API: 既に初期化済み');
+            return true;
+        }
+
         // CLIENT_IDまたはAPI_KEYが未設定の場合は早期リターン
         if (!this.CLIENT_ID || !this.API_KEY) {
-            console.error('Google Drive API: CLIENT_IDまたはAPI_KEYが未設定です。Vercel環境変数を確認してください。');
-            console.error('  CLIENT_ID:', this.CLIENT_ID ? 'SET' : 'NOT SET');
-            console.error('  API_KEY:', this.API_KEY ? 'SET' : 'NOT SET');
+            console.error('Google Drive API: CLIENT_IDまたはAPI_KEYが未設定です。');
             return false;
         }
 
-        try {
-            // 15秒タイムアウト付きで初期化
-            await Promise.race([
-                this.loadGoogleAPIs(),
-                new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Google API読み込みタイムアウト（15秒）')), 15000)
-                )
-            ]);
-            console.log('Google Drive API: 初期化完了');
-            return true;
-        } catch (error) {
-            console.error('Google Drive API 初期化エラー:', error);
-            return false;
+        // 最大2回試行
+        for (let attempt = 1; attempt <= 2; attempt++) {
+            try {
+                await Promise.race([
+                    this.loadGoogleAPIs(),
+                    new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error('タイムアウト')), 15000)
+                    )
+                ]);
+                console.log('Google Drive API: 初期化完了');
+                return true;
+            } catch (error) {
+                console.warn(`Google Drive API 初期化 試行${attempt}失敗:`, error.message);
+                if (attempt < 2) {
+                    await new Promise(r => setTimeout(r, 1000));
+                }
+            }
         }
+        console.error('Google Drive API 初期化失敗');
+        return false;
     }
 
     /**

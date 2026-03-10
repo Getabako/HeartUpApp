@@ -375,9 +375,9 @@
             MODEL_NAME: 'gemini-2.0-flash-exp'
         };
     </script>
-    <script src="config.js?v=20260310b" onerror="console.log('config.js not found - using default API_CONFIG')"></script>
-    <script src="google-drive-api.js?v=20260310b"></script>
-    <script src="gemini-api.js?v=20260310b"></script>
+    <script src="config.js?v=20260310c" onerror="console.log('config.js not found - using default API_CONFIG')"></script>
+    <script src="google-drive-api.js?v=20260310c"></script>
+    <script src="gemini-api.js?v=20260310c"></script>
     <script>
         // APIキーを読み込み
         document.addEventListener('DOMContentLoaded', async function() {
@@ -507,15 +507,9 @@
             if (statusEl) statusEl.textContent = '';
 
             try {
-                // Step 1: 初期化
-                if (!googleDriveAPI.isInitialized()) {
-                    if (btnText) btnText.textContent = '初期化中...';
-                    const ok = await googleDriveAPI.initialize();
-                    if (!ok) {
-                        if (statusEl) statusEl.textContent = 'Google APIの初期化に失敗しました';
-                        return;
-                    }
-                }
+                // Step 1: 初期化（失敗してもauthorize()はinitializeを内部で呼ぶのでStep2に進む）
+                if (btnText) btnText.textContent = '初期化中...';
+                await googleDriveAPI.initialize();
 
                 // Step 2: 認証（ボタンクリック直後にauthorize()を呼ぶ → ポップアップOK）
                 if (btnText) btnText.textContent = 'ログイン中...';
