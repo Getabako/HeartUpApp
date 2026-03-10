@@ -4043,6 +4043,7 @@ async function ensureDriveTargetFolderForImport() {
     }
 
     // それでも見つからない場合はPickerで選択
+    await googleDriveAPI.ensurePickerReady();
     return await new Promise((resolve) => {
         googleDriveAPI.openFolderPicker(async (folderId, folderName, error) => {
             if (error || !folderId) {
@@ -4286,6 +4287,7 @@ async function pickParentFolderAndLoadList() {
     }
 
     try {
+        await googleDriveAPI.ensurePickerReady();
         const selected = await new Promise((resolve) => {
             googleDriveAPI.openFolderPicker((folderId, folderName, error) => {
                 if (error || !folderId) {

@@ -201,10 +201,31 @@ class GoogleDriveAPI {
     }
 
     /**
-     * 認証状態を確認（pickerInitedは含めない。Pickerはinitialize()内で自動初期化される）
+     * 認証状態を確認
      */
     isInitialized() {
         return this.gapiInited && this.gisInited && this.CLIENT_ID && this.API_KEY;
+    }
+
+    /**
+     * Picker APIを確実に使える状態にする（openFolderPickerの前に呼ぶ）
+     */
+    async ensurePickerReady() {
+        if (this.pickerInited) return true;
+        if (typeof gapi === 'undefined') return false;
+        try {
+            await new Promise((resolve, reject) => {
+                gapi.load('picker', {
+                    callback: () => { this.pickerInited = true; resolve(); },
+                    onerror: () => reject(new Error('Picker load failed'))
+                });
+            });
+            console.log('Picker APIオンデマンド初期化完了');
+            return true;
+        } catch (e) {
+            console.error('Picker初期化失敗:', e);
+            return false;
+        }
     }
 
     /**
@@ -398,28 +419,11 @@ class GoogleDriveAPI {
      * Google Picker でフォルダを選択
      * @param {function} callback - 選択完了時のコールバック (folderId, folderName)
      */
-    async openFolderPicker(callback) {
-        // Pickerが未初期化なら今ここでロードする
+    openFolderPicker(callback) {
         if (!this.pickerInited) {
-            if (typeof gapi !== 'undefined') {
-                try {
-                    await new Promise((resolve, reject) => {
-                        gapi.load('picker', {
-                            callback: () => { this.pickerInited = true; resolve(); },
-                            onerror: () => reject(new Error('Picker load failed'))
-                        });
-                    });
-                    console.log('Picker APIをオンデマンド初期化しました');
-                } catch (e) {
-                    console.error('Picker APIロード失敗:', e);
-                    if (callback) callback(null, null, 'Picker APIが初期化できません');
-                    return;
-                }
-            } else {
-                console.error('gapi未ロード');
-                if (callback) callback(null, null, 'Google APIが読み込まれていません');
-                return;
-            }
+            console.error('Picker APIが初期化されていません');
+            if (callback) callback(null, null, 'Picker APIが初期化されていません');
+            return;
         }
 
         const token = gapi.client.getToken();

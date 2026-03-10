@@ -375,9 +375,9 @@
             MODEL_NAME: 'gemini-2.0-flash-exp'
         };
     </script>
-    <script src="config.js?v=20260310d" onerror="console.log('config.js not found - using default API_CONFIG')"></script>
-    <script src="google-drive-api.js?v=20260310d"></script>
-    <script src="gemini-api.js?v=20260310d"></script>
+    <script src="config.js?v=20260310e" onerror="console.log('config.js not found - using default API_CONFIG')"></script>
+    <script src="google-drive-api.js?v=20260310e"></script>
+    <script src="gemini-api.js?v=20260310e"></script>
     <script>
         // APIキーを読み込み
         document.addEventListener('DOMContentLoaded', async function() {
@@ -566,6 +566,7 @@
                 // Step 5: フォルダが未設定ならPickerで選択
                 if (!folderId) {
                     if (btnText) btnText.textContent = 'フォルダを選択...';
+                    await googleDriveAPI.ensurePickerReady();
                     const selected = await new Promise((resolve) => {
                         googleDriveAPI.openFolderPicker((id, name, error) => {
                             if (error) resolve({ error });
