@@ -493,11 +493,9 @@
             if (btn) btn.disabled = true;
 
             try {
-                // Step 1: 初期化
+                // Step 1: 初期化（常に実行して確実にPicker含め初期化する）
                 if (btnText) btnText.textContent = '初期化中...';
-                if (!googleDriveAPI.isInitialized()) {
-                    await googleDriveAPI.initialize();
-                }
+                await googleDriveAPI.initialize();
 
                 // Step 2: 認証（ポップアップあり）
                 if (btnText) btnText.textContent = 'Googleにログイン中...';
