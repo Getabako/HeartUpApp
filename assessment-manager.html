@@ -568,6 +568,20 @@
                 }
 
                 // Step 5: フォルダが未設定ならPickerで選択
+                // フォルダのアクセス権確認 (もし既にfolderIdがある場合)
+                if (folderId) {
+                    if (btnText) btnText.textContent = 'フォルダ権限を確認中...';
+                    try {
+                        const checkResponse = await gapi.client.drive.files.get({ fileId: folderId, fields: 'id' });
+                        if (!checkResponse.result || !checkResponse.result.id) {
+                            folderId = null;
+                        }
+                    } catch (e) {
+                        console.warn('保存されたフォルダへのアクセス権がありません(404等)。再度選択が必要です。', e);
+                        folderId = null; // 強制的にPickerを開かせる
+                    }
+                }
+
                 if (!folderId) {
                     if (btnText) btnText.textContent = 'フォルダを選択...';
                     await googleDriveAPI.ensurePickerReady();
@@ -584,7 +598,7 @@
                         return;
                     }
                     if (!selected) {
-                        if (statusEl) statusEl.textContent = 'フォルダ選択がキャンセルされました';
+                        if (statusEl) statusEl.textContent = '初期設定が完了していません（フォルダ選択キャンセル）';
                         return;
                     }
                     folderId = selected.folderId;

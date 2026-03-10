@@ -239,12 +239,17 @@ class GoogleDriveAPI {
 
             this.tokenClient.callback = async (response) => {
                 if (response.error !== undefined) {
-                    reject(response);
+                    reject(new Error(response.error));
                     return;
                 }
                 this.isSignedIn = true;
                 this.persistToken();
                 resolve(response);
+            };
+
+            this.tokenClient.error_callback = (err) => {
+                console.warn('Google認証エラーまたはポップアップブロック:', err);
+                reject(err || new Error('認証がキャンセルされたか、ポップアップがブロックされました'));
             };
 
             if (gapi.client.getToken() === null) {
