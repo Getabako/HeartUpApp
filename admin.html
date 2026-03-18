@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HeartUp - 管理画面</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Yu Gothic', 'Meiryo', sans-serif;
+            background: linear-gradient(135deg, #2e7d32 0%, #4caf50 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { text-align: center; color: white; margin-bottom: 30px; }
+        header h1 { font-size: 32px; margin-bottom: 8px; }
+        header p { font-size: 14px; opacity: 0.9; }
+        .header-right { position: absolute; top: 0; right: 0; display: flex; gap: 8px; align-items: center; }
+        .back-link { color: white; text-decoration: none; padding: 8px 16px; border: 1px solid rgba(255,255,255,0.5); border-radius: 8px; font-size: 14px; }
+        .back-link:hover { background: rgba(255,255,255,0.1); }
+
+        .section { background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 24px; margin-bottom: 24px; }
+        .section h2 { color: #2e7d32; margin-bottom: 16px; font-size: 20px; }
+
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #f5f5f5; color: #555; font-size: 13px; }
+        td { font-size: 14px; }
+
+        .badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+        .badge-admin { background: #e8f5e9; color: #2e7d32; }
+        .badge-staff { background: #e3f2fd; color: #1565c0; }
+
+        .btn { padding: 8px 16px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; transition: opacity 0.2s; }
+        .btn:hover { opacity: 0.85; }
+        .btn-primary { background: #2e7d32; color: white; }
+        .btn-danger { background: #d32f2f; color: white; }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+        .actions { display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 16px; }
+
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+        .modal-overlay.active { display: flex; }
+        .modal { background: white; border-radius: 12px; padding: 32px; max-width: 480px; width: 90%; }
+        .modal h3 { color: #2e7d32; margin-bottom: 20px; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; font-size: 13px; color: #555; margin-bottom: 4px; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+        .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
+        .empty-msg { color: #999; text-align: center; padding: 20px; }
+    </style>
+</head>
+<body data-admin-only="true">
+    <div class="container">
+        <header style="position:relative;">
+            <h1>HeartUp 管理画面</h1>
+            <p>拠点・スタッフ管理</p>
+            <div class="header-right">
+                <a href="/index.html" class="back-link">トップに戻る</a>
+            </div>
+        </header>
+
+        <!-- 拠点管理 -->
+        <div class="section">
+            <h2>拠点管理</h2>
+            <div class="actions">
+                <button class="btn btn-primary" onclick="showAddLocationModal()">+ 拠点を追加</button>
+            </div>
+            <table>
+                <thead><tr><th>拠点名</th><th>作成日</th><th></th></tr></thead>
+                <tbody id="locationsBody"><tr><td colspan="3" class="empty-msg">読み込み中...</td></tr></tbody>
+            </table>
+        </div>
+
+        <!-- スタッフ管理 -->
+        <div class="section">
+            <h2>スタッフ一覧</h2>
+            <table>
+                <thead><tr><th>名前</th><th>メール</th><th>ロール</th><th>拠点</th><th></th></tr></thead>
+                <tbody id="staffBody"><tr><td colspan="5" class="empty-msg">読み込み中...</td></tr></tbody>
+            </table>
+        </div>
+
+        <!-- 招待管理 -->
+        <div class="section">
+            <h2>スタッフ招待</h2>
+            <div class="actions">
+                <button class="btn btn-primary" onclick="showInviteModal()">+ スタッフを招待</button>
+            </div>
+            <table>
+                <thead><tr><th>名前</th><th>メール</th><th>ロール</th><th>拠点</th><th></th></tr></thead>
+                <tbody id="invitationsBody"><tr><td colspan="5" class="empty-msg">読み込み中...</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 拠点追加モーダル -->
+    <div class="modal-overlay" id="addLocationModal">
+        <div class="modal">
+            <h3>拠点を追加</h3>
+            <div class="form-group">
+                <label>拠点名</label>
+                <input type="text" id="locationName" placeholder="例: カラーズFC鳥栖">
+            </div>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeModal('addLocationModal')">キャンセル</button>
+                <button class="btn btn-primary" onclick="addLocation()">追加</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 招待モーダル -->
+    <div class="modal-overlay" id="inviteModal">
+        <div class="modal">
+            <h3>スタッフを招待</h3>
+            <div class="form-group">
+                <label>メールアドレス</label>
+                <input type="email" id="inviteEmail" placeholder="staff@example.com">
+            </div>
+            <div class="form-group">
+                <label>名前</label>
+                <input type="text" id="inviteName" placeholder="山田 太郎">
+            </div>
+            <div class="form-group">
+                <label>ロール</label>
+                <select id="inviteRole">
+                    <option value="staff">スタッフ</option>
+                    <option value="admin">管理者</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>拠点</label>
+                <select id="inviteLocation"></select>
+            </div>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeModal('inviteModal')">キャンセル</button>
+                <button class="btn btn-primary" onclick="inviteStaff()">招待</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+    <script>
+        window.FIREBASE_CONFIG = { apiKey: '', authDomain: '', projectId: '' };
+    </script>
+    <script src="config.js" onerror="console.log('config.js not found')"></script>
+    <script src="firebase-client.js"></script>
+    <script src="auth-guard.js"></script>
+    <script>
+        let locations = [];
+
+        async function initAdmin() {
+            heartUpDB.init();
+            await authGuard.init();
+            if (!heartUpDB.isReady() || !heartUpDB.isAdmin()) return;
+            await loadAll();
+        }
+
+        async function loadAll() {
+            await Promise.all([loadLocations(), loadStaff(), loadInvitations()]);
+        }
+
+        // ---- 拠点 ----
+
+        async function loadLocations() {
+            try {
+                locations = await heartUpDB.getLocations();
+                const tbody = document.getElementById('locationsBody');
+                if (locations.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" class="empty-msg">拠点がありません</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = locations.map(l => `
+                    <tr>
+                        <td>${l.name}</td>
+                        <td>${new Date(l.created_at).toLocaleDateString('ja-JP')}</td>
+                        <td><button class="btn btn-danger btn-sm" onclick="deleteLocation('${l.id}','${l.name}')">削除</button></td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                console.error('拠点読み込みエラー:', e);
+            }
+        }
+
+        function showAddLocationModal() {
+            document.getElementById('locationName').value = '';
+            document.getElementById('addLocationModal').classList.add('active');
+        }
+
+        async function addLocation() {
+            const name = document.getElementById('locationName').value.trim();
+            if (!name) return alert('拠点名を入力してください');
+            try {
+                await heartUpDB.createLocation(name);
+                closeModal('addLocationModal');
+                await loadAll();
+            } catch (e) {
+                alert('エラー: ' + e.message);
+            }
+        }
+
+        async function deleteLocation(id, name) {
+            if (!confirm(`「${name}」を削除しますか？\n※ この拠点に紐づくスタッフがいる場合は削除できません。`)) return;
+            try {
+                await heartUpDB.deleteLocation(id);
+                await loadAll();
+            } catch (e) {
+                alert('削除エラー: ' + e.message);
+            }
+        }
+
+        // ---- スタッフ ----
+
+        async function loadStaff() {
+            try {
+                const staff = await heartUpDB.getStaffProfiles();
+                const tbody = document.getElementById('staffBody');
+                if (staff.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty-msg">スタッフがいません</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = staff.map(s => `
+                    <tr>
+                        <td>${s.name}</td>
+                        <td>${s.email}</td>
+                        <td><span class="badge ${s.role === 'admin' ? 'badge-admin' : 'badge-staff'}">${s.role}</span></td>
+                        <td>${s.locations?.name || ''}</td>
+                        <td>
+                            <select onchange="changeStaffRole('${s.id}', this.value)" style="padding:4px;font-size:12px;">
+                                <option value="staff" ${s.role === 'staff' ? 'selected' : ''}>スタッフ</option>
+                                <option value="admin" ${s.role === 'admin' ? 'selected' : ''}>管理者</option>
+                            </select>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                console.error('スタッフ読み込みエラー:', e);
+            }
+        }
+
+        async function changeStaffRole(staffId, role) {
+            try {
+                await heartUpDB.updateStaffRole(staffId, role);
+                await loadStaff();
+            } catch (e) {
+                alert('ロール変更エラー: ' + e.message);
+            }
+        }
+
+        // ---- 招待 ----
+
+        async function loadInvitations() {
+            try {
+                const invitations = await heartUpDB.getInvitations();
+                const tbody = document.getElementById('invitationsBody');
+                if (invitations.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty-msg">招待がありません</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = invitations.map(i => `
+                    <tr>
+                        <td>${i.name}</td>
+                        <td>${i.email}</td>
+                        <td><span class="badge ${i.role === 'admin' ? 'badge-admin' : 'badge-staff'}">${i.role}</span></td>
+                        <td>${i.locations?.name || ''}</td>
+                        <td><button class="btn btn-danger btn-sm" onclick="deleteInvitation('${i.id}')">取消</button></td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                console.error('招待読み込みエラー:', e);
+            }
+        }
+
+        function showInviteModal() {
+            document.getElementById('inviteEmail').value = '';
+            document.getElementById('inviteName').value = '';
+            document.getElementById('inviteRole').value = 'staff';
+            // 拠点プルダウンを更新
+            const sel = document.getElementById('inviteLocation');
+            sel.innerHTML = locations.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+            document.getElementById('inviteModal').classList.add('active');
+        }
+
+        async function inviteStaff() {
+            const email = document.getElementById('inviteEmail').value.trim();
+            const name = document.getElementById('inviteName').value.trim();
+            const role = document.getElementById('inviteRole').value;
+            const locationId = document.getElementById('inviteLocation').value;
+            if (!email || !name) return alert('メールと名前は必須です');
+            try {
+                await heartUpDB.createInvitation(email, name, role, locationId);
+                closeModal('inviteModal');
+                await loadInvitations();
+            } catch (e) {
+                alert('招待エラー: ' + e.message);
+            }
+        }
+
+        async function deleteInvitation(id) {
+            if (!confirm('この招待を取り消しますか？')) return;
+            try {
+                await heartUpDB.deleteInvitation(id);
+                await loadInvitations();
+            } catch (e) {
+                alert('削除エラー: ' + e.message);
+            }
+        }
+
+        // ---- モーダル ----
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('active');
+        }
+
+        // 初期化
+        initAdmin();
+    </script>
+</body>
+</html>

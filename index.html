@@ -172,6 +172,10 @@
     <!-- 外部スクリプトの読み込み順序重要 -->
     <!-- html2pdf.js for PDF generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
     <!-- config.jsは存在する場合のみ読み込む（デプロイ時に自動生成される） -->
     <script>
         // 最初に空のAPI_CONFIGを定義（デフォルト値）
@@ -179,10 +183,19 @@
             GEMINI_API_KEY: '',
             MODEL_NAME: 'gemini-2.0-flash-exp'
         };
+        window.FIREBASE_CONFIG = { apiKey: '', authDomain: '', projectId: '' };
     </script>
-    <script src="config.js?v=20260311b" onerror="console.log('config.js not found - using default API_CONFIG')"></script>
-    <script src="gemini-api.js?v=20260311b"></script>
-    <script src="csv-importer.js?v=20260311b"></script>
-    <script src="script.js?v=20260311b"></script>
+    <script src="config.js?v=20260317" onerror="console.log('config.js not found - using default API_CONFIG')"></script>
+    <script src="firebase-client.js?v=20260318"></script>
+    <script src="data-adapter.js?v=20260317"></script>
+    <script src="auth-guard.js?v=20260317"></script>
+    <script src="gemini-api.js?v=20260317"></script>
+    <script src="csv-importer.js?v=20260317"></script>
+    <script src="script.js?v=20260317"></script>
+    <script>
+        // Firebase初期化 + 認証ガード
+        heartUpDB.init();
+        authGuard.init();
+    </script>
 </body>
 </html>

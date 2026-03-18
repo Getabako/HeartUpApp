@@ -366,20 +366,28 @@
 
     <!-- html2pdf.js for PDF generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
     <!-- デフォルトのAPI設定（config.jsが読み込めない場合のフォールバック） -->
     <script>
         window.API_CONFIG = {
             GEMINI_API_KEY: '',
             MODEL_NAME: 'gemini-2.5-flash'
         };
-        window.DRIVE_CONFIG = {
-            CLIENT_ID: '',
-            API_KEY: '',
-            TARGET_FOLDER_ID: ''
-        };
+        window.FIREBASE_CONFIG = { apiKey: '', authDomain: '', projectId: '' };
     </script>
-    <script src="../config.js?v=20260311b" onerror="console.log('config.js not found - using default config')"></script>
-    <script src="../gemini-api.js?v=20260311b"></script>
-    <script src="form.js?v=20260311b"></script>
+    <script src="../config.js?v=20260317" onerror="console.log('config.js not found - using default config')"></script>
+    <script src="../firebase-client.js?v=20260318"></script>
+    <script src="../data-adapter.js?v=20260317"></script>
+    <script src="../auth-guard.js?v=20260317"></script>
+    <script src="../gemini-api.js?v=20260317"></script>
+    <script src="form.js?v=20260317"></script>
+    <script>
+        // Firebase初期化 + 認証ガード
+        heartUpDB.init();
+        authGuard.init();
+    </script>
 </body>
 </html>

@@ -178,8 +178,9 @@ class CSVImporter {
     async importChildInfo(file) {
         const text = await this.readFile(file);
         const format = this.detectCSVFormat(text);
+        const useDataAdapter = typeof dataAdapter !== 'undefined' && heartUpDB.isReady();
 
-        const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
+        const assessments = useDataAdapter ? await dataAdapter.getAssessments() : JSON.parse(localStorage.getItem('assessments') || '{}');
         const imported = [];
 
         if (format === 'vertical') {
@@ -288,7 +289,15 @@ class CSVImporter {
             }
         }
 
-        localStorage.setItem('assessments', JSON.stringify(assessments));
+        if (useDataAdapter) {
+            for (const [fileName, val] of Object.entries(assessments)) {
+                if (imported.some(name => fileName.includes(name))) {
+                    await dataAdapter.saveAssessment(fileName, val.html || '', val.data || {});
+                }
+            }
+        } else {
+            localStorage.setItem('assessments', JSON.stringify(assessments));
+        }
 
         return {
             success: true,
@@ -306,8 +315,9 @@ class CSVImporter {
     async importSupportPlan(file) {
         const text = await this.readFile(file);
         const format = this.detectCSVFormat(text);
+        const useDataAdapter = typeof dataAdapter !== 'undefined' && heartUpDB.isReady();
 
-        const supportPlans = JSON.parse(localStorage.getItem('supportPlans') || '{}');
+        const supportPlans = useDataAdapter ? await dataAdapter.getSupportPlans() : JSON.parse(localStorage.getItem('supportPlans') || '{}');
         const imported = [];
 
         if (format === 'vertical') {
@@ -373,7 +383,15 @@ class CSVImporter {
             }
         }
 
-        localStorage.setItem('supportPlans', JSON.stringify(supportPlans));
+        if (useDataAdapter) {
+            for (const [fileName, val] of Object.entries(supportPlans)) {
+                if (imported.some(name => fileName.includes(name))) {
+                    await dataAdapter.saveSupportPlan(fileName, val.html || '', val.childName || '', val.planData || val.data || {}, 'support');
+                }
+            }
+        } else {
+            localStorage.setItem('supportPlans', JSON.stringify(supportPlans));
+        }
 
         return {
             success: true,
@@ -595,8 +613,9 @@ class CSVImporter {
     async importRecords(file) {
         const text = await this.readFile(file);
         const format = this.detectRecordCSVFormat(text);
+        const useDataAdapter = typeof dataAdapter !== 'undefined' && heartUpDB.isReady();
 
-        const dailyReports = JSON.parse(localStorage.getItem('dailyReports') || '{}');
+        const dailyReports = useDataAdapter ? await dataAdapter.getDailyReports() : JSON.parse(localStorage.getItem('dailyReports') || '{}');
         const imported = [];
 
         if (format === 'vertical') {
@@ -661,7 +680,15 @@ class CSVImporter {
             }
         }
 
-        localStorage.setItem('dailyReports', JSON.stringify(dailyReports));
+        if (useDataAdapter) {
+            for (const [fileName, val] of Object.entries(dailyReports)) {
+                if (imported.some(label => fileName.includes(label.split(' (')[0]))) {
+                    await dataAdapter.saveDailyReport(fileName, val.html || '', val.childName || '', val.data?.date || null, val.data || {});
+                }
+            }
+        } else {
+            localStorage.setItem('dailyReports', JSON.stringify(dailyReports));
+        }
 
         return {
             success: true,

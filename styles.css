@@ -622,6 +622,56 @@ main {
     white-space: nowrap;
 }
 
+/* 認証情報（ヘッダー右） */
+.auth-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.location-badge {
+    background: rgba(255, 255, 255, 0.25);
+    color: white;
+    padding: 3px 10px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: bold;
+}
+
+.user-name {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.75rem;
+}
+
+.admin-link {
+    color: white;
+    font-size: 0.7rem;
+    text-decoration: none;
+    padding: 3px 8px;
+    border: 1px solid rgba(255,255,255,0.4);
+    border-radius: 6px;
+}
+
+.admin-link:hover {
+    background: rgba(255,255,255,0.15);
+}
+
+.logout-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    cursor: pointer;
+}
+
+.logout-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
 .settings-button {
     background: rgba(255, 255, 255, 0.2);
     border: none;

@@ -901,12 +901,12 @@ function closeModal() {
 }
 
 // 記録作成フォームを表示
-function showRecordForm() {
+async function showRecordForm() {
     const container = document.getElementById('recordToolContent');
 
-    // localStorageからアセスメント一覧を取得（生徒選択用）
-    const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
-    const supportPlans = JSON.parse(localStorage.getItem('supportPlans') || '{}');
+    // dataAdapterからアセスメント一覧を取得（生徒選択用）
+    const assessments = await dataAdapter.getAssessments();
+    const supportPlans = await dataAdapter.getSupportPlans();
     const studentNames = [...new Set(Object.values(assessments).map(a => a.data?.childName).filter(Boolean))];
 
     // 生徒選択オプションを生成
@@ -993,15 +993,15 @@ function showRecordForm() {
 }
 
 // 支援計画フォームを表示
-function showPlanForm() {
+async function showPlanForm() {
     const container = document.getElementById('planToolContent');
 
-    // URLパラメータまたはlocalStorageからアセスメントデータを取得
+    // URLパラメータまたはdataAdapterからアセスメントデータを取得
     const urlParams = new URLSearchParams(window.location.search);
     const childNameParam = urlParams.get('childName');
 
-    // localStorageからアセスメント一覧を取得（生徒選択用）
-    const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
+    // dataAdapterからアセスメント一覧を取得（生徒選択用）
+    const assessments = await dataAdapter.getAssessments();
     const studentNames = [...new Set(Object.values(assessments).map(a => a.data?.childName).filter(Boolean))];
 
     // 生徒選択オプションを生成
@@ -1107,11 +1107,11 @@ function showPlanForm() {
 }
 
 // 成長振り返りフォームを表示
-function showReviewForm() {
+async function showReviewForm() {
     const container = document.getElementById('reviewToolContent');
 
-    // localStorageからアセスメント一覧を取得（生徒選択用）
-    const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
+    // dataAdapterからアセスメント一覧を取得（生徒選択用）
+    const assessments = await dataAdapter.getAssessments();
     const studentNames = [...new Set(Object.values(assessments).map(a => a.data?.childName).filter(Boolean))];
 
     let studentOptions = '<option value="">選択してください</option>';
@@ -1200,9 +1200,9 @@ async function loadStudentDataForReview(studentName) {
 
     if (!studentName) return;
 
-    // localStorageからデータを自動入力
-    const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
-    const dailyReports = JSON.parse(localStorage.getItem('dailyReports') || '{}');
+    // dataAdapterからデータを自動入力
+    const assessments = await dataAdapter.getAssessments();
+    const dailyReports = await dataAdapter.getDailyReports();
 
     // 該当児童の記録を活動記録に自動入力
     const childReports = Object.values(dailyReports).filter(r => r.childName === studentName);
@@ -1250,14 +1250,8 @@ async function saveReviewManually() {
 
     const childName = lastReviewData.childName;
     const endDate = lastReviewData.endDate;
-    const reviews = JSON.parse(localStorage.getItem('reviews') || '{}');
     const fileName = `${childName}_振り返り_${endDate}.html`;
-    reviews[fileName] = {
-        html: lastGeneratedReview,
-        childName: childName,
-        createdAt: new Date().toISOString()
-    };
-    localStorage.setItem('reviews', JSON.stringify(reviews));
+    await dataAdapter.saveReview(fileName, lastGeneratedReview, childName, lastReviewData);
     alert('振り返りレポートを保存しました');
 }
 
@@ -1537,15 +1531,8 @@ async function saveRecordManually() {
     const date = lastRecordData.date;
     const statusDiv = document.getElementById('recordSaveStatus');
 
-    const dailyReports = JSON.parse(localStorage.getItem('dailyReports') || '{}');
     const fileName = `${childName}_記録_${date}.html`;
-    dailyReports[fileName] = {
-        html: lastGeneratedRecord,
-        childName: childName,
-        activity: lastRecordData.activityType,
-        createdAt: new Date().toISOString()
-    };
-    localStorage.setItem('dailyReports', JSON.stringify(dailyReports));
+    await dataAdapter.saveDailyReport(fileName, lastGeneratedRecord, childName, date, { activity: lastRecordData.activityType });
     statusDiv.innerHTML = '<div style="padding: 0.75rem; background: #e8f5e9; border-radius: 8px; color: #2e7d32;">保存しました</div>';
 }
 
@@ -1659,22 +1646,12 @@ async function generatePlan(event) {
             lastPlanData = planData;
             lastPlanData.outputFormat = outputFormat;
 
-            // localStorageに支援計画を保存
-            const supportPlans = JSON.parse(localStorage.getItem('supportPlans') || '{}');
+            // 支援計画を保存
             const planKey = `${childName}_plan_${Date.now()}`;
-            supportPlans[planKey] = {
-                childName,
-                age,
-                priorityArea,
-                issues,
-                strengths,
-                parentRequest,
-                generatedText,
-                outputFormat,
-                createdAt: new Date().toISOString()
-            };
-            localStorage.setItem('supportPlans', JSON.stringify(supportPlans));
-            console.log('Support plan saved to localStorage:', planKey);
+            await dataAdapter.saveSupportPlan(planKey, generatedText, childName, {
+                age, priorityArea, issues, strengths, parentRequest, outputFormat
+            }, 'support');
+            console.log('Support plan saved:', planKey);
         } else {
             // デフォルトのHTML
             const planHTML = `
@@ -1755,16 +1732,16 @@ async function generateReview(event) {
     const activities = document.getElementById('activities').value;
     const changes = document.getElementById('changes').value;
 
-    // localStorageからアセスメント・記録データを取得
+    // dataAdapterからアセスメント・記録データを取得
     let assessmentData = null;
     let recordsData = null;
 
     try {
-        const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
+        const assessments = await dataAdapter.getAssessments();
         const matchingAssessment = Object.values(assessments).find(a => a.data?.childName === childName);
         if (matchingAssessment) assessmentData = [{ data: matchingAssessment.data }];
 
-        const dailyReports = JSON.parse(localStorage.getItem('dailyReports') || '{}');
+        const dailyReports = await dataAdapter.getDailyReports();
         const childReports = Object.values(dailyReports).filter(r => r.childName === childName);
         if (childReports.length > 0) recordsData = childReports;
     } catch (e) {
@@ -2098,16 +2075,9 @@ async function saveSupportPlanManually() {
     const childName = lastPlanData.childName;
     const statusDiv = document.getElementById('planSaveStatus');
 
-    const supportPlans = JSON.parse(localStorage.getItem('supportPlans') || '{}');
     const today = new Date().toISOString().split('T')[0];
     const fileName = `${childName}_支援計画_${today}.html`;
-    supportPlans[fileName] = {
-        html: lastGeneratedPlan,
-        childName: childName,
-        data: lastPlanData,
-        createdAt: new Date().toISOString()
-    };
-    localStorage.setItem('supportPlans', JSON.stringify(supportPlans));
+    await dataAdapter.saveSupportPlan(fileName, lastGeneratedPlan, childName, lastPlanData, 'support');
     statusDiv.innerHTML = '<div style="padding: 0.75rem; background: #e8f5e9; border-radius: 8px; color: #2e7d32;">保存しました</div>';
 }
 
@@ -2452,9 +2422,9 @@ document.addEventListener('click', function(event) {
 // ============================================
 
 // 記録作成用の生徒選択肢をフィルタリング
-function filterRecordStudentOptions(searchText) {
+async function filterRecordStudentOptions(searchText) {
     const select = document.getElementById('childNameSelect');
-    const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
+    const assessments = await dataAdapter.getAssessments();
     const allNames = [...new Set(Object.values(assessments).map(a => a.data?.childName).filter(Boolean))];
 
     // 検索テキストで絞り込み
@@ -2473,7 +2443,7 @@ function filterRecordStudentOptions(searchText) {
 }
 
 // 記録作成用の生徒選択時の処理
-function onRecordStudentSelect(value) {
+async function onRecordStudentSelect(value) {
     const manualInput = document.getElementById('childName');
     const infoDiv = document.getElementById('recordAssessmentInfo');
     const supportPlanJson = document.getElementById('supportPlanDataJson');
@@ -2493,8 +2463,8 @@ function onRecordStudentSelect(value) {
         document.getElementById('childNameSelect').required = true;
 
         // アセスメント情報を読み込み
-        const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
-        const supportPlans = JSON.parse(localStorage.getItem('supportPlans') || '{}');
+        const assessments = await dataAdapter.getAssessments();
+        const supportPlans = await dataAdapter.getSupportPlans();
 
         let assessmentData = null;
         for (const [key, assessment] of Object.entries(assessments)) {
@@ -2551,9 +2521,9 @@ function onRecordStudentSelect(value) {
 // ============================================
 
 // 支援計画用の生徒選択肢をフィルタリング
-function filterPlanStudentOptions(searchText) {
+async function filterPlanStudentOptions(searchText) {
     const select = document.getElementById('planChildNameSelect');
-    const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
+    const assessments = await dataAdapter.getAssessments();
     const allNames = [...new Set(Object.values(assessments).map(a => a.data?.childName).filter(Boolean))];
 
     // 検索テキストで絞り込み
@@ -2572,7 +2542,7 @@ function filterPlanStudentOptions(searchText) {
 }
 
 // 支援計画用の生徒選択時の処理
-function onPlanStudentSelect(value) {
+async function onPlanStudentSelect(value) {
     const manualInput = document.getElementById('planChildName');
     const infoDiv = document.getElementById('planAssessmentInfo');
     const ageInput = document.getElementById('childAge');
@@ -2594,7 +2564,7 @@ function onPlanStudentSelect(value) {
         document.getElementById('planChildNameSelect').required = true;
 
         // アセスメント情報を読み込み
-        const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
+        const assessments = await dataAdapter.getAssessments();
 
         let assessmentData = null;
         for (const [key, assessment] of Object.entries(assessments)) {
@@ -2690,13 +2660,13 @@ document.addEventListener('DOMContentLoaded', function() {
 /**
  * 児童選択プルダウンを更新
  */
-function refreshStudentSelects() {
-    // localStorageから最新のアセスメント一覧を取得
-    const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
+async function refreshStudentSelects() {
+    // dataAdapterから最新のアセスメント一覧を取得
+    const assessments = await dataAdapter.getAssessments();
     const assessmentNames = Object.values(assessments).map(a => a.data?.childName).filter(Boolean);
 
-    // バックアップから復元した児童一覧も取得
-    const children = JSON.parse(localStorage.getItem('children') || '{}');
+    // 児童一覧も取得
+    const children = await dataAdapter.getChildren();
     const childrenNames = Object.keys(children);
 
     // 両方をマージして重複排除
@@ -2838,9 +2808,9 @@ function batchRecordStep1Submit(event) {
 /**
  * Step 2: 参加児童の選択
  */
-function renderBatchRecordStep2(container) {
-    // localStorageから児童一覧を取得
-    const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
+async function renderBatchRecordStep2(container) {
+    // dataAdapterから児童一覧を取得
+    const assessments = await dataAdapter.getAssessments();
     const studentNames = [...new Set(Object.values(assessments).map(a => a.data?.childName).filter(Boolean))];
 
     const activityLabels = {
@@ -3120,17 +3090,12 @@ async function generateBatchRecords() {
                 generatedText = `【活動記録】\n\n日付: ${batchRecordState.date}\n対象児童: ${childName}\n活動内容: ${selectedActivityLabels}\n\n◆ 活動の様子\n${observation}\n\n※ Gemini APIを設定すると、より詳細な記録が自動生成されます`;
             }
 
-            // localStorageに保存
-            const dailyReports = JSON.parse(localStorage.getItem('dailyReports') || '{}');
+            // dataAdapterに保存
             const reportKey = `${childName}_記録_${batchRecordState.date}_batch.html`;
-            dailyReports[reportKey] = {
-                html: generatedText,
-                childName: childName,
+            await dataAdapter.saveDailyReport(reportKey, generatedText, childName, batchRecordState.date, {
                 activity: recordData.activityType,
-                observation: recordData.observation,
-                createdAt: new Date().toISOString()
-            };
-            localStorage.setItem('dailyReports', JSON.stringify(dailyReports));
+                observation: recordData.observation
+            });
 
             results.push({
                 childName,
@@ -3472,11 +3437,11 @@ function copyParentNote(index) {
 /**
  * 振り返り用の生徒選択肢をフィルタリング
  */
-function filterReviewStudentOptions(searchText) {
+async function filterReviewStudentOptions(searchText) {
     const select = document.getElementById('reviewChildNameSelect');
     if (!select) return;
 
-    const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
+    const assessments = await dataAdapter.getAssessments();
     const allNames = [...new Set(Object.values(assessments).map(a => a.data?.childName).filter(Boolean))];
 
     // 検索テキストで絞り込み

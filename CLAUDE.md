@@ -66,31 +66,53 @@ subagent_type: "media"    → メディア・サブエージェント
 ## プロジェクト情報
 
 - **アプリ名**: HeartUpApp
-- **用途**: 心の健康管理アプリケーション
+- **用途**: サッカー療育支援システム（放課後等デイサービス向け）
 
 ---
 
 ## 重要な仕様・ルール
 
-### Google Drive連携の仕様（手動バックアップ/復元方式）
+### データ保存方式（Firebase Firestore + localStorageキャッシュ）
 
-- **普段はlocalStorageのみで動作**。自動同期やPicker連携は行わない。
-- ユーザーが「バックアップ」ボタンを押した時だけGoogle Driveにバックアップ（`マイドライブ/HeartUp_Data/`フォルダに保存）。
-- ユーザーが「復元」ボタンを押した時だけGoogle Driveからデータを復元。
-- バックアップUIは`assessment-manager.html`のヘッダー下に配置。
-- `google-drive-api.js`は`assessment-manager.html`でのみ読み込む（`index.html`と`form-simple.html`では不要）。
-- この方式を自動同期に戻さないこと。
+- **プライマリ**: Firebase Firestore（拠点ごとにデータ分離）
+- **キャッシュ**: localStorage（Firebase未接続時のフォールバック兼オフラインキャッシュ）
+- `data-adapter.js` が橋渡し。全データ操作は `dataAdapter.getXxx()` / `dataAdapter.saveXxx()` 経由
+- Firebase未設定の場合はlocalStorageのみで動作（後方互換性維持）
+- Google Drive連携は廃止済み（`google-drive-api.js`は削除済み）
+
+### 認証（Firebase Auth + Google OAuth）
+
+- `login.html` でGoogleログイン → `staff_profiles` 照合 → 未招待は「承認待ち」
+- `auth-guard.js` を全ページに設置（未認証 → login.htmlリダイレクト）
+- 最初のユーザーは自動的にadminとして登録される（bootstrapFirstAdmin）
+- スタッフ招待: admin が `staff_invitations` に登録 → スタッフがログイン時に自動プロフィール作成
+
+### データ分離
+
+- クエリレベルで `locationId` フィルタリング
+- adminは全拠点のデータにアクセス可能
+- Firestore Security Rules: 認証済みユーザーのみアクセス可能
+
+### ファイル構成
+
+| ファイル | 役割 |
+|---------|------|
+| `firebase-client.js` | Firebaseクライアント + 全CRUD + Auth + Admin操作 |
+| `data-adapter.js` | localStorage互換アダプタ（旧コードとの橋渡し） |
+| `auth-guard.js` | 全ページ共通の認証チェック + リダイレクト |
+| `login.html` | ログインページ（Google OAuth） |
+| `admin.html` | 管理画面（拠点/スタッフ管理、admin専用） |
+| `firestore.rules` | Firestore Security Rules（Firebase Consoleに貼り付け） |
 
 ### Vercel環境変数
 
 | 環境変数 | 用途 | 備考 |
 |---------|------|------|
-| `GEMINI_API_KEY` | Gemini API + Google Drive API | GeminiとDriveで同一キーを使用 |
-| `GOOGLE_DRIVE_CLIENT_ID` | Google OAuth 2.0 クライアントID | Drive保存用 |
-| `GOOGLE_DRIVE_API_KEY` | （任意）Drive APIキー | 未設定時は`GEMINI_API_KEY`にフォールバック |
+| `GEMINI_API_KEY` | Gemini API | AI書類生成で使用 |
+| `FIREBASE_API_KEY` | Firebase APIキー | Firebase Consoleから取得 |
+| `FIREBASE_AUTH_DOMAIN` | Firebase Authドメイン | `xxx.firebaseapp.com` |
+| `FIREBASE_PROJECT_ID` | Firebase プロジェクトID | |
 
-- GeminiとDrive APIは同じAPIキーを使う運用。
-- そのため、Google CloudプロジェクトでGemini API **と** Google Drive API の両方を有効にすること。
 - `build.sh`がこれらの環境変数からconfig.jsを生成する。
 
 ### デプロイ
@@ -98,3 +120,13 @@ subagent_type: "media"    → メディア・サブエージェント
 - Vercelでホスティング（`heartup.if-juku.net`）
 - `vercel.json`の`buildCommand`で`build.sh`を実行し、config.jsを生成
 - `config.js`は`.gitignore`に含まれておりgit管理外（ビルド時に生成）
+
+### Firebase初期セットアップ手順
+
+1. Firebase Console でプロジェクト作成
+2. Firestore Database を作成（アジアリージョン推奨）
+3. Authentication > Sign-in method > Google を有効化
+4. Firestore > ルール に `firestore.rules` の内容を貼り付け
+5. プロジェクト設定 > マイアプリ > ウェブアプリを追加 → 設定値を取得
+6. Vercel環境変数に `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID` を設定
+7. 最初のユーザーがログインすると自動的にadmin + デフォルト拠点が作成される

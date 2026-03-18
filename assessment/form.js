@@ -658,22 +658,28 @@ function getRatingClass(rating) {
 
 async function saveAssessmentSheet(fileName, html, data) {
     try {
-        // Save to localStorage
-        const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
-        assessments[fileName] = {
-            html: html,
-            data: data,
-            createdAt: new Date().toISOString(),
-            filePath: `temp/assessmentSheet/${fileName}`
-        };
-        localStorage.setItem('assessments', JSON.stringify(assessments));
-
-        // 児童一覧にも追加（端末間同期用）
-        if (data.childName) {
-            const children = JSON.parse(localStorage.getItem('children') || '{}');
-            if (!children[data.childName]) {
-                children[data.childName] = { createdAt: new Date().toISOString() };
-                localStorage.setItem('children', JSON.stringify(children));
+        // dataAdapterに保存（Supabase + localStorageキャッシュ）
+        if (typeof dataAdapter !== 'undefined') {
+            await dataAdapter.saveAssessment(fileName, html, data);
+            if (data.childName) {
+                await dataAdapter.saveChild(data.childName);
+            }
+        } else {
+            // フォールバック: localStorageのみ
+            const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
+            assessments[fileName] = {
+                html: html,
+                data: data,
+                createdAt: new Date().toISOString(),
+                filePath: `temp/assessmentSheet/${fileName}`
+            };
+            localStorage.setItem('assessments', JSON.stringify(assessments));
+            if (data.childName) {
+                const children = JSON.parse(localStorage.getItem('children') || '{}');
+                if (!children[data.childName]) {
+                    children[data.childName] = { createdAt: new Date().toISOString() };
+                    localStorage.setItem('children', JSON.stringify(children));
+                }
             }
         }
 
@@ -934,7 +940,8 @@ async function autoGeneratePlans(data) {
 
         const assessmentSummary = buildAssessmentSummary(data);
         const today = new Date().toISOString().split('T')[0];
-        const supportPlans = JSON.parse(localStorage.getItem('supportPlans') || '{}');
+        const useDataAdapter = typeof dataAdapter !== 'undefined';
+        const supportPlans = useDataAdapter ? await dataAdapter.getSupportPlans() : JSON.parse(localStorage.getItem('supportPlans') || '{}');
         const results = { support: null, individual: null };
         let supportPlanHTML = null;
         let supportFileName = null;
@@ -990,7 +997,19 @@ async function autoGeneratePlans(data) {
             console.error('個別支援計画の生成に失敗:', e);
         }
 
-        localStorage.setItem('supportPlans', JSON.stringify(supportPlans));
+        if (useDataAdapter) {
+            // 各支援計画をdataAdapterで保存
+            if (supportFileName) {
+                await dataAdapter.saveSupportPlan(supportFileName, supportPlanHTML, data.childName,
+                    supportPlans[supportFileName]?.planData || {}, 'officialSupport');
+            }
+            if (individualFileName) {
+                await dataAdapter.saveSupportPlan(individualFileName, individualPlanHTML, data.childName,
+                    supportPlans[individualFileName]?.planData || {}, 'officialIndividual');
+            }
+        } else {
+            localStorage.setItem('supportPlans', JSON.stringify(supportPlans));
+        }
 
         return {
             success: results.support || results.individual,
