@@ -409,15 +409,6 @@
         <!-- 拠点情報 + データ移行バー -->
         <div id="locationBar" style="text-align:center; margin-bottom:20px; padding:12px; background:rgba(255,255,255,0.95); border-radius:12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
             <p id="locationInfo" style="color:#2e7d32; font-size:0.9rem; font-weight:bold;"></p>
-            <div id="migrationBar" style="display:none; margin-top:10px; padding:10px; background:#fff3e0; border-radius:8px;">
-                <p style="color:#e65100; font-size:0.85rem; margin-bottom:8px;">ローカルにデータが見つかりました。クラウドに移行できます。</p>
-                <button id="migrateBtn" onclick="migrateLocalData()" style="
-                    padding:8px 20px; border:none; border-radius:8px;
-                    background:#ff9800; color:white; font-size:0.9rem;
-                    font-weight:bold; cursor:pointer;
-                ">ローカルデータをインポート</button>
-                <div id="migrationStatus" style="margin-top:8px; font-size:0.85rem; color:#666;"></div>
-            </div>
         </div>
 
         <div class="main-actions">
@@ -510,71 +501,12 @@
                 locationInfo.textContent = 'データは端末内に保存されています';
             }
 
-            // ローカルデータ移行ツールの表示判定
-            if (heartUpDB.isReady()) {
-                const localAssessments = JSON.parse(localStorage.getItem('assessments') || '{}');
-                const localPlans = JSON.parse(localStorage.getItem('supportPlans') || '{}');
-                const localReports = JSON.parse(localStorage.getItem('dailyReports') || '{}');
-                const localReviews = JSON.parse(localStorage.getItem('reviews') || '{}');
-                const localChildren = JSON.parse(localStorage.getItem('children') || '{}');
-                const total = Object.keys(localAssessments).length + Object.keys(localPlans).length +
-                              Object.keys(localReports).length + Object.keys(localReviews).length +
-                              Object.keys(localChildren).length;
-                if (total > 0) {
-                    document.getElementById('migrationBar').style.display = 'block';
-                    document.querySelector('#migrationBar p').textContent =
-                        `ローカルにデータが見つかりました（児童${Object.keys(localChildren).length}名、アセスメント${Object.keys(localAssessments).length}件、計画${Object.keys(localPlans).length}件、記録${Object.keys(localReports).length}件、振り返り${Object.keys(localReviews).length}件）。クラウドに移行できます。`;
-                }
-            }
-
             try {
                 await loadChildren();
             } catch (e) {
                 console.error('loadChildrenエラー:', e);
             }
         });
-
-        /**
-         * ローカルデータをクラウドに移行
-         */
-        async function migrateLocalData() {
-            if (!heartUpDB.isReady()) {
-                alert('クラウドに接続されていません');
-                return;
-            }
-            if (!confirm('ローカルデータをクラウドに移行しますか？')) return;
-
-            const btn = document.getElementById('migrateBtn');
-            const statusEl = document.getElementById('migrationStatus');
-            btn.disabled = true;
-            btn.textContent = '移行中...';
-
-            try {
-                const locationId = heartUpDB.getMyLocationId();
-                const results = await heartUpDB.migrateFromLocalStorage(locationId);
-
-                statusEl.style.color = '#2e7d32';
-                statusEl.textContent = `移行完了: 児童${results.children}名、アセスメント${results.assessments}件、計画${results.supportPlans}件、記録${results.dailyReports}件、振り返り${results.reviews}件`;
-
-                if (confirm('移行完了しました。ローカルデータを削除しますか？（推奨）')) {
-                    localStorage.removeItem('assessments');
-                    localStorage.removeItem('supportPlans');
-                    localStorage.removeItem('dailyReports');
-                    localStorage.removeItem('reviews');
-                    localStorage.removeItem('children');
-                    document.getElementById('migrationBar').style.display = 'none';
-                }
-
-                await loadChildren();
-            } catch (error) {
-                console.error('移行エラー:', error);
-                statusEl.style.color = '#e53935';
-                statusEl.textContent = '移行エラー: ' + error.message;
-            } finally {
-                btn.disabled = false;
-                btn.textContent = 'ローカルデータをインポート';
-            }
-        }
 
         // 学年計算（日本の学年制度: 4月2日〜翌4月1日が同学年）
         function calculateGrade(birthDateStr) {
