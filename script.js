@@ -446,27 +446,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // URLパラメータに基づいてタブを切り替え
     if (tab) {
+        // ai-tools は ai-assessment にマッピング（後方互換性）
+        const resolvedTab = (tab === 'ai-tools') ? 'ai-assessment' : tab;
         // メインタブを切り替え
-        const mainTabButton = document.querySelector(`[data-tab="${tab}"]`);
+        const mainTabButton = document.querySelector(`[data-tab="${resolvedTab}"]`);
         if (mainTabButton) {
             mainTabButton.click();
 
             // サブタブがある場合は切り替え
-            if (subtab && tab === 'ai-tools') {
+            if (subtab && (resolvedTab === 'ai-assessment')) {
                 setTimeout(() => {
                     const subTabButton = document.querySelector(`[data-ai-tab="${subtab}"]`);
                     if (subTabButton) {
                         subTabButton.click();
-
-                        // 児童名がある場合は、フォームに反映（支援計画フォームに児童名を自動入力）
-                        if (childName && subtab === 'plan') {
-                            setTimeout(() => {
-                                const childNameInput = document.querySelector('#planForm input[name="childName"]');
-                                if (childNameInput) {
-                                    childNameInput.value = decodeURIComponent(childName);
-                                }
-                            }, 100);
-                        }
                     }
                 }, 100);
             }
@@ -490,8 +482,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 content.classList.remove('active');
                 if (content.id === targetTab) {
                     content.classList.add('active');
-                    // AI書類作成タブが開かれた場合、最初のフォームを表示
-                    if (targetTab === 'ai-tools') {
+                    // AIアセスメント書類作成タブが開かれた場合、初期化
+                    if (targetTab === 'ai-assessment') {
                         initializeAITabs();
                     }
                 }
@@ -502,27 +494,33 @@ document.addEventListener('DOMContentLoaded', function() {
     // AI機能内部のタブ切り替え
     const aiTabButtons = document.querySelectorAll('.ai-tab-button');
     const aiTabContents = document.querySelectorAll('.ai-tab-content');
-    
+
     aiTabButtons.forEach(button => {
         button.addEventListener('click', function() {
             const targetAITab = this.getAttribute('data-ai-tab');
-            
+
             // タブボタンのアクティブ状態を切り替え
             aiTabButtons.forEach(btn => btn.classList.remove('active'));
             this.classList.add('active');
-            
+
             // タブコンテンツの表示を切り替え
             aiTabContents.forEach(content => {
                 content.classList.remove('active');
                 if (content.id === 'ai-' + targetAITab) {
                     content.classList.add('active');
                     // 対応するフォームを表示
-                    if (targetAITab === 'batch-record') {
+                    if (targetAITab === 'am-children') {
+                        amLoadChildren();
+                    } else if (targetAITab === 'am-new-assessment') {
+                        // 静的コンテンツ（ボタンのみ）なので何もしない
+                    } else if (targetAITab === 'am-assessments') {
+                        amShowAllAssessments();
+                    } else if (targetAITab === 'am-plans') {
+                        amShowAllSupportPlans();
+                    } else if (targetAITab === 'am-records') {
+                        amShowAllReports();
+                    } else if (targetAITab === 'batch-record') {
                         showBatchRecordForm();
-                    } else if (targetAITab === 'plan') {
-                        showPlanForm();
-                    } else if (targetAITab === 'review') {
-                        showReviewForm();
                     } else if (targetAITab === 'csv-import') {
                         showCsvImportForm();
                     }
@@ -573,44 +571,51 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeAITabs();
 
     // Handle URL parameters to switch to specific tab and subtab
-    if (tab && tab === 'ai-tools') {
-        // Switch to AI Tools tab
+    if (tab && (tab === 'ai-tools' || tab === 'ai-assessment')) {
+        // Switch to AI Assessment tab
         tabButtons.forEach(btn => btn.classList.remove('active'));
         tabContents.forEach(content => content.classList.remove('active'));
 
-        const aiToolsButton = document.querySelector('.tab-button[data-tab="ai-tools"]');
-        const aiToolsContent = document.getElementById('ai-tools');
+        const aiAssessmentButton = document.querySelector('.tab-button[data-tab="ai-assessment"]');
+        const aiAssessmentContent = document.getElementById('ai-assessment');
 
-        if (aiToolsButton && aiToolsContent) {
-            aiToolsButton.classList.add('active');
-            aiToolsContent.classList.add('active');
+        if (aiAssessmentButton && aiAssessmentContent) {
+            aiAssessmentButton.classList.add('active');
+            aiAssessmentContent.classList.add('active');
 
-            // Switch to specific AI subtab (plan)
-            if (subtab && subtab === 'plan') {
+            // Switch to specific AI subtab
+            if (subtab) {
                 const aiTabButtons = document.querySelectorAll('.ai-tab-button');
                 const aiTabContents = document.querySelectorAll('.ai-tab-content');
 
                 aiTabButtons.forEach(btn => btn.classList.remove('active'));
                 aiTabContents.forEach(content => content.classList.remove('active'));
 
-                const planButton = document.querySelector('.ai-tab-button[data-ai-tab="plan"]');
-                const planContent = document.getElementById('ai-plan');
+                const targetButton = document.querySelector(`.ai-tab-button[data-ai-tab="${subtab}"]`);
+                const targetContent = document.getElementById('ai-' + subtab);
 
-                if (planButton && planContent) {
-                    planButton.classList.add('active');
-                    planContent.classList.add('active');
-                    showPlanForm();
+                if (targetButton && targetContent) {
+                    targetButton.classList.add('active');
+                    targetContent.classList.add('active');
 
-                    // Auto-fill child name if provided
-                    if (childName) {
-                        setTimeout(() => {
-                            const childNameInput = document.getElementById('planChildName');
-                            if (childNameInput) {
-                                childNameInput.value = childName;
-                            }
-                        }, 100);
+                    // Initialize the appropriate subtab
+                    if (subtab === 'batch-record') {
+                        showBatchRecordForm();
+                    } else if (subtab === 'csv-import') {
+                        showCsvImportForm();
+                    } else if (subtab === 'am-children') {
+                        amLoadChildren();
+                    } else if (subtab === 'am-assessments') {
+                        amShowAllAssessments();
+                    } else if (subtab === 'am-plans') {
+                        amShowAllSupportPlans();
+                    } else if (subtab === 'am-records') {
+                        amShowAllReports();
                     }
                 }
+            } else {
+                // Default: load children list
+                initializeAITabs();
             }
         }
     }
@@ -618,8 +623,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // AI機能タブの初期化
 function initializeAITabs() {
-    // 最初のタブ（一括記録作成）を表示
-    showBatchRecordForm();
+    // 最初のタブ（児童一覧）を表示
+    amLoadChildren();
 }
 
 // 資料を表示する関数

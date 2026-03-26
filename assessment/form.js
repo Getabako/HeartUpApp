@@ -266,8 +266,8 @@ async function handleAssessmentSubmit(e) {
 
         alert(successMessage);
 
-        // Redirect to assessment manager
-        window.location.href = '../assessment-manager.html';
+        // Redirect to assessment manager (embedded in index.html)
+        window.location.href = '../index.html?tab=ai-assessment&subtab=am-children';
     } catch (error) {
         hideLoading();
         console.error('Error creating assessment sheet:', error);

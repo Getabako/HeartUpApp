@@ -29,11 +29,8 @@
                 <button class="tab-button" data-tab="practice-menu">
                     練習メニュー
                 </button>
-                <button class="tab-button" data-tab="ai-tools">
-                    AI書類作成
-                </button>
-                <button class="tab-button" onclick="window.location.href='assessment-manager.html'">
-                    アセスメント管理
+                <button class="tab-button" data-tab="ai-assessment">
+                    AIアセスメント書類作成
                 </button>
             </div>
 
@@ -92,67 +89,102 @@
                 </div>
             </div>
 
-            <!-- AI書類作成タブ -->
-            <div id="ai-tools" class="tab-content">
-                <!-- AI機能の内部タブ -->
+            <!-- AIアセスメント書類作成タブ -->
+            <div id="ai-assessment" class="tab-content">
                 <div class="ai-tabs-container">
                     <div class="ai-tabs">
-                        <button class="ai-tab-button active" data-ai-tab="batch-record">
+                        <button class="ai-tab-button active" data-ai-tab="am-children">
+                            <span class="ai-tab-text">児童一覧</span>
+                        </button>
+                        <button class="ai-tab-button" data-ai-tab="am-new-assessment">
+                            <span class="ai-tab-text">新規アセスメント作成</span>
+                        </button>
+                        <button class="ai-tab-button" data-ai-tab="am-assessments">
+                            <span class="ai-tab-text">アセスメント一覧</span>
+                        </button>
+                        <button class="ai-tab-button" data-ai-tab="am-plans">
+                            <span class="ai-tab-text">支援計画一覧</span>
+                        </button>
+                        <button class="ai-tab-button" data-ai-tab="am-records">
+                            <span class="ai-tab-text">成長記録一覧</span>
+                        </button>
+                        <button class="ai-tab-button" data-ai-tab="batch-record">
                             <span class="ai-tab-text">一括記録作成</span>
-                        </button>
-                        <button class="ai-tab-button" data-ai-tab="plan">
-                            <span class="ai-tab-text">支援計画作成</span>
-                        </button>
-                        <button class="ai-tab-button" data-ai-tab="review">
-                            <span class="ai-tab-text">成長の振り返り</span>
                         </button>
                         <button class="ai-tab-button" data-ai-tab="csv-import">
                             <span class="ai-tab-text">CSVインポート</span>
                         </button>
                     </div>
 
-                    <!-- 一括記録作成タブコンテンツ -->
-                    <div id="ai-batch-record" class="ai-tab-content active">
+                    <!-- 児童一覧 (default) -->
+                    <div id="ai-am-children" class="ai-tab-content active">
+                        <div id="amLocationBar" style="text-align:center; margin-bottom:20px; padding:12px; background:rgba(255,255,255,0.95); border-radius:12px;">
+                            <p id="amLocationInfo" style="color:#2e7d32; font-size:0.9rem; font-weight:bold;"></p>
+                        </div>
+                        <div class="am-children-list">
+                            <h2 style="color:#2e7d32; margin-bottom:20px; font-size:24px;">登録児童一覧 <span id="amChildrenCount" style="color:#666; font-size:14px;"></span></h2>
+                            <div class="am-filter-section">
+                                <input type="text" id="amNameSearch" placeholder="名前で検索..." oninput="amFilterChildren()">
+                                <select id="amGradeFilter" onchange="amFilterChildren()">
+                                    <option value="">全学年</option>
+                                </select>
+                            </div>
+                            <div id="amChildrenContainer">
+                                <div class="am-empty-state">
+                                    <h3>読み込み中...</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 新規アセスメント作成 -->
+                    <div id="ai-am-new-assessment" class="ai-tab-content">
+                        <div class="ai-tool-description">
+                            <h3>新規アセスメント作成</h3>
+                            <p>新しいお子様のアセスメントシートを作成します。フォームページに移動します。</p>
+                        </div>
+                        <div style="text-align:center; padding:40px;">
+                            <button class="submit-btn" onclick="window.location.href='assessment/form-simple.html'" style="padding:16px 48px; font-size:18px; background:linear-gradient(135deg,#4caf50,#66bb6a); color:white; border:none; border-radius:50px; cursor:pointer; font-weight:bold;">アセスメントフォームを開く</button>
+                        </div>
+                    </div>
+
+                    <!-- アセスメント一覧 -->
+                    <div id="ai-am-assessments" class="ai-tab-content">
+                        <div id="amAssessmentListContent">
+                            <div class="am-empty-state"><h3>読み込み中...</h3></div>
+                        </div>
+                    </div>
+
+                    <!-- 支援計画一覧 -->
+                    <div id="ai-am-plans" class="ai-tab-content">
+                        <div id="amPlanListContent">
+                            <div class="am-empty-state"><h3>読み込み中...</h3></div>
+                        </div>
+                    </div>
+
+                    <!-- 成長記録一覧 -->
+                    <div id="ai-am-records" class="ai-tab-content">
+                        <div id="amRecordListContent">
+                            <div class="am-empty-state"><h3>読み込み中...</h3></div>
+                        </div>
+                    </div>
+
+                    <!-- 一括記録作成 (from current AI tools) -->
+                    <div id="ai-batch-record" class="ai-tab-content">
                         <div class="ai-tool-description">
                             <h3>一括記録作成</h3>
                             <p>複数の児童の記録を一度に作成できます。日付と活動を設定後、参加児童を選択して記録を入力します。</p>
                         </div>
-                        <div id="batchRecordContent">
-                            <!-- 一括記録フォームがここに表示されます -->
-                        </div>
+                        <div id="batchRecordContent"></div>
                     </div>
 
-                    <!-- 支援計画作成タブコンテンツ -->
-                    <div id="ai-plan" class="ai-tab-content">
-                        <div class="ai-tool-description">
-                            <h3>支援計画作成</h3>
-                            <p>短期から長期まで、個別のニーズに応じた支援計画を自動で立案します。</p>
-                        </div>
-                        <div id="planToolContent">
-                            <!-- 支援計画フォームがここに表示されます -->
-                        </div>
-                    </div>
-                    
-                    <!-- 成長の振り返りタブコンテンツ -->
-                    <div id="ai-review" class="ai-tab-content">
-                        <div class="ai-tool-description">
-                            <h3>成長の振り返り</h3>
-                            <p>記録データから成長を分析し、達成度や今後の課題を可視化します。</p>
-                        </div>
-                        <div id="reviewToolContent">
-                            <!-- 振り返りフォームがここに表示されます -->
-                        </div>
-                    </div>
-
-                    <!-- CSVインポートタブコンテンツ -->
+                    <!-- CSVインポート -->
                     <div id="ai-csv-import" class="ai-tab-content">
                         <div class="ai-tool-description">
                             <h3>CSVインポート</h3>
                             <p>CSVファイルから児童情報、支援計画、活動記録をまとめてインポートできます。</p>
                         </div>
-                        <div id="csvImportContent">
-                            <!-- CSVインポートフォームがここに表示されます -->
-                        </div>
+                        <div id="csvImportContent"></div>
                     </div>
                 </div>
             </div>
@@ -166,6 +198,14 @@
             <div id="modalBody">
                 <!-- モーダルの内容がここに表示されます -->
             </div>
+        </div>
+    </div>
+
+    <!-- Assessment Manager Modal -->
+    <div id="amAssessmentModal" class="am-modal">
+        <div class="am-modal-content">
+            <span class="am-close-modal" onclick="amCloseModal()">&times;</span>
+            <div id="amAssessmentContent"></div>
         </div>
     </div>
 
@@ -191,7 +231,8 @@
     <script src="auth-guard.js?v=20260317"></script>
     <script src="gemini-api.js?v=20260317"></script>
     <script src="csv-importer.js?v=20260317"></script>
-    <script src="script.js?v=20260317"></script>
+    <script src="assessment-manager.js?v=20260326"></script>
+    <script src="script.js?v=20260326"></script>
     <script>
         // Firebase初期化 + 認証ガード
         heartUpDB.init();
