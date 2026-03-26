@@ -139,13 +139,35 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+// ローディングオーバーレイの表示/非表示/テキスト更新
+function showLoading(text, subtext) {
+    let overlay = document.getElementById('loadingOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'loadingOverlay';
+        overlay.className = 'loading-overlay';
+        overlay.innerHTML = `
+            <img src="../soccerball.png" class="loading-ball" alt="読み込み中">
+            <div class="loading-text" id="loadingText"></div>
+            <div class="loading-subtext" id="loadingSubtext"></div>
+        `;
+        document.body.appendChild(overlay);
+    }
+    overlay.classList.remove('hidden');
+    document.getElementById('loadingText').textContent = text || '処理中...';
+    document.getElementById('loadingSubtext').textContent = subtext || '';
+}
+
+function hideLoading() {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) overlay.classList.add('hidden');
+}
+
 async function handleAssessmentSubmit(e) {
-    // Show loading message
     const submitButton = e.target.querySelector('button[type="submit"]');
     const originalButtonText = submitButton ? submitButton.textContent : '';
     if (submitButton) {
         submitButton.disabled = true;
-        submitButton.textContent = '処理中...';
     }
 
     // 優先課題領域のバリデーション
@@ -157,6 +179,8 @@ async function handleAssessmentSubmit(e) {
         document.getElementById('priorityError')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
     }
+
+    showLoading('アセスメントシートを作成中...', 'しばらくお待ちください');
 
     try {
         // Collect form data
@@ -215,21 +239,24 @@ async function handleAssessmentSubmit(e) {
         // Generate assessment sheet HTML
         const assessmentHTML = await generateAssessmentSheet(data);
 
-        // Save assessment sheet locally
+        // データベースに保存
+        showLoading('データベースに保存中...', 'アセスメントデータを登録しています');
         const fileName = `${data.childName}_アセスメントシート.html`;
         await saveAssessmentSheet(fileName, assessmentHTML, data);
 
         // AIによる支援計画自動生成
         let planResult = null;
         try {
-            if (submitButton) submitButton.textContent = 'AIが支援計画を自動生成中...';
+            showLoading('AIが支援計画を自動生成中...', 'アセスメント結果をもとに計画を作成しています');
             planResult = await autoGeneratePlans(data);
         } catch (planError) {
             console.error('計画書自動生成エラー:', planError);
         }
 
+        hideLoading();
+
         // Show success message
-        let successMessage = `アセスメントシートが作成されました！\n\nファイル名: ${fileName}\nローカルに保存されました。`;
+        let successMessage = `アセスメントシートが作成されました！\n\nデータベースに保存されました。`;
 
         if (planResult && planResult.success) {
             successMessage += `\n\nAIによる支援計画を自動生成しました！`;
@@ -242,6 +269,7 @@ async function handleAssessmentSubmit(e) {
         // Redirect to assessment manager
         window.location.href = '../assessment-manager.html';
     } catch (error) {
+        hideLoading();
         console.error('Error creating assessment sheet:', error);
         alert(`エラーが発生しました: ${error.message}`);
         if (submitButton) {
@@ -683,37 +711,7 @@ async function saveAssessmentSheet(fileName, html, data) {
             }
         }
 
-        // Create downloadable file
-        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-
-        // Also save JSON metadata
-        const metadata = {
-            fileName,
-            data,
-            createdAt: new Date().toISOString(),
-            filePath: `temp/assessmentSheet/${fileName}`
-        };
-        const jsonBlob = new Blob([JSON.stringify(metadata, null, 2)], { type: 'application/json;charset=utf-8' });
-        const jsonUrl = URL.createObjectURL(jsonBlob);
-        const jsonLink = document.createElement('a');
-        jsonLink.href = jsonUrl;
-        jsonLink.download = fileName.replace('.html', '.json');
-        jsonLink.style.display = 'none';
-        document.body.appendChild(jsonLink);
-        jsonLink.click();
-        document.body.removeChild(jsonLink);
-        URL.revokeObjectURL(jsonUrl);
-
-        console.log('アセスメントシート保存成功:', fileName);
+        console.log('アセスメントシート保存成功（データベース）:', fileName);
 
         return {
             success: true,
