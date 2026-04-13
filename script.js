@@ -2674,8 +2674,11 @@ async function refreshStudentSelects() {
     const children = await dataAdapter.getChildren();
     const childrenNames = Object.keys(children);
 
-    // 両方をマージして重複排除
-    const studentNames = [...new Set([...assessmentNames, ...childrenNames])].sort();
+    // 両方をマージして重複排除し、50音順でソート
+    const studentNames = [...new Set([...assessmentNames, ...childrenNames])].sort((a, b) => {
+        // 日本語50音順ソート
+        return a.localeCompare(b, 'ja');
+    });
 
     // 記録作成フォームの選択肢を更新
     const recordSelect = document.getElementById('childNameSelect');
@@ -2722,9 +2725,81 @@ let batchRecordState = {
     step: 1,
     date: '',
     activities: [],
+    detailedActivities: [], // 詳細活動項目
+    goals: [], // 目標項目
     selectedChildren: [],
     childrenMemos: {}
 };
+
+// 詳細活動項目の定義
+const detailedActivityOptions = {
+    warmup: [
+        { id: 'warmup_jogging', label: 'ジョギング・ランニング' },
+        { id: 'warmup_stretching', label: 'ストレッチ' },
+        { id: 'warmup_dynamic', label: '動的ストレッチ' },
+        { id: 'warmup_ball_handling', label: 'ボールハンドリング' },
+        { id: 'warmup_coordination', label: 'コーディネーショントレーニング' }
+    ],
+    individual: [
+        { id: 'individual_dribble', label: 'ドリブル練習' },
+        { id: 'individual_pass', label: 'パス練習' },
+        { id: 'individual_shoot', label: 'シュート練習' },
+        { id: 'individual_receive', label: 'トラップ・レシーブ練習' },
+        { id: 'individual_control', label: 'ボールコントロール' }
+    ],
+    group: [
+        { id: 'group_pass_game', label: 'パスゲーム' },
+        { id: 'group_possession', label: 'ポゼッションゲーム' },
+        { id: 'group_small_game', label: 'スモールサイドゲーム' },
+        { id: 'group_cooperation', label: '協力ゲーム' },
+        { id: 'group_communication', label: 'コミュニケーション練習' }
+    ],
+    game: [
+        { id: 'game_3v3', label: '3対3ゲーム' },
+        { id: 'game_4v4', label: '4対4ゲーム' },
+        { id: 'game_futsal', label: 'フットサル形式' },
+        { id: 'game_tournament', label: 'ミニトーナメント' },
+        { id: 'game_fun', label: '楽しいゲーム' }
+    ],
+    skill: [
+        { id: 'skill_technique', label: 'テクニック練習' },
+        { id: 'skill_tactics', label: '戦術理解' },
+        { id: 'skill_position', label: 'ポジショニング' },
+        { id: 'skill_decision', label: '判断力向上' },
+        { id: 'skill_creativity', label: '創造性発揮' }
+    ],
+    cooldown: [
+        { id: 'cooldown_static', label: '静的ストレッチ' },
+        { id: 'cooldown_breathing', label: '呼吸法' },
+        { id: 'cooldown_reflection', label: '振り返り' },
+        { id: 'cooldown_cool_down', label: 'クールダウン運動' }
+    ],
+    event: [
+        { id: 'event_tournament', label: '大会参加' },
+        { id: 'event_friendly', label: '交流試合' },
+        { id: 'event_demonstration', label: 'デモンストレーション' },
+        { id: 'event_workshop', label: 'ワークショップ' }
+    ],
+    other: [
+        { id: 'other_free_play', label: '自由遊び' },
+        { id: 'other_skill_challenge', label: 'スキルチャレンジ' },
+        { id: 'other_fun_activity', label: '楽しいアクティビティ' }
+    ]
+};
+
+// 目標項目の定義（先方から送られてくる10個程度の項目を想定）
+const goalOptions = [
+    { id: 'goal_communication', label: 'コミュニケーションの向上' },
+    { id: 'goal_cooperation', label: '協力する姿勢の育成' },
+    { id: 'goal_self_control', label: '自己コントロールの向上' },
+    { id: 'goal_concentration', label: '集中力の持続' },
+    { id: 'goal_emotional', label: '感情のコントロール' },
+    { id: 'goal_social', label: '社会的スキルの向上' },
+    { id: 'goal_motor', label: '運動能力の向上' },
+    { id: 'goal_confidence', label: '自信の育成' },
+    { id: 'goal_enjoyment', label: '楽しむことの重視' },
+    { id: 'goal_participation', label: '積極的な参加' }
+];
 
 /**
  * 一括記録作成フォームを表示
@@ -2777,12 +2852,92 @@ function renderBatchRecordStep1(container) {
                     <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">※1つ以上選択してください</p>
                 </div>
 
+                <div class="form-group" id="detailedActivitiesContainer" style="display: none;">
+                    <label>詳細活動項目（選択した活動に応じて表示）</label>
+                    <div class="detailed-activity-checkboxes" id="detailedActivityCheckboxes">
+                        <!-- 詳細活動項目はJavaScriptで動的に生成 -->
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>目標項目（複数選択可）</label>
+                    <div class="goal-checkboxes" id="goalCheckboxes">
+                        ${goalOptions.map(goal => 
+                            `<label><input type="checkbox" name="goal" value="${goal.id}"><span>${goal.label}</span></label>`
+                        ).join('')}
+                    </div>
+                    <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">※該当する目標を選択してください</p>
+                </div>
+
                 <div class="wizard-buttons">
                     <button type="submit" class="btn-primary">次へ: 児童選択 →</button>
                 </div>
             </form>
         </div>
     `;
+    
+    // 詳細活動項目の表示/非表示を制御するイベントリスナーを追加
+    setTimeout(() => {
+        const activityCheckboxes = document.querySelectorAll('#batchActivityCheckboxes input[type="checkbox"]');
+        activityCheckboxes.forEach(cb => {
+            cb.addEventListener('change', updateDetailedActivities);
+        });
+        
+        // 初期状態で詳細活動項目を更新
+        updateDetailedActivities();
+    }, 100);
+}
+
+/**
+ * 詳細活動項目を更新
+ */
+function updateDetailedActivities() {
+    const container = document.getElementById('detailedActivitiesContainer');
+    const checkboxesContainer = document.getElementById('detailedActivityCheckboxes');
+    
+    // 選択された活動を取得
+    const selectedActivities = [];
+    document.querySelectorAll('#batchActivityCheckboxes input:checked').forEach(cb => {
+        selectedActivities.push(cb.value);
+    });
+    
+    if (selectedActivities.length === 0) {
+        container.style.display = 'none';
+        return;
+    }
+    
+    container.style.display = 'block';
+    
+    // 選択された活動に対応する詳細項目を表示
+    let detailedHtml = '';
+    selectedActivities.forEach(activity => {
+        const options = detailedActivityOptions[activity] || [];
+        if (options.length > 0) {
+            detailedHtml += `<div class="detailed-activity-group">
+                <h4 style="margin: 0.5rem 0 0.3rem 0; font-size: 0.9rem;">${{
+                    warmup: 'ウォーミングアップ',
+                    individual: '個別練習',
+                    group: 'グループ活動',
+                    game: 'ミニゲーム',
+                    skill: 'スキル練習',
+                    cooldown: 'クールダウン',
+                    event: 'イベント',
+                    other: 'その他'
+                }[activity]}の詳細項目:</h4>
+                <div class="detailed-options">`;
+            
+            options.forEach(option => {
+                detailedHtml += `<label style="display: block; margin: 0.2rem 0;">
+                    <input type="checkbox" name="detailedActivity" value="${option.id}">
+                    <span>${option.label}</span>
+                </label>`;
+            });
+            
+            detailedHtml += `</div></div>`;
+        }
+    });
+    
+    checkboxesContainer.innerHTML = detailedHtml;
 }
 
 /**
@@ -2802,8 +2957,22 @@ function batchRecordStep1Submit(event) {
         return;
     }
 
+    // 詳細活動項目を取得
+    const selectedDetailedActivities = [];
+    document.querySelectorAll('input[name="detailedActivity"]:checked').forEach(cb => {
+        selectedDetailedActivities.push(cb.value);
+    });
+    
+    // 目標項目を取得
+    const selectedGoals = [];
+    document.querySelectorAll('input[name="goal"]:checked').forEach(cb => {
+        selectedGoals.push(cb.value);
+    });
+
     batchRecordState.date = date;
     batchRecordState.activities = selectedActivities;
+    batchRecordState.detailedActivities = selectedDetailedActivities;
+    batchRecordState.goals = selectedGoals;
     batchRecordState.step = 2;
 
     const container = document.getElementById('batchRecordContent');
@@ -2814,9 +2983,11 @@ function batchRecordStep1Submit(event) {
  * Step 2: 参加児童の選択
  */
 async function renderBatchRecordStep2(container) {
-    // dataAdapterから児童一覧を取得
+    // dataAdapterから児童一覧を取得し、50音順でソート
     const assessments = await dataAdapter.getAssessments();
-    const studentNames = [...new Set(Object.values(assessments).map(a => a.data?.childName).filter(Boolean))];
+    const studentNames = [...new Set(Object.values(assessments).map(a => a.data?.childName).filter(Boolean))].sort((a, b) => {
+        return a.localeCompare(b, 'ja');
+    });
 
     const activityLabels = {
         'warmup': 'ウォーミングアップ',
@@ -3195,6 +3366,14 @@ async function generateAllParentNotes() {
     btn.textContent = '生成中...';
     btn.disabled = true;
 
+    // サッカーボール回転ローディングを表示
+    const resultsArea = document.querySelector('.batch-results');
+    const loadingEl = document.createElement('div');
+    loadingEl.className = 'ai-loading';
+    loadingEl.id = 'parentNoteLoading';
+    loadingEl.innerHTML = '<img src="soccerball.png" alt="読み込み中" class="ai-loading-ball"><span class="ai-loading-text">連絡帳文章を一括生成中...</span>';
+    if (resultsArea) resultsArea.parentNode.insertBefore(loadingEl, resultsArea);
+
     try {
         const records = window.batchRecordResults.map(r => ({
             childName: r.childName,
@@ -3229,6 +3408,8 @@ async function generateAllParentNotes() {
     } finally {
         btn.textContent = originalText;
         btn.disabled = false;
+        const loading = document.getElementById('parentNoteLoading');
+        if (loading) loading.remove();
     }
 }
 
