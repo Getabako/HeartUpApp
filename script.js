@@ -2788,18 +2788,41 @@ const detailedActivityOptions = {
     ]
 };
 
-// 目標項目の定義（先方から送られてくる10個程度の項目を想定）
+// 目標項目の定義（ユーザー提供リストから整理）
 const goalOptions = [
-    { id: 'goal_communication', label: 'コミュニケーションの向上' },
-    { id: 'goal_cooperation', label: '協力する姿勢の育成' },
-    { id: 'goal_self_control', label: '自己コントロールの向上' },
-    { id: 'goal_concentration', label: '集中力の持続' },
-    { id: 'goal_emotional', label: '感情のコントロール' },
-    { id: 'goal_social', label: '社会的スキルの向上' },
-    { id: 'goal_motor', label: '運動能力の向上' },
-    { id: 'goal_confidence', label: '自信の育成' },
-    { id: 'goal_enjoyment', label: '楽しむことの重視' },
-    { id: 'goal_participation', label: '積極的な参加' }
+    // 技術系
+    { id: 'goal_dribble', label: 'ドリブル' },
+    { id: 'goal_pass', label: 'パス' },
+    { id: 'goal_shoot', label: 'シュート' },
+    { id: 'goal_ball_control', label: 'ボールコントロール（止める・蹴る・運ぶ）' },
+    { id: 'goal_kick_type', label: 'キックの種類（インサイド・インステップ）' },
+    
+    // 戦術・判断系
+    { id: 'goal_judgment', label: '判断（正確性・スピード性）' },
+    { id: 'goal_positioning', label: 'ポジショニング' },
+    { id: 'goal_body_direction', label: '体の向き（攻撃時・守備時）' },
+    { id: 'goal_defense', label: '守備（対人・グループ）' },
+    { id: 'goal_tactics', label: '駆け引き（ボール保持・非保持時）' },
+    
+    // メンタル・社会性系
+    { id: 'goal_switching', label: '切り替え（メンタル面・攻守切り替え）' },
+    { id: 'goal_communication', label: 'コミュニケーション' },
+    { id: 'goal_challenge', label: 'チャレンジ精神' },
+    { id: 'goal_concentration', label: '集中力' },
+    { id: 'goal_order', label: '順番を守る' },
+    { id: 'goal_cooperation', label: '協力意識' },
+    
+    // 身体能力・感覚系
+    { id: 'goal_control', label: 'コントロール' },
+    { id: 'goal_observation', label: '観察力（見る・聞く）' },
+    { id: 'goal_core_strength', label: '体幹の強化' },
+    { id: 'goal_balance', label: 'バランス力' },
+    { id: 'goal_agility', label: '俊敏性' },
+    { id: 'goal_explosive', label: '瞬発力' },
+    
+    // 対人・グループ系
+    { id: 'goal_one_on_one', label: '対人' },
+    { id: 'goal_group_play', label: 'グループ活動' }
 ];
 
 // 並び替えオプション
@@ -2944,11 +2967,47 @@ function renderBatchRecordStep1(container) {
                 <div class="form-group">
                     <label>目標項目（複数選択可）</label>
                     <div class="goal-checkboxes" id="goalCheckboxes">
-                        ${goalOptions.map(goal => 
-                            `<label><input type="checkbox" name="goal" value="${goal.id}"><span>${goal.label}</span></label>`
-                        ).join('')}
+                        <!-- 技術系 -->
+                        <div class="goal-category">
+                            <h4 style="margin: 0.5rem 0 0.3rem 0; font-size: 0.9rem; color: #2e7d32;">⚽ 技術系</h4>
+                            ${goalOptions.filter(g => g.id.includes('dribble') || g.id.includes('pass') || g.id.includes('shoot') || g.id.includes('ball_control') || g.id.includes('kick_type')).map(goal => 
+                                `<label style="display: block; margin: 0.2rem 0;"><input type="checkbox" name="goal" value="${goal.id}"><span>${goal.label}</span></label>`
+                            ).join('')}
+                        </div>
+                        
+                        <!-- 戦術・判断系 -->
+                        <div class="goal-category">
+                            <h4 style="margin: 0.5rem 0 0.3rem 0; font-size: 0.9rem; color: #1565c0;">🎯 戦術・判断系</h4>
+                            ${goalOptions.filter(g => g.id.includes('judgment') || g.id.includes('positioning') || g.id.includes('body_direction') || g.id.includes('defense') || g.id.includes('tactics')).map(goal => 
+                                `<label style="display: block; margin: 0.2rem 0;"><input type="checkbox" name="goal" value="${goal.id}"><span>${goal.label}</span></label>`
+                            ).join('')}
+                        </div>
+                        
+                        <!-- メンタル・社会性系 -->
+                        <div class="goal-category">
+                            <h4 style="margin: 0.5rem 0 0.3rem 0; font-size: 0.9rem; color: #7b1fa2;">🧠 メンタル・社会性系</h4>
+                            ${goalOptions.filter(g => g.id.includes('switching') || g.id.includes('communication') || g.id.includes('challenge') || g.id.includes('concentration') || g.id.includes('order') || g.id.includes('cooperation')).map(goal => 
+                                `<label style="display: block; margin: 0.2rem 0;"><input type="checkbox" name="goal" value="${goal.id}"><span>${goal.label}</span></label>`
+                            ).join('')}
+                        </div>
+                        
+                        <!-- 身体能力・感覚系 -->
+                        <div class="goal-category">
+                            <h4 style="margin: 0.5rem 0 0.3rem 0; font-size: 0.9rem; color: #d84315;">💪 身体能力・感覚系</h4>
+                            ${goalOptions.filter(g => g.id.includes('control') || g.id.includes('observation') || g.id.includes('core_strength') || g.id.includes('balance') || g.id.includes('agility') || g.id.includes('explosive')).map(goal => 
+                                `<label style="display: block; margin: 0.2rem 0;"><input type="checkbox" name="goal" value="${goal.id}"><span>${goal.label}</span></label>`
+                            ).join('')}
+                        </div>
+                        
+                        <!-- 対人・グループ系 -->
+                        <div class="goal-category">
+                            <h4 style="margin: 0.5rem 0 0.3rem 0; font-size: 0.9rem; color: #00838f;">👥 対人・グループ系</h4>
+                            ${goalOptions.filter(g => g.id.includes('one_on_one') || g.id.includes('group_play')).map(goal => 
+                                `<label style="display: block; margin: 0.2rem 0;"><input type="checkbox" name="goal" value="${goal.id}"><span>${goal.label}</span></label>`
+                            ).join('')}
+                        </div>
                     </div>
-                    <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">※該当する目標を選択してください</p>
+                    <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">※該当する目標を選択してください（複数選択可）</p>
                 </div>
 
                 <div class="wizard-buttons">
