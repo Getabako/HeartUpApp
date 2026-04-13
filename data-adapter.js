@@ -14,12 +14,19 @@ const dataAdapter = {
                 const rows = await heartUpDB.getChildren();
                 const obj = {};
                 rows.forEach(r => {
+                    const metadata = r.metadata || {};
                     obj[r.name] = {
                         id: r.id,
                         createdAt: r.created_at,
                         locationId: r.locationId,
-                        metadata: r.metadata || {},
-                        ...(r.metadata || {})
+                        metadata: metadata,
+                        // 下位互換性のため主要なメタデータもルートレベルに展開
+                        grade: metadata.grade,
+                        characteristic: metadata.characteristic,
+                        birthDate: metadata.birthDate,
+                        gender: metadata.gender,
+                        diagnosis: metadata.diagnosis,
+                        childNameKana: metadata.childNameKana
                     };
                 });
                 return obj;

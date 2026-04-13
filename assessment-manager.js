@@ -44,12 +44,13 @@ function amSortChildren(children, sortBy) {
             return childrenCopy.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
             
         case 'grade':
-            // 学年順（script.jsのgradeOrderを使用）
+            // 学年順（amCalculateGradeの出力ラベルに合わせる）
             const gradeOrder = {
-                '年少': 1, '年中': 2, '年長': 3,
-                '小学1年': 4, '小学2年': 5, '小学3年': 6, '小学4年': 7, '小学5年': 8, '小学6年': 9,
-                '中学1年': 10, '中学2年': 11, '中学3年': 12,
-                '高校1年': 13, '高校2年': 14, '高校3年': 15
+                '0歳児': 0, '1歳児': 1, '2歳児': 2,
+                '年少': 3, '年中': 4, '年長': 5,
+                '小1': 6, '小2': 7, '小3': 8, '小4': 9, '小5': 10, '小6': 11,
+                '中1': 12, '中2': 13, '中3': 14,
+                '高1': 15, '高2': 16, '高3': 17
             };
             return childrenCopy.sort((a, b) => {
                 const gradeA = gradeOrder[a.grade] || 99;
@@ -80,6 +81,7 @@ function amChangeSortOrder(sortBy) {
 
 // 全データを読み込んで児童一覧を表示
 async function amLoadChildren() {
+    console.log('amLoadChildren: 開始');
     try {
         const [children, assessments, supportPlans, dailyReports, reviews] = await Promise.all([
             dataAdapter.getChildren(),
@@ -89,6 +91,14 @@ async function amLoadChildren() {
             dataAdapter.getReviews()
         ]);
 
+        console.log('データ取得完了:', {
+            children: Object.keys(children).length,
+            assessments: Object.keys(assessments).length,
+            supportPlans: Object.keys(supportPlans).length,
+            dailyReports: Object.keys(dailyReports).length,
+            reviews: Object.keys(reviews).length
+        });
+
         amCachedAssessments = assessments;
         amCachedSupportPlans = supportPlans;
         amCachedDailyReports = dailyReports;
@@ -96,46 +106,6 @@ async function amLoadChildren() {
 
         const container = document.getElementById('amChildrenContainer');
         if (!container) return;
-
-        // 児童データを構築
-        const childrenData = [];
-        Object.entries(children).forEach(([name, childData]) => {
-            const metadata = childData.metadata || {};
-            const assessmentsForChild = assessmentsByChild[name] || [];
-            const plansForChild = plansByChild[name] || [];
-            const reportsForChild = reportsByChild[name] || [];
-            const reviewsForChild = reviewsByChild[name] || [];
-            
-            childrenData.push({
-                name,
-                grade: metadata.grade || '未設定',
-                characteristic: metadata.characteristic || '未設定',
-                locationId: childData.locationId || '',
-                birthDate: metadata.birthDate || '',
-                gender: metadata.gender || '',
-                diagnosis: metadata.diagnosis || '',
-                childNameKana: metadata.childNameKana || '',
-                createdAt: childData.createdAt || new Date().toISOString(),
-                assessmentCount: assessmentsForChild.length,
-                planCount: plansForChild.length,
-                reportCount: reportsForChild.length,
-                reviewCount: reviewsForChild.length,
-                latestAssessmentFileName: assessmentsForChild.length > 0 ? assessmentsForChild[0].fileName : null,
-                metadata: metadata
-            });
-        });
-
-        // 並び替えを適用
-        const sortedChildren = amSortChildren(childrenData, amSortBy);
-        amRenderChildren(sortedChildren);
-        
-        // 並び替えセレクトボックスの状態を復元
-        setTimeout(() => {
-            const sortSelect = document.getElementById('amSortSelect');
-            if (sortSelect) {
-                sortSelect.value = amSortBy;
-            }
-        }, 100);
 
         // 拠点情報を表示
         const locationInfo = document.getElementById('amLocationInfo');
@@ -236,15 +206,24 @@ async function amLoadChildren() {
             });
         });
 
-        // 50音順（カナ→名前）でソート
-        amAllChildrenData.sort((a, b) => {
-            const kanaA = a.childNameKana || a.name;
-            const kanaB = b.childNameKana || b.name;
-            return kanaA.localeCompare(kanaB, 'ja');
-        });
+        // 並び替え設定を適用してソート
+        amAllChildrenData = amSortChildren(amAllChildrenData, amSortBy);
+        
+        console.log('amAllChildrenData構築完了:', amAllChildrenData.length, '件');
+        if (amAllChildrenData.length > 0) {
+            console.log('最初の児童データ:', amAllChildrenData[0]);
+        }
 
         amUpdateGradeFilter();
         amRenderChildren(amAllChildrenData);
+
+        // 並び替えセレクトボックスの状態を復元
+        setTimeout(() => {
+            const sortSelect = document.getElementById('amSortSelect');
+            if (sortSelect) {
+                sortSelect.value = amSortBy;
+            }
+        }, 100);
     } catch (error) {
         console.error('amLoadChildren エラー:', error);
     }
@@ -280,8 +259,13 @@ function amFilterChildren() {
 
 // 児童一覧を描画
 function amRenderChildren(childrenList) {
+    console.log('amRenderChildren: 描画開始', childrenList.length, '件');
+    
     const container = document.getElementById('amChildrenContainer');
-    if (!container) return;
+    if (!container) {
+        console.error('amRenderChildren: コンテナが見つかりません');
+        return;
+    }
 
     const countEl = document.getElementById('amChildrenCount');
     if (countEl) countEl.textContent = `（${childrenList.length}名）`;
