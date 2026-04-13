@@ -252,6 +252,14 @@ const heartUpDB = {
         
         console.log('Firebaseバッチコミット: 合計', totalDeleted, '件の削除');
         await batch.commit();
+        
+        // 削除の検証: childrenコレクションに残っていないか確認
+        const verify = await this.db.collection('children').where('name', '==', childName).get();
+        if (!verify.empty) {
+            console.error('Firebase削除検証失敗: データが残っています');
+            throw new Error('Firebaseからの削除に失敗しました。データが残っています。');
+        }
+        
         console.log('Firebase deleteChildAndRelatedData 完了:', childName, totalDeleted, '件削除');
     },
 
