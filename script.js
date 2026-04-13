@@ -2728,7 +2728,8 @@ let batchRecordState = {
     detailedActivities: [], // 詳細活動項目
     goals: [], // 目標項目
     selectedChildren: [],
-    childrenMemos: {}
+    childrenMemos: {},
+    sortBy: 'name' // 並び替え基準: 'name', 'grade', 'characteristic'
 };
 
 // 詳細活動項目の定義
@@ -2801,6 +2802,85 @@ const goalOptions = [
     { id: 'goal_participation', label: '積極的な参加' }
 ];
 
+// 並び替えオプション
+const sortOptions = [
+    { id: 'name', label: '名前順（50音）' },
+    { id: 'grade', label: '学年順' },
+    { id: 'characteristic', label: '特性順' },
+    { id: 'recent', label: '最近追加順' }
+];
+
+// 学年マッピング
+const gradeOrder = {
+    '年少': 1,
+    '年中': 2,
+    '年長': 3,
+    '小学1年': 4,
+    '小学2年': 5,
+    '小学3年': 6,
+    '小学4年': 7,
+    '小学5年': 8,
+    '小学6年': 9,
+    '中学1年': 10,
+    '中学2年': 11,
+    '中学3年': 12,
+    '高校1年': 13,
+    '高校2年': 14,
+    '高校3年': 15
+};
+
+// 特性マッピング
+const characteristicOrder = {
+    'ASD': 1,
+    'ADHD': 2,
+    'LD': 3,
+    '知的障害': 4,
+    '発達遅滞': 5,
+    'その他': 6
+};
+
+/**
+ * 生徒データを並び替え
+ */
+function sortStudents(students, sortBy) {
+    const studentsCopy = [...students];
+    
+    switch(sortBy) {
+        case 'name':
+            // 名前順（50音）
+            return studentsCopy.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+            
+        case 'grade':
+            // 学年順
+            return studentsCopy.sort((a, b) => {
+                const gradeA = gradeOrder[a.grade] || 99;
+                const gradeB = gradeOrder[b.grade] || 99;
+                if (gradeA !== gradeB) return gradeA - gradeB;
+                // 学年が同じ場合は名前順
+                return a.name.localeCompare(b.name, 'ja');
+            });
+            
+        case 'characteristic':
+            // 特性順
+            return studentsCopy.sort((a, b) => {
+                const charA = characteristicOrder[a.characteristic] || 99;
+                const charB = characteristicOrder[b.characteristic] || 99;
+                if (charA !== charB) return charA - charB;
+                // 特性が同じ場合は名前順
+                return a.name.localeCompare(b.name, 'ja');
+            });
+            
+        case 'recent':
+            // 最近追加順
+            return studentsCopy.sort((a, b) => {
+                return new Date(b.createdAt) - new Date(a.createdAt);
+            });
+            
+        default:
+            return studentsCopy.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+    }
+}
+
 /**
  * 一括記録作成フォームを表示
  */
@@ -2812,6 +2892,8 @@ function showBatchRecordForm() {
         step: 1,
         date: new Date().toISOString().split('T')[0],
         activities: [],
+        detailedActivities: [],
+        goals: [],
         selectedChildren: [],
         childrenMemos: {}
     };
@@ -2983,11 +3065,34 @@ function batchRecordStep1Submit(event) {
  * Step 2: 参加児童の選択
  */
 async function renderBatchRecordStep2(container) {
-    // dataAdapterから児童一覧を取得し、50音順でソート
+    // dataAdapterから児童一覧を取得（名前とメタデータ）
     const assessments = await dataAdapter.getAssessments();
-    const studentNames = [...new Set(Object.values(assessments).map(a => a.data?.childName).filter(Boolean))].sort((a, b) => {
-        return a.localeCompare(b, 'ja');
+    const children = await dataAdapter.getChildren();
+    
+    // 生徒データを構築（名前、メタデータ）
+    const studentData = [];
+    
+    // アセスメントから生徒名を取得
+    const assessmentNames = [...new Set(Object.values(assessments).map(a => a.data?.childName).filter(Boolean))];
+    
+    // すべての生徒を収集
+    const allStudentNames = [...new Set([...assessmentNames, ...Object.keys(children)])];
+    
+    allStudentNames.forEach(name => {
+        const childData = children[name] || {};
+        const metadata = childData.metadata || {};
+        
+        studentData.push({
+            name,
+            grade: metadata.grade || '未設定',
+            characteristic: metadata.characteristic || '未設定',
+            createdAt: childData.createdAt || new Date().toISOString(),
+            metadata: metadata
+        });
     });
+    
+    // 並び替えを適用
+    const sortedStudents = sortStudents(studentData, batchRecordState.sortBy);
 
     const activityLabels = {
         'warmup': 'ウォーミングアップ',
@@ -3003,15 +3108,29 @@ async function renderBatchRecordStep2(container) {
     const selectedActivityLabels = batchRecordState.activities.map(a => activityLabels[a]).join('、');
 
     let childrenCheckboxes = '';
-    if (studentNames.length === 0) {
+    if (sortedStudents.length === 0) {
         childrenCheckboxes = '<p style="color: #666; padding: 1rem;">登録されている児童がいません。先にアセスメントを作成してください。</p>';
     } else {
-        studentNames.forEach(name => {
-            const checked = batchRecordState.selectedChildren.includes(name) ? 'checked' : '';
+        sortedStudents.forEach(student => {
+            const checked = batchRecordState.selectedChildren.includes(student.name) ? 'checked' : '';
+            
+            // メタデータ表示用のバッジ
+            const gradeBadge = student.grade !== '未設定' ? 
+                `<span class="student-badge grade-badge" title="学年">${student.grade}</span>` : '';
+            
+            const charBadge = student.characteristic !== '未設定' ? 
+                `<span class="student-badge char-badge" title="特性">${student.characteristic}</span>` : '';
+            
             childrenCheckboxes += `
                 <label class="child-checkbox-label">
-                    <input type="checkbox" name="batchChild" value="${name}" ${checked}>
-                    <span>${name}</span>
+                    <input type="checkbox" name="batchChild" value="${student.name}" ${checked}>
+                    <div class="student-info">
+                        <span class="student-name">${student.name}</span>
+                        <div class="student-metadata">
+                            ${gradeBadge}
+                            ${charBadge}
+                        </div>
+                    </div>
                 </label>
             `;
         });
@@ -3028,16 +3147,41 @@ async function renderBatchRecordStep2(container) {
             <div class="batch-summary">
                 <p><strong>日付:</strong> ${batchRecordState.date}</p>
                 <p><strong>活動:</strong> ${selectedActivityLabels}</p>
+                ${batchRecordState.detailedActivities && batchRecordState.detailedActivities.length > 0 ? `<p><strong>詳細:</strong> ${batchRecordState.detailedActivities.map(id => {
+                    for (const opts of Object.values(detailedActivityOptions)) {
+                        const found = opts.find(o => o.id === id);
+                        if (found) return found.label;
+                    }
+                    return id;
+                }).join('、')}</p>` : ''}
+                ${batchRecordState.goals && batchRecordState.goals.length > 0 ? `<p><strong>目標:</strong> ${batchRecordState.goals.map(id => {
+                    const found = goalOptions.find(g => g.id === id);
+                    return found ? found.label : id;
+                }).join('、')}</p>` : ''}
             </div>
 
             <form onsubmit="batchRecordStep2Submit(event)">
                 <div class="form-group">
                     <label>参加児童を選択</label>
-                    <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
-                        <button type="button" class="btn-small" onclick="selectAllBatchChildren()">全選択</button>
-                        <button type="button" class="btn-small" onclick="deselectAllBatchChildren()">選択解除</button>
-                        <button type="button" onclick="refreshBatchChildren()" style="padding: 0.3rem 0.8rem; font-size: 0.85rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">更新</button>
+                    
+                    <!-- 並び替えコントロール -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button type="button" class="btn-small" onclick="selectAllBatchChildren()">全選択</button>
+                            <button type="button" class="btn-small" onclick="deselectAllBatchChildren()">選択解除</button>
+                            <button type="button" onclick="refreshBatchChildren()" style="padding: 0.3rem 0.8rem; font-size: 0.85rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">更新</button>
+                        </div>
+                        
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 0.85rem; color: #666;">並び替え:</span>
+                            <select id="sortSelect" onchange="changeSortOrder(this.value)" style="padding: 0.3rem 0.5rem; font-size: 0.85rem; border: 1px solid #ddd; border-radius: 4px;">
+                                ${sortOptions.map(option => 
+                                    `<option value="${option.id}" ${batchRecordState.sortBy === option.id ? 'selected' : ''}>${option.label}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
                     </div>
+                    
                     <div class="children-selection" id="batchChildrenList">
                         ${childrenCheckboxes}
                     </div>
@@ -3069,6 +3213,15 @@ function deselectAllBatchChildren() {
     document.querySelectorAll('#batchChildrenList input[type="checkbox"]').forEach(cb => {
         cb.checked = false;
     });
+}
+
+/**
+ * 並び替え順序を変更
+ */
+function changeSortOrder(sortBy) {
+    batchRecordState.sortBy = sortBy;
+    const container = document.getElementById('batchRecordContent');
+    renderBatchRecordStep2(container);
 }
 
 /**
@@ -3176,6 +3329,17 @@ function renderBatchRecordStep3(container) {
             <div class="batch-summary">
                 <p><strong>日付:</strong> ${batchRecordState.date}</p>
                 <p><strong>活動:</strong> ${selectedActivityLabels}</p>
+                ${batchRecordState.detailedActivities && batchRecordState.detailedActivities.length > 0 ? `<p><strong>詳細:</strong> ${batchRecordState.detailedActivities.map(id => {
+                    for (const opts of Object.values(detailedActivityOptions)) {
+                        const found = opts.find(o => o.id === id);
+                        if (found) return found.label;
+                    }
+                    return id;
+                }).join('、')}</p>` : ''}
+                ${batchRecordState.goals && batchRecordState.goals.length > 0 ? `<p><strong>目標:</strong> ${batchRecordState.goals.map(id => {
+                    const found = goalOptions.find(g => g.id === id);
+                    return found ? found.label : id;
+                }).join('、')}</p>` : ''}
                 <p><strong>参加児童:</strong> ${batchRecordState.selectedChildren.length}名</p>
             </div>
 
@@ -3249,11 +3413,28 @@ async function generateBatchRecords() {
                 observation = '本日も元気に参加しました。特に問題なく、活動に取り組みました。';
             }
 
+            // 詳細活動項目のラベルを解決
+            const detailedLabels = (batchRecordState.detailedActivities || []).map(id => {
+                for (const opts of Object.values(detailedActivityOptions)) {
+                    const found = opts.find(o => o.id === id);
+                    if (found) return found.label;
+                }
+                return id;
+            });
+
+            // 目標項目のラベルを解決
+            const goalLabels = (batchRecordState.goals || []).map(id => {
+                const found = goalOptions.find(g => g.id === id);
+                return found ? found.label : id;
+            });
+
             const recordData = {
                 date: batchRecordState.date,
                 childName,
                 activityType: selectedActivityLabels,
                 activities: batchRecordState.activities,
+                detailedActivities: detailedLabels.join('、'),
+                goals: goalLabels.join('、'),
                 observation,
                 notes: memoData.noIssue ? '特に問題なし' : ''
             };

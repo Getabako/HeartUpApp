@@ -2361,3 +2361,95 @@ main {
         width: 100%;
     }
 }
+/* 生徒情報表示スタイル */
+.child-checkbox-label {
+    display: flex;
+    align-items: flex-start;
+    padding: 12px 15px;
+    margin-bottom: 8px;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.child-checkbox-label:hover {
+    background: #e9ecef;
+    border-color: #dee2e6;
+}
+
+.child-checkbox-label input[type="checkbox"] {
+    margin-top: 4px;
+    margin-right: 12px;
+}
+
+.student-info {
+    flex: 1;
+}
+
+.student-name {
+    display: block;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 4px;
+    font-size: 15px;
+}
+
+.student-metadata {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.student-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.grade-badge {
+    background: #e3f2fd;
+    color: #1565c0;
+    border: 1px solid #bbdefb;
+}
+
+.char-badge {
+    background: #f3e5f5;
+    color: #7b1fa2;
+    border: 1px solid #e1bee7;
+}
+
+/* 並び替えコントロール */
+#sortSelect {
+    background: white;
+    cursor: pointer;
+}
+
+#sortSelect:focus {
+    outline: none;
+    border-color: #4caf50;
+    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+}
+
+/* バッチレコードウィザードの調整 */
+.batch-summary {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border-left: 4px solid #4caf50;
+}
+
+.batch-summary p {
+    margin: 5px 0;
+    font-size: 14px;
+}
+
+.batch-summary strong {
+    color: #2e7d32;
+    min-width: 60px;
+    display: inline-block;
+}
