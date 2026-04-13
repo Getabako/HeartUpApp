@@ -607,6 +607,19 @@ window.amGenerateSupportPlan = async function(fileName) {
     if (!confirm(confirmMsg)) return;
 
     try {
+        // ローディング表示を追加
+        const modal = document.getElementById('amAssessmentModal');
+        const content = document.getElementById('amAssessmentContent');
+        if (modal && content) {
+            content.innerHTML = `
+                <div class="ai-loading">
+                    <img src="soccerball.png" alt="読み込み中" class="ai-loading-ball">
+                    <span class="ai-loading-text">AIが支援計画を生成中...</span>
+                </div>
+            `;
+            modal.classList.add('active');
+        }
+        
         const today = new Date();
         const startDate = today.toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '年').replace(/年(\d+)$/, '月$1日');
         const endDate = new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000).toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '年').replace(/年(\d+)$/, '月$1日');
@@ -866,6 +879,19 @@ window.amCreateDailyReport = async function(fileName) {
     if (!observation) return;
 
     try {
+        // ローディング表示を追加
+        const modal = document.getElementById('amAssessmentModal');
+        const content = document.getElementById('amAssessmentContent');
+        if (modal && content) {
+            content.innerHTML = `
+                <div class="ai-loading">
+                    <img src="soccerball.png" alt="読み込み中" class="ai-loading-ball">
+                    <span class="ai-loading-text">AIが日々の記録を生成中...</span>
+                </div>
+            `;
+            modal.classList.add('active');
+        }
+        
         const supportPlans = await dataAdapter.getSupportPlans();
         const childPlans = Object.entries(supportPlans)
             .filter(([key, plan]) => plan.childName === assessment.data.childName)
@@ -936,6 +962,19 @@ window.amCreateReview = async function(fileName) {
     if (!confirm(confirmMsg)) return;
 
     try {
+        // ローディング表示を追加
+        const modal = document.getElementById('amAssessmentModal');
+        const content = document.getElementById('amAssessmentContent');
+        if (modal && content) {
+            content.innerHTML = `
+                <div class="ai-loading">
+                    <img src="soccerball.png" alt="読み込み中" class="ai-loading-ball">
+                    <span class="ai-loading-text">AIが成長振り返りを生成中...</span>
+                </div>
+            `;
+            modal.classList.add('active');
+        }
+        
         const supportPlans = await dataAdapter.getSupportPlans();
         const dailyReports = await dataAdapter.getDailyReports();
         const reviews = await dataAdapter.getReviews();
