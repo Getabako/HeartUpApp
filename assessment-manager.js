@@ -81,6 +81,18 @@ function amSortChildren(children, sortBy) {
                 return new Date(b.createdAt) - new Date(a.createdAt);
             });
             
+        case 'location':
+            // 拠点順（拠点名でソート、同じ拠点内は名前順）
+            return childrenCopy.sort((a, b) => {
+                const locationA = a.locationName || '';
+                const locationB = b.locationName || '';
+                if (locationA !== locationB) {
+                    return locationA.localeCompare(locationB, 'ja');
+                }
+                // 同じ拠点なら名前順
+                return a.name.localeCompare(b.name, 'ja');
+            });
+            
         default:
             return childrenCopy.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
     }
@@ -241,6 +253,7 @@ async function amLoadChildren() {
         }
 
         amUpdateGradeFilter();
+        amUpdateLocationFilter();
         amRenderChildren(amAllChildrenData);
 
         // 並び替えセレクトボックスの状態を復元
@@ -279,16 +292,31 @@ function amUpdateGradeFilter() {
     grades.forEach(g => { gradeSelect.innerHTML += `<option value="${g}">${g}</option>`; });
 }
 
+// 拠点フィルタの選択肢を更新
+function amUpdateLocationFilter() {
+    const locationSelect = document.getElementById('amLocationFilter');
+    if (!locationSelect) return;
+    
+    // 拠点情報を取得（Firebaseからまたはローカルから）
+    const locations = [...new Set(amAllChildrenData.map(c => c.locationName).filter(Boolean))];
+    locations.sort((a, b) => a.localeCompare(b, 'ja'));
+    
+    locationSelect.innerHTML = '<option value="">全拠点</option>';
+    locations.forEach(l => { locationSelect.innerHTML += `<option value="${l}">${l}</option>`; });
+}
+
 // フィルタリング
 function amFilterChildren() {
     const nameQuery = (document.getElementById('amNameSearch')?.value || '').toLowerCase();
     const gradeQuery = document.getElementById('amGradeFilter')?.value || '';
+    const locationQuery = document.getElementById('amLocationFilter')?.value || '';
     const filtered = amAllChildrenData.filter(child => {
         const nameMatch = !nameQuery ||
             child.name.toLowerCase().includes(nameQuery) ||
             (child.childNameKana || '').toLowerCase().includes(nameQuery);
         const gradeMatch = !gradeQuery || child.grade === gradeQuery;
-        return nameMatch && gradeMatch;
+        const locationMatch = !locationQuery || child.locationName === locationQuery;
+        return nameMatch && gradeMatch && locationMatch;
     });
     
     // 並び替えを適用
@@ -363,20 +391,29 @@ function amRenderChildren(childrenList) {
 }
 
 // 児童を削除（関連データ含む）
-async function amDeleteChild(childName) {
+window.amDeleteChild = async function(childName) {
+    console.log('amDeleteChild 呼び出し:', childName);
+    
     const totalRecords = amAllChildrenData.find(c => c.name === childName);
     const counts = totalRecords
         ? `アセスメント${totalRecords.assessmentCount}件、支援計画${totalRecords.planCount}件、記録${totalRecords.reportCount}件、振り返り${totalRecords.reviewCount}件`
         : '';
+    
+    console.log('削除確認ダイアログ表示:', childName, counts);
     if (!confirm(`「${childName}」を削除しますか？\n\n関連する全データ（${counts}）も削除されます。\nこの操作は元に戻せません。`)) {
+        console.log('削除キャンセル');
         return;
     }
+    
     try {
+        console.log('削除実行開始:', childName);
         await dataAdapter.deleteChildAndRelatedData(childName);
+        console.log('削除成功:', childName);
         alert(`「${childName}」と関連データを削除しました。`);
         amLoadChildren();
     } catch (error) {
         console.error('児童削除エラー:', error);
+        console.error('エラー詳細:', error.stack);
         alert('削除に失敗しました: ' + error.message);
     }
 }

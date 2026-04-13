@@ -128,12 +128,16 @@
                                 <select id="amGradeFilter" onchange="amFilterChildren()">
                                     <option value="">全学年</option>
                                 </select>
+                                <select id="amLocationFilter" onchange="amFilterChildren()">
+                                    <option value="">全拠点</option>
+                                </select>
                                 <div style="display: flex; align-items: center; gap: 0.5rem;">
                                     <span style="font-size: 0.85rem; color: #666;">並び替え:</span>
                                     <select id="amSortSelect" onchange="amChangeSortOrder(this.value)" style="padding: 0.5rem; font-size: 0.85rem; border: 1px solid #ddd; border-radius: 4px;">
                                         <option value="name">名前順（50音）</option>
                                         <option value="grade">学年順</option>
                                         <option value="recent">最近追加順</option>
+                                        <option value="location">拠点順</option>
                                     </select>
                                 </div>
                             </div>

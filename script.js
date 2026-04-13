@@ -2825,6 +2825,47 @@ const goalOptions = [
     { id: 'goal_group_play', label: 'グループ活動' }
 ];
 
+// 目標カテゴリ定義（IDベースで重複なし）
+const goalCategoryDefinitions = {
+    technical: {
+        label: '⚽ 技術系',
+        color: '#2e7d32',
+        goalIds: ['goal_dribble', 'goal_pass', 'goal_shoot', 'goal_ball_control', 'goal_kick_type']
+    },
+    tactics: {
+        label: '🎯 戦術・判断系',
+        color: '#1565c0',
+        goalIds: ['goal_judgment', 'goal_positioning', 'goal_body_direction', 'goal_defense', 'goal_tactics']
+    },
+    mental: {
+        label: '🧠 メンタル・社会性系',
+        color: '#7b1fa2',
+        goalIds: ['goal_switching', 'goal_communication', 'goal_challenge', 'goal_concentration', 'goal_order', 'goal_cooperation']
+    },
+    physical: {
+        label: '💪 身体能力・感覚系',
+        color: '#d84315',
+        goalIds: ['goal_control', 'goal_observation', 'goal_core_strength', 'goal_balance', 'goal_agility', 'goal_explosive']
+    },
+    interpersonal: {
+        label: '👥 対人・グループ系',
+        color: '#00838f',
+        goalIds: ['goal_one_on_one', 'goal_group_play']
+    }
+};
+
+// 活動内容→関連する目標カテゴリのマッピング
+const activityGoalMapping = {
+    warmup: ['physical', 'mental'],
+    individual: ['technical', 'physical'],
+    group: ['interpersonal', 'mental', 'tactics'],
+    game: ['technical', 'tactics', 'mental', 'physical', 'interpersonal'],
+    skill: ['technical', 'tactics', 'physical'],
+    cooldown: ['mental', 'physical'],
+    event: ['mental', 'interpersonal'],
+    other: ['technical', 'tactics', 'mental', 'physical', 'interpersonal']
+};
+
 // 並び替えオプション
 const sortOptions = [
     { id: 'name', label: '名前順（50音）' },
@@ -2932,7 +2973,8 @@ function showBatchRecordForm() {
         goals: [],
         selectedChildren: [],
         childrenMemos: {},
-        sortBy: localStorage.getItem('heartup_sortPreference') || 'name'
+        sortBy: localStorage.getItem('heartup_sortPreference') || 'name',
+        locationFilter: ''
     };
 
     renderBatchRecordStep1(container);
@@ -2979,47 +3021,9 @@ function renderBatchRecordStep1(container) {
                 </div>
 
                 <div class="form-group" id="goalsContainer" style="display: none;">
-                    <label>目標項目（複数選択可）</label>
+                    <label>目標項目（選択した活動に応じて表示・複数選択可）</label>
                     <div class="goal-checkboxes" id="goalCheckboxes">
-                        <!-- 技術系 -->
-                        <div class="goal-category">
-                            <h4 style="margin: 0.5rem 0 0.3rem 0; font-size: 0.9rem; color: #2e7d32;">⚽ 技術系</h4>
-                            ${goalOptions.filter(g => g.id.includes('dribble') || g.id.includes('pass') || g.id.includes('shoot') || g.id.includes('ball_control') || g.id.includes('kick_type')).map(goal => 
-                                `<label style="display: block; margin: 0.2rem 0;"><input type="checkbox" name="goal" value="${goal.id}"><span>${goal.label}</span></label>`
-                            ).join('')}
-                        </div>
-                        
-                        <!-- 戦術・判断系 -->
-                        <div class="goal-category">
-                            <h4 style="margin: 0.5rem 0 0.3rem 0; font-size: 0.9rem; color: #1565c0;">🎯 戦術・判断系</h4>
-                            ${goalOptions.filter(g => g.id.includes('judgment') || g.id.includes('positioning') || g.id.includes('body_direction') || g.id.includes('defense') || g.id.includes('tactics')).map(goal => 
-                                `<label style="display: block; margin: 0.2rem 0;"><input type="checkbox" name="goal" value="${goal.id}"><span>${goal.label}</span></label>`
-                            ).join('')}
-                        </div>
-                        
-                        <!-- メンタル・社会性系 -->
-                        <div class="goal-category">
-                            <h4 style="margin: 0.5rem 0 0.3rem 0; font-size: 0.9rem; color: #7b1fa2;">🧠 メンタル・社会性系</h4>
-                            ${goalOptions.filter(g => g.id.includes('switching') || g.id.includes('communication') || g.id.includes('challenge') || g.id.includes('concentration') || g.id.includes('order') || g.id.includes('cooperation')).map(goal => 
-                                `<label style="display: block; margin: 0.2rem 0;"><input type="checkbox" name="goal" value="${goal.id}"><span>${goal.label}</span></label>`
-                            ).join('')}
-                        </div>
-                        
-                        <!-- 身体能力・感覚系 -->
-                        <div class="goal-category">
-                            <h4 style="margin: 0.5rem 0 0.3rem 0; font-size: 0.9rem; color: #d84315;">💪 身体能力・感覚系</h4>
-                            ${goalOptions.filter(g => g.id.includes('control') || g.id.includes('observation') || g.id.includes('core_strength') || g.id.includes('balance') || g.id.includes('agility') || g.id.includes('explosive')).map(goal => 
-                                `<label style="display: block; margin: 0.2rem 0;"><input type="checkbox" name="goal" value="${goal.id}"><span>${goal.label}</span></label>`
-                            ).join('')}
-                        </div>
-                        
-                        <!-- 対人・グループ系 -->
-                        <div class="goal-category">
-                            <h4 style="margin: 0.5rem 0 0.3rem 0; font-size: 0.9rem; color: #00838f;">👥 対人・グループ系</h4>
-                            ${goalOptions.filter(g => g.id.includes('one_on_one') || g.id.includes('group_play')).map(goal => 
-                                `<label style="display: block; margin: 0.2rem 0;"><input type="checkbox" name="goal" value="${goal.id}"><span>${goal.label}</span></label>`
-                            ).join('')}
-                        </div>
+                        <!-- 目標項目はJavaScriptで動的に生成 -->
                     </div>
                     <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">※該当する目標を選択してください（複数選択可）</p>
                 </div>
@@ -3050,25 +3054,30 @@ function updateDetailedActivities() {
     const detailedContainer = document.getElementById('detailedActivitiesContainer');
     const goalsContainer = document.getElementById('goalsContainer');
     const checkboxesContainer = document.getElementById('detailedActivityCheckboxes');
-    
+    const goalCheckboxesContainer = document.getElementById('goalCheckboxes');
+
     // 選択された活動を取得
     const selectedActivities = [];
     document.querySelectorAll('#batchActivityCheckboxes input:checked').forEach(cb => {
         selectedActivities.push(cb.value);
     });
-    
+
     if (selectedActivities.length === 0) {
         detailedContainer.style.display = 'none';
         goalsContainer.style.display = 'none';
         return;
     }
-    
+
     // 活動が選択されたら詳細項目と目標項目を表示
     detailedContainer.style.display = 'block';
     goalsContainer.style.display = 'block';
-    
-    container.style.display = 'block';
-    
+
+    // 現在チェックされている目標を保持
+    const checkedGoals = new Set();
+    document.querySelectorAll('#goalCheckboxes input[name="goal"]:checked').forEach(cb => {
+        checkedGoals.add(cb.value);
+    });
+
     // 選択された活動に対応する詳細項目を表示
     let detailedHtml = '';
     selectedActivities.forEach(activity => {
@@ -3086,19 +3095,46 @@ function updateDetailedActivities() {
                     other: 'その他'
                 }[activity]}の詳細項目:</h4>
                 <div class="detailed-options">`;
-            
+
             options.forEach(option => {
                 detailedHtml += `<label style="display: block; margin: 0.2rem 0;">
                     <input type="checkbox" name="detailedActivity" value="${option.id}">
                     <span>${option.label}</span>
                 </label>`;
             });
-            
+
             detailedHtml += `</div></div>`;
         }
     });
-    
+
     checkboxesContainer.innerHTML = detailedHtml;
+
+    // 選択された活動に関連する目標カテゴリを重複なしで取得
+    const relevantCategories = new Set();
+    selectedActivities.forEach(activity => {
+        const categories = activityGoalMapping[activity] || [];
+        categories.forEach(cat => relevantCategories.add(cat));
+    });
+
+    // 関連する目標項目を動的に生成
+    let goalsHtml = '';
+    const categoryOrder = ['technical', 'tactics', 'mental', 'physical', 'interpersonal'];
+    categoryOrder.forEach(catKey => {
+        if (!relevantCategories.has(catKey)) return;
+        const catDef = goalCategoryDefinitions[catKey];
+        goalsHtml += `<div class="goal-category">
+            <h4 style="margin: 0.5rem 0 0.3rem 0; font-size: 0.9rem; color: ${catDef.color};">${catDef.label}</h4>`;
+        catDef.goalIds.forEach(goalId => {
+            const goal = goalOptions.find(g => g.id === goalId);
+            if (goal) {
+                const checked = checkedGoals.has(goal.id) ? ' checked' : '';
+                goalsHtml += `<label style="display: block; margin: 0.2rem 0;"><input type="checkbox" name="goal" value="${goal.id}"${checked}><span>${goal.label}</span></label>`;
+            }
+        });
+        goalsHtml += `</div>`;
+    });
+
+    goalCheckboxesContainer.innerHTML = goalsHtml;
 }
 
 /**
@@ -3190,8 +3226,19 @@ async function renderBatchRecordStep2(container) {
         });
     });
     
+    // 拠点フィルタ用の拠点一覧を作成
+    const locationNames = [...new Set(studentData.map(s => s.locationName).filter(n => n && n !== '未設定'))];
+    locationNames.sort((a, b) => a.localeCompare(b, 'ja'));
+    const hasUnsetLocation = studentData.some(s => s.locationName === '未設定');
+
+    // 拠点フィルタを適用
+    let filteredStudents = studentData;
+    if (batchRecordState.locationFilter) {
+        filteredStudents = studentData.filter(s => s.locationName === batchRecordState.locationFilter);
+    }
+
     // 並び替えを適用
-    const sortedStudents = sortStudents(studentData, batchRecordState.sortBy);
+    const sortedStudents = sortStudents(filteredStudents, batchRecordState.sortBy);
 
     const activityLabels = {
         'warmup': 'ウォーミングアップ',
@@ -3267,18 +3314,26 @@ async function renderBatchRecordStep2(container) {
                 <div class="form-group">
                     <label>参加児童を選択</label>
                     
-                    <!-- 並び替えコントロール -->
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <!-- フィルタ・並び替えコントロール -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
                         <div style="display: flex; gap: 0.5rem;">
                             <button type="button" class="btn-small" onclick="selectAllBatchChildren()">全選択</button>
                             <button type="button" class="btn-small" onclick="deselectAllBatchChildren()">選択解除</button>
                             <button type="button" onclick="refreshBatchChildren()" style="padding: 0.3rem 0.8rem; font-size: 0.85rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">更新</button>
                         </div>
-                        
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+
+                        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                            <span style="font-size: 0.85rem; color: #666;">拠点:</span>
+                            <select id="batchLocationFilter" onchange="changeBatchLocationFilter(this.value)" style="padding: 0.3rem 0.5rem; font-size: 0.85rem; border: 1px solid #ddd; border-radius: 4px;">
+                                <option value="" ${!batchRecordState.locationFilter ? 'selected' : ''}>全拠点</option>
+                                ${locationNames.map(name =>
+                                    `<option value="${name}" ${batchRecordState.locationFilter === name ? 'selected' : ''}>${name}</option>`
+                                ).join('')}
+                                ${hasUnsetLocation ? `<option value="未設定" ${batchRecordState.locationFilter === '未設定' ? 'selected' : ''}>未設定</option>` : ''}
+                            </select>
                             <span style="font-size: 0.85rem; color: #666;">並び替え:</span>
                             <select id="sortSelect" onchange="changeSortOrder(this.value)" style="padding: 0.3rem 0.5rem; font-size: 0.85rem; border: 1px solid #ddd; border-radius: 4px;">
-                                ${sortOptions.map(option => 
+                                ${sortOptions.map(option =>
                                     `<option value="${option.id}" ${batchRecordState.sortBy === option.id ? 'selected' : ''}>${option.label}</option>`
                                 ).join('')}
                             </select>
@@ -3316,6 +3371,25 @@ function deselectAllBatchChildren() {
     document.querySelectorAll('#batchChildrenList input[type="checkbox"]').forEach(cb => {
         cb.checked = false;
     });
+}
+
+/**
+ * 拠点フィルタを変更（一括記録作成Step2用）
+ */
+async function changeBatchLocationFilter(locationName) {
+    // 現在のチェック状態を保存してから再描画
+    const currentChecked = [];
+    document.querySelectorAll('#batchChildrenList input[type="checkbox"]:checked').forEach(cb => {
+        currentChecked.push(cb.value);
+    });
+    if (currentChecked.length > 0) {
+        batchRecordState.selectedChildren = currentChecked;
+    }
+
+    batchRecordState.locationFilter = locationName;
+
+    const container = document.getElementById('batchRecordContent');
+    await renderBatchRecordStep2(container);
 }
 
 /**
