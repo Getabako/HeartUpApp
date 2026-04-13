@@ -31,6 +31,53 @@ function amCalculateGrade(birthDateStr) {
     return labels[gradeAge] || `${gradeAge}歳`;
 }
 
+// 児童一覧の並び替え状態
+let amSortBy = localStorage.getItem('heartup_am_sortPreference') || 'name';
+
+// 児童データを並び替え
+function amSortChildren(children, sortBy) {
+    const childrenCopy = [...children];
+    
+    switch(sortBy) {
+        case 'name':
+            // 名前順（50音）
+            return childrenCopy.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+            
+        case 'grade':
+            // 学年順（script.jsのgradeOrderを使用）
+            const gradeOrder = {
+                '年少': 1, '年中': 2, '年長': 3,
+                '小学1年': 4, '小学2年': 5, '小学3年': 6, '小学4年': 7, '小学5年': 8, '小学6年': 9,
+                '中学1年': 10, '中学2年': 11, '中学3年': 12,
+                '高校1年': 13, '高校2年': 14, '高校3年': 15
+            };
+            return childrenCopy.sort((a, b) => {
+                const gradeA = gradeOrder[a.grade] || 99;
+                const gradeB = gradeOrder[b.grade] || 99;
+                if (gradeA !== gradeB) return gradeA - gradeB;
+                return a.name.localeCompare(b.name, 'ja');
+            });
+            
+        case 'recent':
+            // 最近追加順
+            return childrenCopy.sort((a, b) => {
+                return new Date(b.createdAt) - new Date(a.createdAt);
+            });
+            
+        default:
+            return childrenCopy.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+    }
+}
+
+// 並び替え順序を変更
+function amChangeSortOrder(sortBy) {
+    amSortBy = sortBy;
+    localStorage.setItem('heartup_am_sortPreference', sortBy);
+    
+    // 現在のフィルター状態を保持して再描画
+    amFilterChildren();
+}
+
 // 全データを読み込んで児童一覧を表示
 async function amLoadChildren() {
     try {
@@ -49,6 +96,46 @@ async function amLoadChildren() {
 
         const container = document.getElementById('amChildrenContainer');
         if (!container) return;
+
+        // 児童データを構築
+        const childrenData = [];
+        Object.entries(children).forEach(([name, childData]) => {
+            const metadata = childData.metadata || {};
+            const assessmentsForChild = assessmentsByChild[name] || [];
+            const plansForChild = plansByChild[name] || [];
+            const reportsForChild = reportsByChild[name] || [];
+            const reviewsForChild = reviewsByChild[name] || [];
+            
+            childrenData.push({
+                name,
+                grade: metadata.grade || '未設定',
+                characteristic: metadata.characteristic || '未設定',
+                locationId: childData.locationId || '',
+                birthDate: metadata.birthDate || '',
+                gender: metadata.gender || '',
+                diagnosis: metadata.diagnosis || '',
+                childNameKana: metadata.childNameKana || '',
+                createdAt: childData.createdAt || new Date().toISOString(),
+                assessmentCount: assessmentsForChild.length,
+                planCount: plansForChild.length,
+                reportCount: reportsForChild.length,
+                reviewCount: reviewsForChild.length,
+                latestAssessmentFileName: assessmentsForChild.length > 0 ? assessmentsForChild[0].fileName : null,
+                metadata: metadata
+            });
+        });
+
+        // 並び替えを適用
+        const sortedChildren = amSortChildren(childrenData, amSortBy);
+        amRenderChildren(sortedChildren);
+        
+        // 並び替えセレクトボックスの状態を復元
+        setTimeout(() => {
+            const sortSelect = document.getElementById('amSortSelect');
+            if (sortSelect) {
+                sortSelect.value = amSortBy;
+            }
+        }, 100);
 
         // 拠点情報を表示
         const locationInfo = document.getElementById('amLocationInfo');
@@ -149,6 +236,13 @@ async function amLoadChildren() {
             });
         });
 
+        // 50音順（カナ→名前）でソート
+        amAllChildrenData.sort((a, b) => {
+            const kanaA = a.childNameKana || a.name;
+            const kanaB = b.childNameKana || b.name;
+            return kanaA.localeCompare(kanaB, 'ja');
+        });
+
         amUpdateGradeFilter();
         amRenderChildren(amAllChildrenData);
     } catch (error) {
@@ -178,7 +272,10 @@ function amFilterChildren() {
         const gradeMatch = !gradeQuery || child.grade === gradeQuery;
         return nameMatch && gradeMatch;
     });
-    amRenderChildren(filtered);
+    
+    // 並び替えを適用
+    const sorted = amSortChildren(filtered, amSortBy);
+    amRenderChildren(sorted);
 }
 
 // 児童一覧を描画
@@ -230,10 +327,30 @@ function amRenderChildren(childrenList) {
                 ` : `
                     <button class="am-btn am-btn-primary" onclick="window.location.href='assessment/form-simple.html'">アセスメント作成</button>
                 `}
+                <button class="am-btn am-btn-danger" onclick="amDeleteChild('${escapedName}')" style="background:#d32f2f; color:white; margin-top:4px;">削除</button>
             </div>
         `;
         container.appendChild(childItem);
     });
+}
+
+// 児童を削除（関連データ含む）
+async function amDeleteChild(childName) {
+    const totalRecords = amAllChildrenData.find(c => c.name === childName);
+    const counts = totalRecords
+        ? `アセスメント${totalRecords.assessmentCount}件、支援計画${totalRecords.planCount}件、記録${totalRecords.reportCount}件、振り返り${totalRecords.reviewCount}件`
+        : '';
+    if (!confirm(`「${childName}」を削除しますか？\n\n関連する全データ（${counts}）も削除されます。\nこの操作は元に戻せません。`)) {
+        return;
+    }
+    try {
+        await dataAdapter.deleteChildAndRelatedData(childName);
+        alert(`「${childName}」と関連データを削除しました。`);
+        amLoadChildren();
+    } catch (error) {
+        console.error('児童削除エラー:', error);
+        alert('削除に失敗しました: ' + error.message);
+    }
 }
 
 // アセスメントHTMLをform_dataから生成（htmlが空の場合のフォールバック）

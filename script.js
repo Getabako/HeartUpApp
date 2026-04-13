@@ -2978,7 +2978,7 @@ function renderBatchRecordStep1(container) {
                     </div>
                 </div>
 
-                <div class="form-group">
+                <div class="form-group" id="goalsContainer" style="display: none;">
                     <label>目標項目（複数選択可）</label>
                     <div class="goal-checkboxes" id="goalCheckboxes">
                         <!-- 技術系 -->
@@ -3044,10 +3044,11 @@ function renderBatchRecordStep1(container) {
 }
 
 /**
- * 詳細活動項目を更新
+ * 詳細活動項目と目標項目を更新
  */
 function updateDetailedActivities() {
-    const container = document.getElementById('detailedActivitiesContainer');
+    const detailedContainer = document.getElementById('detailedActivitiesContainer');
+    const goalsContainer = document.getElementById('goalsContainer');
     const checkboxesContainer = document.getElementById('detailedActivityCheckboxes');
     
     // 選択された活動を取得
@@ -3057,9 +3058,14 @@ function updateDetailedActivities() {
     });
     
     if (selectedActivities.length === 0) {
-        container.style.display = 'none';
+        detailedContainer.style.display = 'none';
+        goalsContainer.style.display = 'none';
         return;
     }
+    
+    // 活動が選択されたら詳細項目と目標項目を表示
+    detailedContainer.style.display = 'block';
+    goalsContainer.style.display = 'block';
     
     container.style.display = 'block';
     
