@@ -13,9 +13,15 @@ let amCachedReviews = {};
 
 // 学年計算（日本の学年制度: 4月2日〜翌4月1日が同学年）
 function amCalculateGrade(birthDateStr) {
-    if (!birthDateStr) return '';
+    if (!birthDateStr) {
+        console.log('amCalculateGrade: birthDateStrが空', birthDateStr);
+        return '';
+    }
     const birth = new Date(birthDateStr);
-    if (isNaN(birth.getTime())) return '';
+    if (isNaN(birth.getTime())) {
+        console.log('amCalculateGrade: 無効なbirthDateStr', birthDateStr);
+        return '';
+    }
     const now = new Date();
     const fiscalYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
     let cohortStartYear;
@@ -28,7 +34,9 @@ function amCalculateGrade(birthDateStr) {
     const labels = { 0:'0歳児', 1:'1歳児', 2:'2歳児', 3:'年少', 4:'年中', 5:'年長',
         6:'小1', 7:'小2', 8:'小3', 9:'小4', 10:'小5', 11:'小6',
         12:'中1', 13:'中2', 14:'中3', 15:'高1', 16:'高2', 17:'高3' };
-    return labels[gradeAge] || `${gradeAge}歳`;
+    const result = labels[gradeAge] || `${gradeAge}歳`;
+    console.log('amCalculateGrade:', birthDateStr, '→', result, '(gradeAge:', gradeAge, ')');
+    return result;
 }
 
 // 児童一覧の並び替え状態
@@ -36,11 +44,19 @@ let amSortBy = localStorage.getItem('heartup_am_sortPreference') || 'name';
 
 // 児童データを並び替え
 function amSortChildren(children, sortBy) {
+    console.log('amSortChildren: ソート開始', children.length, '件, sortBy:', sortBy);
+    if (children.length === 0) {
+        console.warn('amSortChildren: ソート対象が空です');
+        return [];
+    }
+    
     const childrenCopy = [...children];
+    console.log('ソート前の最初の児童:', childrenCopy[0]);
     
     switch(sortBy) {
         case 'name':
             // 名前順（50音）
+            console.log('名前順でソート');
             return childrenCopy.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
             
         case 'grade':
@@ -156,9 +172,16 @@ async function amLoadChildren() {
         // 児童データを統合
         amAllChildrenData = [];
         const processedNames = new Set();
+        
+        console.log('childrenデータ:', Object.keys(children).length, '件');
+        console.log('assessmentsByChild:', Object.keys(assessmentsByChild).length, '件');
+        console.log('plansByChild:', Object.keys(plansByChild).length, '件');
+        console.log('reportsByChild:', Object.keys(reportsByChild).length, '件');
+        console.log('reviewsByChild:', Object.keys(reviewsByChild).length, '件');
 
         // childrenコレクションから
         Object.entries(children).forEach(([name, child]) => {
+            console.log('childrenコレクションから処理:', name, child);
             const childAssessments = assessmentsByChild[name] || [];
             const latest = childAssessments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
             const formData = latest?.data || {};
@@ -181,9 +204,12 @@ async function amLoadChildren() {
             });
             processedNames.add(name);
         });
+        
+        console.log('childrenコレクション処理完了:', amAllChildrenData.length, '件');
 
         // assessmentsにしかいない児童も追加
         Object.entries(assessmentsByChild).forEach(([name, childAssessments]) => {
+            console.log('assessmentsから処理:', name, childAssessments.length, '件のアセスメント');
             if (processedNames.has(name)) return;
             const latest = childAssessments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
             const formData = latest?.data || {};
@@ -226,6 +252,19 @@ async function amLoadChildren() {
         }, 100);
     } catch (error) {
         console.error('amLoadChildren エラー:', error);
+        console.error('エラー詳細:', error.stack);
+        
+        // エラー時にも空の状態を表示
+        const container = document.getElementById('amChildrenContainer');
+        if (container) {
+            container.innerHTML = `
+                <div class="am-empty-state">
+                    <h3>データ読み込みエラー</h3>
+                    <p>児童データの読み込みに失敗しました。ページを再読み込みしてください。</p>
+                    <p style="color: #666; font-size: 0.8rem;">エラー: ${error.message}</p>
+                </div>
+            `;
+        }
     }
 }
 
@@ -260,15 +299,20 @@ function amFilterChildren() {
 // 児童一覧を描画
 function amRenderChildren(childrenList) {
     console.log('amRenderChildren: 描画開始', childrenList.length, '件');
+    console.log('childrenListサンプル:', childrenList.slice(0, 3)); // 最初の3件を表示
     
     const container = document.getElementById('amChildrenContainer');
     if (!container) {
         console.error('amRenderChildren: コンテナが見つかりません');
         return;
     }
+    console.log('コンテナ要素:', container);
 
     const countEl = document.getElementById('amChildrenCount');
-    if (countEl) countEl.textContent = `（${childrenList.length}名）`;
+    if (countEl) {
+        countEl.textContent = `（${childrenList.length}名）`;
+        console.log('件数表示更新:', countEl.textContent);
+    }
 
     if (childrenList.length === 0) {
         container.innerHTML = `
