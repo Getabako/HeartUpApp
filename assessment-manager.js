@@ -285,11 +285,25 @@ async function amLoadChildren() {
 function amUpdateGradeFilter() {
     const gradeSelect = document.getElementById('amGradeFilter');
     if (!gradeSelect) return;
-    const gradeOrder = ['0歳児','1歳児','2歳児','年少','年中','年長','小1','小2','小3','小4','小5','小6','中1','中2','中3','高1','高2','高3'];
-    const grades = [...new Set(amAllChildrenData.map(c => c.grade).filter(Boolean))];
-    grades.sort((a, b) => gradeOrder.indexOf(a) - gradeOrder.indexOf(b));
+    
+    // 全学年のリスト（年少から高三まで）
+    const allGrades = [
+        '年少', '年中', '年長',
+        '小1', '小2', '小3', '小4', '小5', '小6',
+        '中1', '中2', '中3',
+        '高1', '高2', '高3'
+    ];
+    
+    // 登録されている学年を取得
+    const registeredGrades = [...new Set(amAllChildrenData.map(c => c.grade).filter(Boolean))];
+    
     gradeSelect.innerHTML = '<option value="">全学年</option>';
-    grades.forEach(g => { gradeSelect.innerHTML += `<option value="${g}">${g}</option>`; });
+    
+    // 全学年を表示（登録されている学年は太字などで強調したいが、一旦全表示）
+    allGrades.forEach(g => {
+        const isRegistered = registeredGrades.includes(g);
+        gradeSelect.innerHTML += `<option value="${g}">${g}</option>`;
+    });
 }
 
 // 拠点フィルタの選択肢を更新

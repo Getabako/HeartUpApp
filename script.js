@@ -3078,27 +3078,32 @@ function updateDetailedActivities() {
         checkedGoals.add(cb.value);
     });
 
-    // 選択された活動に対応する詳細項目を表示
+    // 選択された活動に対応する詳細項目を表示（活動ごとに明確にグループ化）
     let detailedHtml = '';
+    const activityLabels = {
+        warmup: 'ウォーミングアップ',
+        individual: '個別練習',
+        group: 'グループ活動',
+        game: 'ミニゲーム',
+        skill: 'スキル練習',
+        cooldown: 'クールダウン',
+        event: 'イベント',
+        other: 'その他'
+    };
+    
     selectedActivities.forEach(activity => {
+        const activityLabel = activityLabels[activity];
         const options = detailedActivityOptions[activity] || [];
         if (options.length > 0) {
-            detailedHtml += `<div class="detailed-activity-group">
-                <h4 style="margin: 0.5rem 0 0.3rem 0; font-size: 0.9rem;">${{
-                    warmup: 'ウォーミングアップ',
-                    individual: '個別練習',
-                    group: 'グループ活動',
-                    game: 'ミニゲーム',
-                    skill: 'スキル練習',
-                    cooldown: 'クールダウン',
-                    event: 'イベント',
-                    other: 'その他'
-                }[activity]}の詳細項目:</h4>
-                <div class="detailed-options">`;
+            detailedHtml += `<div class="detailed-activity-group" style="margin-bottom: 1rem; padding: 0.8rem; background: #f8f9fa; border-radius: 6px; border-left: 4px solid #4CAF50;">
+                <h4 style="margin: 0 0 0.5rem 0; font-size: 0.95rem; font-weight: bold; color: #2e7d32;">
+                    ${activityLabel}の詳細活動項目:
+                </h4>
+                <div class="detailed-options" style="margin-left: 0.5rem;">`;
 
             options.forEach(option => {
-                detailedHtml += `<label style="display: block; margin: 0.2rem 0;">
-                    <input type="checkbox" name="detailedActivity" value="${option.id}">
+                detailedHtml += `<label style="display: block; margin: 0.3rem 0; padding: 0.3rem 0.5rem; background: white; border-radius: 4px; border: 1px solid #e0e0e0;">
+                    <input type="checkbox" name="detailedActivity" value="${option.id}" style="margin-right: 0.5rem;">
                     <span>${option.label}</span>
                 </label>`;
             });
@@ -3109,29 +3114,50 @@ function updateDetailedActivities() {
 
     checkboxesContainer.innerHTML = detailedHtml;
 
-    // 選択された活動に関連する目標カテゴリを重複なしで取得
-    const relevantCategories = new Set();
-    selectedActivities.forEach(activity => {
-        const categories = activityGoalMapping[activity] || [];
-        categories.forEach(cat => relevantCategories.add(cat));
-    });
-
-    // 関連する目標項目を動的に生成
+    // 関連する目標項目を動的に生成（活動内容ごとにグループ化）
     let goalsHtml = '';
-    const categoryOrder = ['technical', 'tactics', 'mental', 'physical', 'interpersonal'];
-    categoryOrder.forEach(catKey => {
-        if (!relevantCategories.has(catKey)) return;
-        const catDef = goalCategoryDefinitions[catKey];
-        goalsHtml += `<div class="goal-category">
-            <h4 style="margin: 0.5rem 0 0.3rem 0; font-size: 0.9rem; color: ${catDef.color};">${catDef.label}</h4>`;
-        catDef.goalIds.forEach(goalId => {
-            const goal = goalOptions.find(g => g.id === goalId);
-            if (goal) {
-                const checked = checkedGoals.has(goal.id) ? ' checked' : '';
-                goalsHtml += `<label style="display: block; margin: 0.2rem 0;"><input type="checkbox" name="goal" value="${goal.id}"${checked}><span>${goal.label}</span></label>`;
-            }
-        });
-        goalsHtml += `</div>`;
+    const activityLabels = {
+        warmup: 'ウォーミングアップ',
+        individual: '個別練習',
+        group: 'グループ活動',
+        game: 'ミニゲーム',
+        skill: 'スキル練習',
+        cooldown: 'クールダウン',
+        event: 'イベント',
+        other: 'その他'
+    };
+    
+    selectedActivities.forEach(activity => {
+        const activityLabel = activityLabels[activity];
+        const categories = activityGoalMapping[activity] || [];
+        
+        if (categories.length > 0) {
+            goalsHtml += `<div class="goal-activity-group">
+                <h4 style="margin: 0.8rem 0 0.3rem 0; font-size: 0.9rem; font-weight: bold; color: #2e7d32; border-left: 3px solid #2e7d32; padding-left: 0.5rem;">
+                    ${activityLabel}の目標項目:
+                </h4>`;
+            
+            // この活動に関連する目標カテゴリを表示
+            const categoryOrder = ['technical', 'tactics', 'mental', 'physical', 'interpersonal'];
+            categoryOrder.forEach(catKey => {
+                if (!categories.includes(catKey)) return;
+                const catDef = goalCategoryDefinitions[catKey];
+                goalsHtml += `<div class="goal-category" style="margin-left: 1rem; margin-bottom: 0.5rem;">
+                    <h5 style="margin: 0.3rem 0; font-size: 0.85rem; color: ${catDef.color};">${catDef.label}</h5>`;
+                
+                catDef.goalIds.forEach(goalId => {
+                    const goal = goalOptions.find(g => g.id === goalId);
+                    if (goal) {
+                        const checked = checkedGoals.has(goal.id) ? ' checked' : '';
+                        goalsHtml += `<label style="display: block; margin: 0.2rem 0 0.2rem 0.5rem;"><input type="checkbox" name="goal" value="${goal.id}"${checked}><span>${goal.label}</span></label>`;
+                    }
+                });
+                
+                goalsHtml += `</div>`;
+            });
+            
+            goalsHtml += `</div>`;
+        }
     });
 
     goalCheckboxesContainer.innerHTML = goalsHtml;
