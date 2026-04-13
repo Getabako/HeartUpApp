@@ -14,7 +14,13 @@ const dataAdapter = {
                 const rows = await heartUpDB.getChildren();
                 const obj = {};
                 rows.forEach(r => {
-                    obj[r.name] = { id: r.id, createdAt: r.created_at, ...(r.metadata || {}) };
+                    obj[r.name] = {
+                        id: r.id,
+                        createdAt: r.created_at,
+                        locationId: r.locationId,
+                        metadata: r.metadata || {},
+                        ...(r.metadata || {})
+                    };
                 });
                 return obj;
             } catch (e) {
@@ -38,6 +44,32 @@ const dataAdapter = {
             children[name] = { createdAt: new Date().toISOString(), ...(metadata || {}) };
             localStorage.setItem('children', JSON.stringify(children));
         }
+    },
+
+    async deleteChildAndRelatedData(childName) {
+        if (heartUpDB.isReady()) {
+            try {
+                await heartUpDB.deleteChildAndRelatedData(childName);
+            } catch (e) {
+                console.error('Firebase deleteChild error:', e);
+            }
+        }
+        // localStorageからも削除
+        const children = JSON.parse(localStorage.getItem('children') || '{}');
+        delete children[childName];
+        localStorage.setItem('children', JSON.stringify(children));
+
+        // 関連データも削除
+        ['assessments', 'supportPlans', 'dailyReports', 'reviews'].forEach(key => {
+            const data = JSON.parse(localStorage.getItem(key) || '{}');
+            const updated = {};
+            Object.entries(data).forEach(([k, v]) => {
+                if (!(v.childName === childName || v.data?.childName === childName || k.startsWith(childName + '_'))) {
+                    updated[k] = v;
+                }
+            });
+            localStorage.setItem(key, JSON.stringify(updated));
+        });
     },
 
     // ============================================================

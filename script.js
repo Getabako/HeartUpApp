@@ -2830,6 +2830,7 @@ const sortOptions = [
     { id: 'name', label: '名前順（50音）' },
     { id: 'grade', label: '学年順' },
     { id: 'characteristic', label: '特性順' },
+    { id: 'location', label: '拠点順' },
     { id: 'recent', label: '最近追加順' }
 ];
 
@@ -2866,11 +2867,13 @@ const characteristicOrder = {
  * 生徒データを並び替え
  */
 function sortStudents(students, sortBy) {
+    console.log('sortStudents: 生徒数', students.length, 'sortBy:', sortBy);
     const studentsCopy = [...students];
     
     switch(sortBy) {
         case 'name':
             // 名前順（50音）
+            console.log('名前順でソート');
             return studentsCopy.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
             
         case 'grade':
@@ -2893,6 +2896,16 @@ function sortStudents(students, sortBy) {
                 return a.name.localeCompare(b.name, 'ja');
             });
             
+        case 'location':
+            // 拠点順
+            return studentsCopy.sort((a, b) => {
+                const locA = a.locationName || '未設定';
+                const locB = b.locationName || '未設定';
+                if (locA !== locB) return locA.localeCompare(locB, 'ja');
+                // 拠点が同じ場合は名前順
+                return a.name.localeCompare(b.name, 'ja');
+            });
+            
         case 'recent':
             // 最近追加順
             return studentsCopy.sort((a, b) => {
@@ -2910,7 +2923,7 @@ function sortStudents(students, sortBy) {
 function showBatchRecordForm() {
     const container = document.getElementById('batchRecordContent');
 
-    // 状態をリセット
+    // 状態をリセット（並び替え設定はlocalStorageから復元）
     batchRecordState = {
         step: 1,
         date: new Date().toISOString().split('T')[0],
@@ -2918,7 +2931,8 @@ function showBatchRecordForm() {
         detailedActivities: [],
         goals: [],
         selectedChildren: [],
-        childrenMemos: {}
+        childrenMemos: {},
+        sortBy: localStorage.getItem('heartup_sortPreference') || 'name'
     };
 
     renderBatchRecordStep1(container);
@@ -3124,9 +3138,12 @@ function batchRecordStep1Submit(event) {
  * Step 2: 参加児童の選択
  */
 async function renderBatchRecordStep2(container) {
+    console.log('renderBatchRecordStep2 開始, sortBy:', batchRecordState.sortBy);
+    
     // dataAdapterから児童一覧を取得（名前とメタデータ）
     const assessments = await dataAdapter.getAssessments();
     const children = await dataAdapter.getChildren();
+    console.log('生徒データ取得:', Object.keys(children).length, '名');
     
     // 生徒データを構築（名前、メタデータ）
     const studentData = [];
@@ -3137,14 +3154,31 @@ async function renderBatchRecordStep2(container) {
     // すべての生徒を収集
     const allStudentNames = [...new Set([...assessmentNames, ...Object.keys(children)])];
     
+    // 拠点情報を取得（可能な場合）
+    let locationsMap = {};
+    if (heartUpDB.isReady()) {
+        try {
+            const locations = await heartUpDB.getLocations();
+            locations.forEach(loc => {
+                locationsMap[loc.id] = loc.name;
+            });
+        } catch (e) {
+            console.error('拠点情報取得エラー:', e);
+        }
+    }
+    
     allStudentNames.forEach(name => {
         const childData = children[name] || {};
         const metadata = childData.metadata || {};
-        
+        const locationId = childData.locationId || '';
+        const locationName = locationId ? (locationsMap[locationId] || `拠点:${locationId}`) : '未設定';
+
         studentData.push({
             name,
-            grade: metadata.grade || '未設定',
-            characteristic: metadata.characteristic || '未設定',
+            grade: childData.grade || metadata.grade || '未設定',
+            characteristic: childData.characteristic || metadata.characteristic || '未設定',
+            locationId,
+            locationName,
             createdAt: childData.createdAt || new Date().toISOString(),
             metadata: metadata
         });
@@ -3180,6 +3214,9 @@ async function renderBatchRecordStep2(container) {
             const charBadge = student.characteristic !== '未設定' ? 
                 `<span class="student-badge char-badge" title="特性">${student.characteristic}</span>` : '';
             
+            const locationBadge = student.locationName !== '未設定' ? 
+                `<span class="student-badge location-badge" title="拠点">${student.locationName}</span>` : '';
+            
             childrenCheckboxes += `
                 <label class="child-checkbox-label">
                     <input type="checkbox" name="batchChild" value="${student.name}" ${checked}>
@@ -3188,6 +3225,7 @@ async function renderBatchRecordStep2(container) {
                         <div class="student-metadata">
                             ${gradeBadge}
                             ${charBadge}
+                            ${locationBadge}
                         </div>
                     </div>
                 </label>
@@ -3277,19 +3315,39 @@ function deselectAllBatchChildren() {
 /**
  * 並び替え順序を変更
  */
-function changeSortOrder(sortBy) {
+async function changeSortOrder(sortBy) {
+    // 現在のチェック状態を保存してから再描画
+    const currentChecked = [];
+    document.querySelectorAll('#batchChildrenList input[type="checkbox"]:checked').forEach(cb => {
+        currentChecked.push(cb.value);
+    });
+    if (currentChecked.length > 0) {
+        batchRecordState.selectedChildren = currentChecked;
+    }
+
     batchRecordState.sortBy = sortBy;
+    localStorage.setItem('heartup_sortPreference', sortBy);
+
     const container = document.getElementById('batchRecordContent');
-    renderBatchRecordStep2(container);
+    await renderBatchRecordStep2(container);
 }
 
 /**
  * 同期して児童リストを更新
  */
-function refreshBatchChildren() {
+async function refreshBatchChildren() {
+    // 現在のチェック状態を保存
+    const currentChecked = [];
+    document.querySelectorAll('#batchChildrenList input[type="checkbox"]:checked').forEach(cb => {
+        currentChecked.push(cb.value);
+    });
+    if (currentChecked.length > 0) {
+        batchRecordState.selectedChildren = currentChecked;
+    }
+
     refreshStudentSelects();
     const container = document.getElementById('batchRecordContent');
-    renderBatchRecordStep2(container);
+    await renderBatchRecordStep2(container);
 }
 
 /**

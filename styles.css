@@ -2503,3 +2503,10 @@ main {
 .goal-category:nth-child(3) { border-left-color: #7b1fa2; } /* メンタル系 - 紫 */
 .goal-category:nth-child(4) { border-left-color: #d84315; } /* 身体能力系 - オレンジ */
 .goal-category:nth-child(5) { border-left-color: #00838f; } /* 対人系 - 青緑 */
+
+/* 拠点バッジスタイル */
+.location-badge {
+    background: #fff3e0;
+    color: #ef6c00;
+    border: 1px solid #ffcc80;
+}
