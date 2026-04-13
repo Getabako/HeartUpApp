@@ -41,9 +41,9 @@ const heartUpDB = {
         return firestoreTimestamp;
     },
 
-    _locationQuery(collectionName) {
+    _locationQuery(collectionName, skipLocationFilter) {
         let ref = this.db.collection(collectionName);
-        if (!this.isAdmin() && this.getMyLocationId()) {
+        if (!skipLocationFilter && !this.isAdmin() && this.getMyLocationId()) {
             ref = ref.where('locationId', '==', this.getMyLocationId());
         }
         return ref;
@@ -214,6 +214,45 @@ const heartUpDB = {
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
         return { id: docRef.id, name, locationId };
+    },
+
+    async updateChildLocation(childName, newLocationId) {
+        if (!this.isReady()) throw new Error('Firebase未初期化');
+        const snapshot = await this.db.collection('children').where('name', '==', childName).get();
+        if (snapshot.empty) throw new Error('児童が見つかりません: ' + childName);
+        const batch = this.db.batch();
+        snapshot.docs.forEach(doc => {
+            batch.update(doc.ref, { locationId: newLocationId || '' });
+        });
+        await batch.commit();
+    },
+
+    async deleteChildAndRelatedData(childName) {
+        console.log('Firebase deleteChildAndRelatedData 開始:', childName);
+        if (!this.isReady()) {
+            console.error('Firebase未初期化');
+            throw new Error('Firebase未初期化');
+        }
+        
+        const batch = this.db.batch();
+        const collections = ['children', 'assessments', 'support_plans', 'daily_reports', 'reviews'];
+        let totalDeleted = 0;
+        
+        for (const col of collections) {
+            const field = col === 'children' ? 'name' : 'childName';
+            console.log(`Firebase ${col}削除検索:`, childName);
+            const snapshot = await this.db.collection(col).where(field, '==', childName).get();
+            console.log(`Firebase ${col}削除対象:`, snapshot.docs.length, '件');
+            
+            snapshot.docs.forEach(doc => {
+                batch.delete(doc.ref);
+                totalDeleted++;
+            });
+        }
+        
+        console.log('Firebaseバッチコミット: 合計', totalDeleted, '件の削除');
+        await batch.commit();
+        console.log('Firebase deleteChildAndRelatedData 完了:', childName, totalDeleted, '件削除');
     },
 
     // ============================================================

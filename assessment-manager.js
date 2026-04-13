@@ -410,7 +410,32 @@ window.amDeleteChild = async function(childName) {
         await dataAdapter.deleteChildAndRelatedData(childName);
         console.log('削除成功:', childName);
         alert(`「${childName}」と関連データを削除しました。`);
-        amLoadChildren();
+        
+        // 削除後に児童一覧を再読み込み
+        console.log('児童一覧再読み込み開始');
+        
+        // まず、メモリ内のデータを直接更新
+        const beforeCount = amAllChildrenData.length;
+        amAllChildrenData = amAllChildrenData.filter(c => c.name !== childName);
+        const afterCount = amAllChildrenData.length;
+        console.log('メモリ内データ更新:', beforeCount, '→', afterCount, '件');
+        
+        // フィルターと表示を更新
+        amUpdateGradeFilter();
+        amUpdateLocationFilter();
+        amRenderChildren(amAllChildrenData);
+        
+        // その後、サーバーからデータを再取得（非同期）
+        setTimeout(async () => {
+            try {
+                console.log('サーバーデータ再取得開始');
+                await amLoadChildren();
+                console.log('サーバーデータ再取得完了');
+            } catch (error) {
+                console.error('サーバーデータ再取得エラー:', error);
+                console.error('再取得エラー詳細:', error.stack);
+            }
+        }, 500);
     } catch (error) {
         console.error('児童削除エラー:', error);
         console.error('エラー詳細:', error.stack);

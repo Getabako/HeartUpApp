@@ -53,30 +53,71 @@ const dataAdapter = {
         }
     },
 
-    async deleteChildAndRelatedData(childName) {
+    async updateChildLocation(childName, newLocationId) {
         if (heartUpDB.isReady()) {
             try {
+                await heartUpDB.updateChildLocation(childName, newLocationId);
+            } catch (e) {
+                console.error('Firebase updateChildLocation error:', e);
+                throw e;
+            }
+        }
+        // localStorageも更新
+        const children = JSON.parse(localStorage.getItem('children') || '{}');
+        if (children[childName]) {
+            children[childName].locationId = newLocationId || '';
+            localStorage.setItem('children', JSON.stringify(children));
+        }
+    },
+
+    async deleteChildAndRelatedData(childName) {
+        console.log('dataAdapter.deleteChildAndRelatedData 開始:', childName);
+        
+        if (heartUpDB.isReady()) {
+            try {
+                console.log('Firebase削除実行:', childName);
                 await heartUpDB.deleteChildAndRelatedData(childName);
+                console.log('Firebase削除成功:', childName);
             } catch (e) {
                 console.error('Firebase deleteChild error:', e);
+                console.error('Firebase削除エラー詳細:', e.stack);
             }
         }
         // localStorageからも削除
         const children = JSON.parse(localStorage.getItem('children') || '{}');
+        console.log('localStorage削除前:', Object.keys(children).length, '件');
+        console.log('削除対象:', childName, '存在:', childName in children);
+        
         delete children[childName];
         localStorage.setItem('children', JSON.stringify(children));
+        
+        const childrenAfter = JSON.parse(localStorage.getItem('children') || '{}');
+        console.log('localStorage削除後:', Object.keys(childrenAfter).length, '件');
+        console.log('削除対象の存在確認:', childName in childrenAfter ? '削除失敗' : '削除成功');
 
         // 関連データも削除
         ['assessments', 'supportPlans', 'dailyReports', 'reviews'].forEach(key => {
             const data = JSON.parse(localStorage.getItem(key) || '{}');
+            console.log(`${key}削除前:`, Object.keys(data).length, '件');
+            
             const updated = {};
+            let deletedCount = 0;
             Object.entries(data).forEach(([k, v]) => {
-                if (!(v.childName === childName || v.data?.childName === childName || k.startsWith(childName + '_'))) {
+                const shouldDelete = v.childName === childName || v.data?.childName === childName || k.startsWith(childName + '_');
+                if (!shouldDelete) {
                     updated[k] = v;
+                } else {
+                    deletedCount++;
+                    console.log(`${key}から削除:`, k, v.childName || v.data?.childName);
                 }
             });
+            
             localStorage.setItem(key, JSON.stringify(updated));
+            const dataAfter = JSON.parse(localStorage.getItem(key) || '{}');
+            console.log(`${key}削除後:`, Object.keys(dataAfter).length, '件, 削除数:`, deletedCount);
         });
+        
+        console.log('dataAdapter.deleteChildAndRelatedData 完了:', childName);
     },
 
     // ============================================================
