@@ -119,6 +119,26 @@ async function amLoadChildren() {
             dataAdapter.getReviews()
         ]);
 
+        // 拠点マップを構築（locationId -> locationName）
+        let locationMap = {};
+        try {
+            if (heartUpDB.isReady()) {
+                console.log('拠点情報取得開始');
+                const locations = await heartUpDB.getLocations();
+                console.log('取得した拠点情報:', locations);
+                locations.forEach(loc => { 
+                    locationMap[loc.id] = loc.name;
+                    console.log(`拠点マップ追加: ${loc.id} -> ${loc.name}`);
+                });
+                console.log('構築された拠点マップ:', locationMap);
+            } else {
+                console.log('Firebase未接続: 拠点情報の取得をスキップ');
+            }
+        } catch (e) {
+            console.warn('拠点情報の取得に失敗:', e);
+            console.error('拠点情報取得エラー詳細:', e.stack);
+        }
+
         console.log('データ取得完了:', {
             children: Object.keys(children).length,
             assessments: Object.keys(assessments).length,
@@ -194,10 +214,16 @@ async function amLoadChildren() {
         // childrenコレクションから
         Object.entries(children).forEach(([name, child]) => {
             console.log('childrenコレクションから処理:', name, child);
+            console.log('児童のlocationId:', child.locationId);
+            console.log('対応する拠点名:', locationMap[child.locationId]);
+            
             const childAssessments = assessmentsByChild[name] || [];
             const latest = childAssessments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
             const formData = latest?.data || {};
             const birthDate = formData.birthDate || child.birthDate || '';
+            
+            const locationName = locationMap[child.locationId] || '';
+            console.log(`設定するlocationName: "${locationName}"`);
 
             amAllChildrenData.push({
                 name,
@@ -212,7 +238,8 @@ async function amLoadChildren() {
                 reportCount: (reportsByChild[name] || []).length,
                 reviewCount: (reviewsByChild[name] || []).length,
                 latestAssessmentFileName: latest?.fileName || null,
-                grade: amCalculateGrade(birthDate)
+                grade: amCalculateGrade(birthDate),
+                locationName: locationName
             });
             processedNames.add(name);
         });
@@ -240,7 +267,8 @@ async function amLoadChildren() {
                 reportCount: (reportsByChild[name] || []).length,
                 reviewCount: (reviewsByChild[name] || []).length,
                 latestAssessmentFileName: latest?.fileName || null,
-                grade: amCalculateGrade(birthDate)
+                grade: amCalculateGrade(birthDate),
+                locationName: locationMap[latest?.locationId] || ''
             });
         });
 
@@ -311,12 +339,39 @@ function amUpdateLocationFilter() {
     const locationSelect = document.getElementById('amLocationFilter');
     if (!locationSelect) return;
     
-    // 拠点情報を取得（Firebaseからまたはローカルから）
-    const locations = [...new Set(amAllChildrenData.map(c => c.locationName).filter(Boolean))];
+    console.log('amUpdateLocationFilter: 開始');
+    
+    // 拠点情報を収集（複数のソースから）
+    let locations = [];
+    
+    // 1. amAllChildrenDataからlocationNameを取得
+    const locationNames = [...new Set(amAllChildrenData.map(c => c.locationName).filter(Boolean))];
+    console.log('amAllChildrenDataからの拠点名:', locationNames);
+    locations = [...locations, ...locationNames];
+    
+    // 2. 既知の拠点を追加（デフォルト拠点、鳥栖）
+    const knownLocations = ['デフォルト拠点', '鳥栖'];
+    knownLocations.forEach(loc => {
+        if (!locations.includes(loc)) {
+            locations.push(loc);
+            console.log(`既知の拠点を追加: "${loc}"`);
+        }
+    });
+    
+    // 3. 重複を除去してソート
+    locations = [...new Set(locations)];
     locations.sort((a, b) => a.localeCompare(b, 'ja'));
     
+    console.log('最終的な拠点一覧:', locations);
+    
+    // フィルターを更新
     locationSelect.innerHTML = '<option value="">全拠点</option>';
-    locations.forEach(l => { locationSelect.innerHTML += `<option value="${l}">${l}</option>`; });
+    locations.forEach(l => { 
+        console.log(`拠点オプション追加: "${l}"`);
+        locationSelect.innerHTML += `<option value="${l}">${l}</option>`; 
+    });
+    
+    console.log('amUpdateLocationFilter: 完了, 追加されたオプション数:', locations.length);
 }
 
 // フィルタリング
