@@ -111,6 +111,20 @@ function amChangeSortOrder(sortBy) {
 async function amLoadChildren() {
     console.log('amLoadChildren: 開始');
     try {
+        // Firebase接続時は認証完了を待つ（race condition対策）
+        if (heartUpDB.isReady() && !heartUpDB.currentProfile) {
+            console.log('認証完了を待機中...');
+            try {
+                const session = await heartUpDB.getSession();
+                if (session) {
+                    await heartUpDB.getMyProfile();
+                    console.log('認証完了: profile=', heartUpDB.currentProfile?.name);
+                }
+            } catch (authErr) {
+                console.warn('認証待機中にエラー:', authErr);
+            }
+        }
+
         const [children, assessments, supportPlans, dailyReports, reviews] = await Promise.all([
             dataAdapter.getChildren(),
             dataAdapter.getAssessments(),
@@ -126,9 +140,8 @@ async function amLoadChildren() {
                 console.log('拠点情報取得開始');
                 const locations = await heartUpDB.getLocations();
                 console.log('取得した拠点情報:', locations);
-                locations.forEach(loc => { 
+                locations.forEach(loc => {
                     locationMap[loc.id] = loc.name;
-                    console.log(`拠点マップ追加: ${loc.id} -> ${loc.name}`);
                 });
                 console.log('構築された拠点マップ:', locationMap);
             } else {
@@ -136,7 +149,6 @@ async function amLoadChildren() {
             }
         } catch (e) {
             console.warn('拠点情報の取得に失敗:', e);
-            console.error('拠点情報取得エラー詳細:', e.stack);
         }
 
         console.log('データ取得完了:', {
@@ -205,25 +217,19 @@ async function amLoadChildren() {
         amAllChildrenData = [];
         const processedNames = new Set();
         
-        console.log('childrenデータ:', Object.keys(children).length, '件');
-        console.log('assessmentsByChild:', Object.keys(assessmentsByChild).length, '件');
-        console.log('plansByChild:', Object.keys(plansByChild).length, '件');
-        console.log('reportsByChild:', Object.keys(reportsByChild).length, '件');
-        console.log('reviewsByChild:', Object.keys(reviewsByChild).length, '件');
+        console.log('データ件数 - children:', Object.keys(children).length, 'assessments:', Object.keys(assessmentsByChild).length);
 
         // childrenコレクションから
         Object.entries(children).forEach(([name, child]) => {
-            console.log('childrenコレクションから処理:', name, child);
-            console.log('児童のlocationId:', child.locationId);
-            console.log('対応する拠点名:', locationMap[child.locationId]);
-            
             const childAssessments = assessmentsByChild[name] || [];
             const latest = childAssessments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
             const formData = latest?.data || {};
             const birthDate = formData.birthDate || child.birthDate || '';
-            
+
             const locationName = locationMap[child.locationId] || '';
-            console.log(`設定するlocationName: "${locationName}"`);
+            if (!locationName && child.locationId) {
+                console.warn(`拠点マップに未登録: locationId=${child.locationId}, 児童=${name}`);
+            }
 
             amAllChildrenData.push({
                 name,
@@ -244,11 +250,8 @@ async function amLoadChildren() {
             processedNames.add(name);
         });
         
-        console.log('childrenコレクション処理完了:', amAllChildrenData.length, '件');
-
         // assessmentsにしかいない児童も追加
         Object.entries(assessmentsByChild).forEach(([name, childAssessments]) => {
-            console.log('assessmentsから処理:', name, childAssessments.length, '件のアセスメント');
             if (processedNames.has(name)) return;
             const latest = childAssessments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
             const formData = latest?.data || {};
@@ -276,12 +279,9 @@ async function amLoadChildren() {
         amAllChildrenData = amSortChildren(amAllChildrenData, amSortBy);
         
         console.log('amAllChildrenData構築完了:', amAllChildrenData.length, '件');
-        if (amAllChildrenData.length > 0) {
-            console.log('最初の児童データ:', amAllChildrenData[0]);
-        }
 
         amUpdateGradeFilter();
-        amUpdateLocationFilter();
+        await amUpdateLocationFilter();
         amRenderChildren(amAllChildrenData);
 
         // 並び替えセレクトボックスの状態を復元
@@ -335,43 +335,40 @@ function amUpdateGradeFilter() {
 }
 
 // 拠点フィルタの選択肢を更新
-function amUpdateLocationFilter() {
+async function amUpdateLocationFilter() {
     const locationSelect = document.getElementById('amLocationFilter');
     if (!locationSelect) return;
-    
+
     console.log('amUpdateLocationFilter: 開始');
-    
-    // 拠点情報を収集（複数のソースから）
-    let locations = [];
-    
-    // 1. amAllChildrenDataからlocationNameを取得
-    const locationNames = [...new Set(amAllChildrenData.map(c => c.locationName).filter(Boolean))];
-    console.log('amAllChildrenDataからの拠点名:', locationNames);
-    locations = [...locations, ...locationNames];
-    
-    // 2. 既知の拠点を追加（デフォルト拠点、鳥栖）
-    const knownLocations = ['デフォルト拠点', '鳥栖'];
-    knownLocations.forEach(loc => {
-        if (!locations.includes(loc)) {
-            locations.push(loc);
-            console.log(`既知の拠点を追加: "${loc}"`);
+
+    // 児童データから拠点名を抽出
+    const childLocationNames = [...new Set(amAllChildrenData.map(c => c.locationName).filter(Boolean))];
+    console.log('児童データから抽出された拠点:', childLocationNames);
+
+    // Firebaseから全登録拠点も取得（児童が0人の拠点も表示するため）
+    let allLocationNames = [...childLocationNames];
+    if (heartUpDB.isReady()) {
+        try {
+            const fbLocations = await heartUpDB.getLocations();
+            fbLocations.forEach(loc => {
+                if (loc.name && !allLocationNames.includes(loc.name)) {
+                    allLocationNames.push(loc.name);
+                }
+            });
+            console.log('Firebase拠点を含む全拠点:', allLocationNames);
+        } catch (e) {
+            console.warn('Firebase拠点取得エラー（フィルター用）:', e);
         }
-    });
-    
-    // 3. 重複を除去してソート
-    locations = [...new Set(locations)];
-    locations.sort((a, b) => a.localeCompare(b, 'ja'));
-    
-    console.log('最終的な拠点一覧:', locations);
-    
-    // フィルターを更新
+    }
+
+    allLocationNames.sort((a, b) => a.localeCompare(b, 'ja'));
+
     locationSelect.innerHTML = '<option value="">全拠点</option>';
-    locations.forEach(l => { 
-        console.log(`拠点オプション追加: "${l}"`);
-        locationSelect.innerHTML += `<option value="${l}">${l}</option>`; 
+    allLocationNames.forEach(l => {
+        locationSelect.innerHTML += `<option value="${l}">${l}</option>`;
     });
-    
-    console.log('amUpdateLocationFilter: 完了, 追加されたオプション数:', locations.length);
+
+    console.log('amUpdateLocationFilter: 完了, 追加されたオプション数:', allLocationNames.length);
 }
 
 // フィルタリング
@@ -421,7 +418,9 @@ function amRenderChildren(childrenList) {
     }
 
     container.innerHTML = '';
-    childrenList.forEach(child => {
+    console.log('amRenderChildren: 各児童の拠点情報');
+    childrenList.forEach((child, index) => {
+        console.log(`児童 ${index + 1}: ${child.name}, locationName: "${child.locationName}"`);
         const childItem = document.createElement('div');
         childItem.className = 'am-child-item';
         const escapedName = child.name.replace(/'/g, "\\'");
@@ -433,7 +432,7 @@ function amRenderChildren(childrenList) {
                 <h3>${child.name}${child.childNameKana ? `（${child.childNameKana}）` : ''}
                     ${child.grade ? `<span class="am-grade-badge">${child.grade}</span>` : ''}
                 </h3>
-                <p>生年月日: ${child.birthDate || '未設定'} | 性別: ${child.gender || '未回答'}</p>
+                <p>生年月日: ${child.birthDate || '未設定'} | 性別: ${child.gender || '未回答'} | 拠点: ${child.locationName ? `<span class="location-badge" style="background: #e3f2fd; color: #1565c0; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; margin-left: 4px; border: 1px solid #90caf9;">${child.locationName}</span>` : '<span style="color: #999;">未設定</span>'}</p>
                 <p>診断名: ${child.diagnosis || 'なし'}</p>
                 <p>登録日: ${child.createdAt ? new Date(child.createdAt).toLocaleDateString('ja-JP') : '不明'}</p>
                 <div class="am-child-records-summary">
@@ -491,9 +490,9 @@ window.amDeleteChild = async function(childName) {
         
         // フィルターと表示を更新
         amUpdateGradeFilter();
-        amUpdateLocationFilter();
+        await amUpdateLocationFilter();
         amRenderChildren(amAllChildrenData);
-        
+
         // その後、サーバーからデータを再取得（非同期）
         setTimeout(async () => {
             try {
