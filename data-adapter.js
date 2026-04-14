@@ -534,6 +534,116 @@ const dataAdapter = {
             createdAt: new Date().toISOString()
         };
         localStorage.setItem('reviews', JSON.stringify(reviews));
+    },
+    
+    // 児童の拠点を更新
+    async updateChildLocation(childName, newLocationName) {
+        console.log('dataAdapter.updateChildLocation:', childName, '→', newLocationName);
+        
+        // 拠点名からlocationIdを取得（簡易実装）
+        let locationId = '';
+        if (newLocationName === 'デフォルト拠点') {
+            locationId = 'default';
+        } else if (newLocationName === 'カラーズFC鳥栖') {
+            locationId = 'colors_tosu';
+        } else if (newLocationName === '鳥栖') {
+            locationId = 'tosu';
+        }
+        
+        console.log('対応するlocationId:', locationId);
+        
+        // Firebaseに接続されている場合
+        if (heartUpDB.isReady()) {
+            try {
+                console.log('Firebaseで拠点更新を実行');
+                // 実際のFirebase更新処理（後で実装）
+                // await heartUpDB.updateChildLocation(childName, locationId, newLocationName);
+                console.log('Firebase更新完了（仮）');
+            } catch (error) {
+                console.error('Firebase拠点更新エラー:', error);
+                throw error;
+            }
+        }
+        
+        // localStorageの更新
+        const children = JSON.parse(localStorage.getItem('children') || '{}');
+        if (children[childName]) {
+            console.log('localStorageの児童データを更新:', childName);
+            children[childName].locationId = locationId;
+            // 拠点名もメタデータに保存（表示用）
+            if (!children[childName].metadata) {
+                children[childName].metadata = {};
+            }
+            children[childName].metadata.locationName = newLocationName;
+            localStorage.setItem('children', JSON.stringify(children));
+            console.log('localStorage更新完了');
+        } else {
+            console.warn('児童が見つかりません:', childName);
+            // 新規作成
+            children[childName] = {
+                id: 'local_' + Date.now(),
+                createdAt: new Date().toISOString(),
+                locationId: locationId,
+                metadata: {
+                    locationName: newLocationName
+                }
+            };
+            localStorage.setItem('children', JSON.stringify(children));
+            console.log('新規児童データを作成');
+        }
+        
+        // 関連データの拠点情報も更新（assessments, supportPlans, dailyReports, reviews）
+        this._updateRelatedDataLocation(childName, newLocationName);
+        
+        console.log('拠点更新完了:', childName, '→', newLocationName);
+        return true;
+    },
+    
+    // 関連データの拠点情報を更新
+    _updateRelatedDataLocation(childName, newLocationName) {
+        console.log('関連データの拠点情報を更新:', childName, newLocationName);
+        
+        // assessmentsの更新
+        const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
+        Object.entries(assessments).forEach(([fileName, assessment]) => {
+            if (assessment.data?.childName === childName) {
+                console.log('assessmentの拠点情報を更新:', fileName);
+                assessment.data.locationName = newLocationName;
+            }
+        });
+        localStorage.setItem('assessments', JSON.stringify(assessments));
+        
+        // supportPlansの更新
+        const supportPlans = JSON.parse(localStorage.getItem('supportPlans') || '{}');
+        Object.entries(supportPlans).forEach(([fileName, plan]) => {
+            if (plan.childName === childName) {
+                console.log('supportPlanの拠点情報を更新:', fileName);
+                plan.locationName = newLocationName;
+            }
+        });
+        localStorage.setItem('supportPlans', JSON.stringify(supportPlans));
+        
+        // dailyReportsの更新
+        const dailyReports = JSON.parse(localStorage.getItem('dailyReports') || '{}');
+        Object.entries(dailyReports).forEach(([fileName, report]) => {
+            if (report.childName === childName) {
+                console.log('dailyReportの拠点情報を更新:', fileName);
+                report.locationName = newLocationName;
+            }
+        });
+        localStorage.setItem('dailyReports', JSON.stringify(dailyReports));
+        
+        // reviewsの更新
+        const reviews = JSON.parse(localStorage.getItem('reviews') || '{}');
+        Object.entries(reviews).forEach(([fileName, review]) => {
+            if (review.childName === childName) {
+                console.log('reviewの拠点情報を更新:', fileName);
+                review.locationName = newLocationName;
+            }
+        });
+        localStorage.setItem('reviews', JSON.stringify(reviews));
+        
+        console.log('関連データの更新完了');
     }
 };
 

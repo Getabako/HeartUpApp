@@ -226,9 +226,10 @@ async function amLoadChildren() {
             const formData = latest?.data || {};
             const birthDate = formData.birthDate || child.birthDate || '';
 
-            const locationName = locationMap[child.locationId] || '';
-            if (!locationName && child.locationId) {
-                console.warn(`拠点マップに未登録: locationId=${child.locationId}, 児童=${name}`);
+            const locationId = child.locationId || '';
+            const locationName = locationId ? (locationMap[locationId] || `拠点:${locationId}`) : '未設定';
+            if (locationId && !locationMap[locationId]) {
+                console.warn(`拠点マップに未登録: locationId=${locationId}, 児童=${name}`);
             }
 
             amAllChildrenData.push({
@@ -239,6 +240,7 @@ async function amLoadChildren() {
                 diagnosis: formData.diagnosis || child.diagnosis || '',
                 childNameKana: formData.childNameKana || child.childNameKana || '',
                 createdAt: child.createdAt,
+                locationId,
                 assessmentCount: childAssessments.length,
                 planCount: (plansByChild[name] || []).length,
                 reportCount: (reportsByChild[name] || []).length,
@@ -257,6 +259,7 @@ async function amLoadChildren() {
             const formData = latest?.data || {};
             const birthDate = formData.birthDate || '';
 
+            const aLocId = latest?.locationId || '';
             amAllChildrenData.push({
                 name,
                 childId: null,
@@ -265,13 +268,14 @@ async function amLoadChildren() {
                 diagnosis: formData.diagnosis || '',
                 childNameKana: formData.childNameKana || '',
                 createdAt: latest?.createdAt,
+                locationId: aLocId,
                 assessmentCount: childAssessments.length,
                 planCount: (plansByChild[name] || []).length,
                 reportCount: (reportsByChild[name] || []).length,
                 reviewCount: (reviewsByChild[name] || []).length,
                 latestAssessmentFileName: latest?.fileName || null,
                 grade: amCalculateGrade(birthDate),
-                locationName: locationMap[latest?.locationId] || ''
+                locationName: aLocId ? (locationMap[aLocId] || `拠点:${aLocId}`) : '未設定'
             });
         });
 
@@ -341,8 +345,8 @@ async function amUpdateLocationFilter() {
 
     console.log('amUpdateLocationFilter: 開始');
 
-    // 児童データから拠点名を抽出
-    const childLocationNames = [...new Set(amAllChildrenData.map(c => c.locationName).filter(Boolean))];
+    // 児童データから拠点名を抽出（「未設定」は除外）
+    const childLocationNames = [...new Set(amAllChildrenData.map(c => c.locationName).filter(n => n && n !== '未設定'))];
     console.log('児童データから抽出された拠点:', childLocationNames);
 
     // Firebaseから全登録拠点も取得（児童が0人の拠点も表示するため）
@@ -367,6 +371,10 @@ async function amUpdateLocationFilter() {
     allLocationNames.forEach(l => {
         locationSelect.innerHTML += `<option value="${l}">${l}</option>`;
     });
+    // 「未設定」の児童がいる場合はフィルターに追加
+    if (amAllChildrenData.some(c => c.locationName === '未設定')) {
+        locationSelect.innerHTML += '<option value="未設定">未設定</option>';
+    }
 
     console.log('amUpdateLocationFilter: 完了, 追加されたオプション数:', allLocationNames.length);
 }
@@ -427,12 +435,17 @@ function amRenderChildren(childrenList) {
         const hasAssessment = child.assessmentCount > 0;
         const latestFN = child.latestAssessmentFileName ? child.latestAssessmentFileName.replace(/'/g, "\\'") : '';
 
+        const locBadgeStyle = child.locationName && child.locationName !== '未設定'
+            ? 'background: #e3f2fd; color: #1565c0; border: 1px solid #90caf9;'
+            : 'background: #fff3e0; color: #e65100; border: 1px solid #ffcc80;';
+
         childItem.innerHTML = `
             <div class="am-child-info">
                 <h3>${child.name}${child.childNameKana ? `（${child.childNameKana}）` : ''}
                     ${child.grade ? `<span class="am-grade-badge">${child.grade}</span>` : ''}
+                    <span class="am-location-badge" style="${locBadgeStyle} padding: 2px 10px; border-radius: 12px; font-size: 0.75rem; margin-left: 6px; font-weight: normal; cursor: pointer;" onclick="amShowChangeLocationModal('${escapedName}', '${child.locationId || ''}', '${child.locationName || ''}')" title="クリックで拠点変更">📍${child.locationName || '未設定'}</span>
                 </h3>
-                <p>生年月日: ${child.birthDate || '未設定'} | 性別: ${child.gender || '未回答'} | 拠点: ${child.locationName ? `<span class="location-badge" style="background: #e3f2fd; color: #1565c0; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; margin-left: 4px; border: 1px solid #90caf9;">${child.locationName}</span>` : '<span style="color: #999;">未設定</span>'}</p>
+                <p>生年月日: ${child.birthDate || '未設定'} | 性別: ${child.gender || '未回答'}</p>
                 <p>診断名: ${child.diagnosis || 'なし'}</p>
                 <p>登録日: ${child.createdAt ? new Date(child.createdAt).toLocaleDateString('ja-JP') : '不明'}</p>
                 <div class="am-child-records-summary">
@@ -508,6 +521,107 @@ window.amDeleteChild = async function(childName) {
         console.error('児童削除エラー:', error);
         console.error('エラー詳細:', error.stack);
         alert('削除に失敗しました: ' + error.message);
+    }
+}
+
+// 拠点変更モーダルを表示
+window.amShowChangeLocationModal = async function(childName, currentLocationId, currentLocationName) {
+    if (!heartUpDB.isReady()) {
+        alert('拠点変更にはFirebase接続が必要です。');
+        return;
+    }
+
+    let locations = [];
+    try {
+        locations = await heartUpDB.getLocations();
+    } catch (e) {
+        console.error('拠点一覧取得エラー:', e);
+        alert('拠点一覧の取得に失敗しました。');
+        return;
+    }
+
+    if (locations.length === 0) {
+        alert('拠点が登録されていません。管理画面から拠点を追加してください。');
+        return;
+    }
+
+    // 既存モーダルがあれば削除
+    let existingModal = document.getElementById('locationChangeModal');
+    if (existingModal) existingModal.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'locationChangeModal';
+    modal.className = 'modal';
+    modal.style.cssText = 'display:flex; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; z-index:1100;';
+    modal.innerHTML = `
+        <div style="background:white; border-radius:16px; padding:1.5rem; max-width:400px; width:90%; position:relative; animation:slideIn 0.3s ease;">
+            <span style="position:absolute; top:0.5rem; right:1rem; font-size:1.5rem; cursor:pointer; color:#666;" onclick="document.getElementById('locationChangeModal').remove()">&times;</span>
+            <h3 style="margin:0 0 1rem; color:#333;">「${childName}」の拠点変更</h3>
+            <p style="margin:0 0 0.5rem; font-size:0.9rem; color:#666;">現在の拠点: <strong>${currentLocationName || '未設定'}</strong></p>
+            <div style="margin:1rem 0;">
+                <label for="newLocationSelect" style="display:block; margin-bottom:0.5rem; font-weight:bold;">新しい拠点を選択:</label>
+                <select id="newLocationSelect" style="width:100%; padding:0.5rem; border:1px solid #ddd; border-radius:4px; font-size:1rem;">
+                    <option value="">未設定</option>
+                    ${locations.map(loc => `<option value="${loc.id}" ${loc.id === currentLocationId ? 'selected' : ''}>${loc.name}</option>`).join('')}
+                </select>
+            </div>
+            <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
+                <button onclick="document.getElementById('locationChangeModal').remove()" style="padding:0.5rem 1rem; border:1px solid #ddd; border-radius:8px; background:white; cursor:pointer;">キャンセル</button>
+                <button id="locationChangeSubmitBtn" onclick="amExecuteChangeLocation('${childName.replace(/'/g, "\\'")}', document.getElementById('newLocationSelect').value)" style="padding:0.5rem 1rem; border:none; border-radius:8px; background:#1976d2; color:white; cursor:pointer; font-weight:bold;">変更する</button>
+            </div>
+        </div>
+    `;
+
+    // モーダル背景クリックで閉じる
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) modal.remove();
+    });
+
+    document.body.appendChild(modal);
+}
+
+// 拠点変更を実行
+window.amExecuteChangeLocation = async function(childName, newLocationId) {
+    const submitBtn = document.getElementById('locationChangeSubmitBtn');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = '変更中...';
+    }
+
+    try {
+        await dataAdapter.updateChildLocation(childName, newLocationId);
+        document.getElementById('locationChangeModal')?.remove();
+
+        // メモリ内のデータも更新
+        const child = amAllChildrenData.find(c => c.name === childName);
+        if (child) {
+            child.locationId = newLocationId;
+            // 拠点名を取得
+            if (newLocationId) {
+                try {
+                    const locations = await heartUpDB.getLocations();
+                    const loc = locations.find(l => l.id === newLocationId);
+                    child.locationName = loc ? loc.name : `拠点:${newLocationId}`;
+                } catch (e) {
+                    child.locationName = `拠点:${newLocationId}`;
+                }
+            } else {
+                child.locationName = '未設定';
+            }
+        }
+
+        // フィルタと表示を更新
+        await amUpdateLocationFilter();
+        amRenderChildren(amAllChildrenData);
+
+        alert(`「${childName}」の拠点を変更しました。`);
+    } catch (error) {
+        console.error('拠点変更エラー:', error);
+        alert('拠点変更に失敗しました: ' + error.message);
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = '変更する';
+        }
     }
 }
 
@@ -1494,5 +1608,104 @@ window.amDeleteReview = async function(fileName) {
     } catch (error) {
         console.error('削除エラー:', error);
         alert('削除に失敗しました');
+    }
+};
+
+// === 拠点変更機能 ===
+
+// 拠点変更モーダルを表示
+window.amShowChangeLocationModal = function(childName, currentLocationId, currentLocationName) {
+    console.log('拠点変更モーダル表示:', childName, currentLocationId, currentLocationName);
+    
+    // モーダルHTMLを生成
+    const modalHtml = `
+        <div id="amLocationChangeModal" class="am-modal-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000;">
+            <div class="am-modal-content" style="background: white; padding: 30px; border-radius: 12px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto;">
+                <h3 style="color: #2e7d32; margin-bottom: 20px;">拠点変更: ${childName}</h3>
+                <p style="margin-bottom: 20px; color: #666;">現在の拠点: <strong>${currentLocationName || '未設定'}</strong></p>
+                
+                <div class="am-location-options" style="margin-bottom: 25px;">
+                    <h4 style="margin-bottom: 10px; color: #444;">新しい拠点を選択:</h4>
+                    <div class="am-location-option" style="margin: 8px 0; padding: 12px; background: #f8f9fa; border-radius: 8px; cursor: pointer; border: 2px solid #e0e0e0;" 
+                         onclick="amChangeLocation('${childName}', 'デフォルト拠点')">
+                        <strong>デフォルト拠点</strong>
+                        <span style="color: #666; font-size: 0.9rem; display: block; margin-top: 4px;">基本の拠点</span>
+                    </div>
+                    <div class="am-location-option" style="margin: 8px 0; padding: 12px; background: #f8f9fa; border-radius: 8px; cursor: pointer; border: 2px solid #e0e0e0;" 
+                         onclick="amChangeLocation('${childName}', 'カラーズFC鳥栖')">
+                        <strong>カラーズFC鳥栖</strong>
+                        <span style="color: #666; font-size: 0.9rem; display: block; margin-top: 4px;">鳥栖市の拠点</span>
+                    </div>
+                    <div class="am-location-option" style="margin: 8px 0; padding: 12px; background: #f8f9fa; border-radius: 8px; cursor: pointer; border: 2px solid #e0e0e0;" 
+                         onclick="amChangeLocation('${childName}', '鳥栖')">
+                        <strong>鳥栖</strong>
+                        <span style="color: #666; font-size: 0.9rem; display: block; margin-top: 4px;">鳥栖市（旧名称）</span>
+                    </div>
+                </div>
+                
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button onclick="amCloseLocationChangeModal()" style="padding: 10px 20px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 6px; cursor: pointer;">
+                        キャンセル
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // モーダルを追加
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+};
+
+// 拠点変更モーダルを閉じる
+window.amCloseLocationChangeModal = function() {
+    const modal = document.getElementById('amLocationChangeModal');
+    if (modal) {
+        modal.remove();
+    }
+};
+
+// 拠点変更を実行
+window.amChangeLocation = async function(childName, newLocationName) {
+    console.log('拠点変更実行:', childName, '→', newLocationName);
+    
+    // 確認ダイアログ
+    if (!confirm(`${childName}の拠点を「${newLocationName}」に変更しますか？`)) {
+        return;
+    }
+    
+    try {
+        // モーダルを閉じる
+        amCloseLocationChangeModal();
+        
+        // ローディング表示
+        const loadingMsg = document.createElement('div');
+        loadingMsg.id = 'amLocationChangeLoading';
+        loadingMsg.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: white; padding: 20px; border-radius: 8px; z-index: 1001;';
+        loadingMsg.innerHTML = `<div style="text-align: center;">拠点を変更中...</div>`;
+        document.body.appendChild(loadingMsg);
+        
+        // 拠点変更処理
+        console.log('拠点変更処理開始:', childName, newLocationName);
+        
+        // dataAdapterを使用して拠点を更新
+        await dataAdapter.updateChildLocation(childName, newLocationName);
+        
+        // ローディングを削除
+        const loading = document.getElementById('amLocationChangeLoading');
+        if (loading) loading.remove();
+        
+        // 成功メッセージ
+        alert(`${childName}の拠点を「${newLocationName}」に変更しました！`);
+        
+        // データを再読み込み
+        await amLoadChildren();
+        
+    } catch (error) {
+        console.error('拠点変更エラー:', error);
+        alert('拠点変更に失敗しました: ' + error.message);
+        
+        // ローディングを削除
+        const loading = document.getElementById('amLocationChangeLoading');
+        if (loading) loading.remove();
     }
 };
