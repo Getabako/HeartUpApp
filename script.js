@@ -1291,19 +1291,10 @@ async function generateRecord(event) {
     const observation = document.getElementById('observation').value;
     const notes = document.getElementById('notes').value;
 
-    const activityLabels = {
-        'warmup': 'ウォーミングアップ',
-        'individual': '個別練習',
-        'group': 'グループ活動',
-        'game': 'ミニゲーム',
-        'skill': 'スキル練習',
-        'cooldown': 'クールダウン',
-        'event': 'イベント',
-        'other': 'その他'
-    };
+    // グローバル定数ACTIVITY_LABELSを使用
 
     // 選択された活動のラベルを取得
-    const activityTypeLabels = selectedActivities.map(a => activityLabels[a] || a).join('、');
+    const activityTypeLabels = selectedActivities.map(a => ACTIVITY_LABELS[a] || a).join('、');
 
     // ローディング表示
     document.getElementById('recordContent').innerHTML = '<div class="ai-loading"><img src="soccerball.png" alt="読み込み中" class="ai-loading-ball"><span class="ai-loading-text">AIが記録を生成中...</span></div>';
@@ -2854,6 +2845,18 @@ const goalCategoryDefinitions = {
     }
 };
 
+// 活動内容のラベル定義（グローバル定数）
+const ACTIVITY_LABELS = {
+    warmup: 'ウォーミングアップ',
+    individual: '個別練習',
+    group: 'グループ活動',
+    game: 'ミニゲーム',
+    skill: 'スキル練習',
+    cooldown: 'クールダウン',
+    event: 'イベント',
+    other: 'その他'
+};
+
 // 活動内容→関連する目標カテゴリのマッピング
 const activityGoalMapping = {
     warmup: ['physical', 'mental'],
@@ -3080,19 +3083,9 @@ function updateDetailedActivities() {
 
     // 選択された活動に対応する詳細項目を表示（活動ごとに明確にグループ化）
     let detailedHtml = '';
-    const activityLabels = {
-        warmup: 'ウォーミングアップ',
-        individual: '個別練習',
-        group: 'グループ活動',
-        game: 'ミニゲーム',
-        skill: 'スキル練習',
-        cooldown: 'クールダウン',
-        event: 'イベント',
-        other: 'その他'
-    };
     
     selectedActivities.forEach(activity => {
-        const activityLabel = activityLabels[activity];
+        const activityLabel = ACTIVITY_LABELS[activity];
         const options = detailedActivityOptions[activity] || [];
         if (options.length > 0) {
             detailedHtml += `<div class="detailed-activity-group" style="margin-bottom: 1rem; padding: 0.8rem; background: #f8f9fa; border-radius: 6px; border-left: 4px solid #4CAF50;">
@@ -3116,19 +3109,9 @@ function updateDetailedActivities() {
 
     // 関連する目標項目を動的に生成（活動内容ごとにグループ化）
     let goalsHtml = '';
-    const activityLabels = {
-        warmup: 'ウォーミングアップ',
-        individual: '個別練習',
-        group: 'グループ活動',
-        game: 'ミニゲーム',
-        skill: 'スキル練習',
-        cooldown: 'クールダウン',
-        event: 'イベント',
-        other: 'その他'
-    };
-    
+
     selectedActivities.forEach(activity => {
-        const activityLabel = activityLabels[activity];
+        const activityLabel = ACTIVITY_LABELS[activity];
         const categories = activityGoalMapping[activity] || [];
         
         if (categories.length > 0) {
