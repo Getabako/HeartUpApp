@@ -3689,15 +3689,17 @@ function renderBatchRecordResults(container, results) {
     // 結果をグローバルに保存（連絡帳生成用）
     window.batchRecordResults = results;
 
-    let resultsHTML = '';
+    // タブHTML生成
+    let tabsHTML = '';
     results.forEach((result, index) => {
-        resultsHTML += `
-            <div class="batch-result-item">
-                <div class="batch-result-header">
-                    <span class="batch-child-number">${index + 1}</span>
-                    <span class="batch-child-name">${result.childName}</span>
-                    <span class="batch-result-status">✓ 保存済み</span>
-                </div>
+        tabsHTML += `<button class="batch-tab${index === 0 ? ' active' : ''}" onclick="switchBatchTab(${index})">${result.childName}</button>`;
+    });
+
+    // 各児童のコンテンツパネル生成
+    let panelsHTML = '';
+    results.forEach((result, index) => {
+        panelsHTML += `
+            <div class="batch-tab-panel${index === 0 ? ' active' : ''}" id="batchPanel_${index}">
                 <div class="batch-result-content" id="batchResult_${index}">
                     ${convertMarkdownToHTML(result.generatedText)}
                 </div>
@@ -3725,8 +3727,14 @@ function renderBatchRecordResults(container, results) {
                 <p>${results.length}名分の記録を保存しました。</p>
             </div>
 
-            <div class="batch-results">
-                ${resultsHTML}
+            <div class="batch-tabs-container">
+                <div class="batch-tabs">
+                    ${tabsHTML}
+                </div>
+            </div>
+
+            <div class="batch-tab-panels">
+                ${panelsHTML}
             </div>
 
             <div class="wizard-buttons">
@@ -3737,6 +3745,21 @@ function renderBatchRecordResults(container, results) {
             </div>
         </div>
     `;
+}
+
+/**
+ * 一括記録結果のタブを切り替え
+ */
+function switchBatchTab(index) {
+    // タブのactive切り替え
+    document.querySelectorAll('.batch-tab').forEach(tab => tab.classList.remove('active'));
+    const tabs = document.querySelectorAll('.batch-tab');
+    if (tabs[index]) tabs[index].classList.add('active');
+
+    // パネルのactive切り替え
+    document.querySelectorAll('.batch-tab-panel').forEach(panel => panel.classList.remove('active'));
+    const panel = document.getElementById(`batchPanel_${index}`);
+    if (panel) panel.classList.add('active');
 }
 
 /**
