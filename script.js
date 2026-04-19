@@ -3655,7 +3655,7 @@ async function generateBatchRecords() {
 
             // dataAdapterに保存
             const reportKey = `${childName}_記録_${batchRecordState.date}_batch.html`;
-            await dataAdapter.saveDailyReport(reportKey, generatedText, childName, batchRecordState.date, {
+            const saveResult = await dataAdapter.saveDailyReport(reportKey, generatedText, childName, batchRecordState.date, {
                 activity: recordData.activityType,
                 observation: recordData.observation
             });
@@ -3663,7 +3663,9 @@ async function generateBatchRecords() {
             results.push({
                 childName,
                 recordData,
-                generatedText
+                generatedText,
+                reportKey,
+                reportId: saveResult?.id || null
             });
 
         }
@@ -3796,19 +3798,43 @@ async function generateAllParentNotes() {
         if (geminiAPI.isInitialized()) {
             const parentNotes = await geminiAPI.generateBatchParentNotes(records);
 
-            // 各連絡帳を表示
-            parentNotes.forEach((note, index) => {
+            // 各連絡帳を表示 & 保存済み記録に追記
+            for (let index = 0; index < parentNotes.length; index++) {
+                const note = parentNotes[index];
                 const section = document.getElementById(`parentNote_${index}`);
                 if (section && note.success) {
                     const content = section.querySelector('.parent-note-content');
                     content.textContent = note.parentNote;
                     section.style.display = 'block';
-                    // 結果に連絡帳を追加
-                    window.batchRecordResults[index].parentNote = note.parentNote;
-                }
-            });
+                    const result = window.batchRecordResults[index];
+                    result.parentNote = note.parentNote;
 
-            alert('連絡帳文章の生成が完了しました');
+                    // 保存済み記録に連絡帳文章を追記
+                    try {
+                        const targetKey = result.reportId || result.reportKey;
+                        if (targetKey) {
+                            const escaped = note.parentNote
+                                .replace(/&/g, '&amp;')
+                                .replace(/</g, '&lt;')
+                                .replace(/>/g, '&gt;');
+                            const parentNoteHtml = `\n\n<div class="saved-parent-note" style="background:#fff8e1;border:2px solid #ffb300;padding:14px 16px;margin-top:20px;border-radius:8px;">\n<div style="color:#f57c00;font-weight:bold;margin-bottom:8px;">📮 保護者向け連絡帳</div>\n<div style="white-space:pre-wrap;line-height:1.7;">${escaped}</div>\n</div>`;
+                            const newHtml = result.generatedText + parentNoteHtml;
+                            await dataAdapter.updateDailyReport(targetKey, {
+                                html: newHtml,
+                                reportData: {
+                                    activity: result.recordData.activityType,
+                                    observation: result.recordData.observation,
+                                    parentNote: note.parentNote
+                                }
+                            });
+                        }
+                    } catch (e) {
+                        console.error(`連絡帳の記録への保存エラー (${result.childName}):`, e);
+                    }
+                }
+            }
+
+            alert('連絡帳文章の生成が完了し、記録に保存されました');
         } else {
             alert('Gemini APIが設定されていません。設定画面からAPIキーを設定してください。');
         }

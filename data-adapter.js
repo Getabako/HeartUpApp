@@ -347,6 +347,31 @@ const dataAdapter = {
         localStorage.setItem('dailyReports', JSON.stringify(reports));
     },
 
+    async updateDailyReport(fileNameOrId, updates) {
+        let firebaseId = null;
+        if (heartUpDB.isReady()) {
+            try {
+                firebaseId = this._extractSupabaseId(fileNameOrId);
+                if (!firebaseId) {
+                    const all = await this.getDailyReports();
+                    const entry = all[fileNameOrId];
+                    if (entry?._supabaseId) firebaseId = entry._supabaseId;
+                }
+                if (firebaseId) {
+                    await heartUpDB.updateDailyReport(firebaseId, updates);
+                }
+            } catch (e) {
+                console.error('Firebase updateDailyReport error:', e);
+            }
+        }
+        const reports = JSON.parse(localStorage.getItem('dailyReports') || '{}');
+        if (reports[fileNameOrId]) {
+            if (updates.html !== undefined) reports[fileNameOrId].html = updates.html;
+            if (updates.reportData !== undefined) reports[fileNameOrId].data = updates.reportData;
+            localStorage.setItem('dailyReports', JSON.stringify(reports));
+        }
+    },
+
     async deleteDailyReport(fileNameOrId) {
         if (heartUpDB.isReady()) {
             try {

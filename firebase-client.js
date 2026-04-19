@@ -372,6 +372,15 @@ const heartUpDB = {
         return { id: docRef.id, child_name: childName };
     },
 
+    async updateDailyReport(id, updates) {
+        if (!this.isReady()) throw new Error('Firebase未初期化');
+        const data = { updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+        if (updates.html !== undefined) data.html = updates.html;
+        if (updates.reportData !== undefined) data.reportData = updates.reportData;
+        await this.db.collection('daily_reports').doc(id).update(data);
+        return { id };
+    },
+
     async deleteDailyReport(id) {
         if (!this.isReady()) throw new Error('Firebase未初期化');
         await this.db.collection('daily_reports').doc(id).delete();
