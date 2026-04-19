@@ -1561,7 +1561,10 @@ window.amViewDailyReport = async function(fileName) {
         modal.classList.add('active');
         return;
     }
-    content.innerHTML = report.html || '<div class="am-empty-state"><p>記録のHTMLデータがありません</p></div>';
+    const rendered = (typeof renderDailyReportForView === 'function')
+        ? renderDailyReportForView(report)
+        : (report.html || '');
+    content.innerHTML = rendered || '<div class="am-empty-state"><p>記録のHTMLデータがありません</p></div>';
     modal.classList.add('active');
 };
 
