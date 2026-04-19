@@ -3653,17 +3653,22 @@ async function generateBatchRecords() {
                 generatedText = `【活動記録】\n\n日付: ${batchRecordState.date}\n対象児童: ${childName}\n活動内容: ${selectedActivityLabels}\n\n◆ 活動の様子\n${observation}\n\n※ Gemini APIを設定すると、より詳細な記録が自動生成されます`;
             }
 
+            // マークダウンをHTMLに変換して保存（読みやすい形式で永続化）
+            const renderedHtml = `<div class="record-rendered" style="line-height:1.8;color:#333;">${convertMarkdownToHTML(generatedText)}</div>`;
+
             // dataAdapterに保存
             const reportKey = `${childName}_記録_${batchRecordState.date}_batch.html`;
-            const saveResult = await dataAdapter.saveDailyReport(reportKey, generatedText, childName, batchRecordState.date, {
+            const saveResult = await dataAdapter.saveDailyReport(reportKey, renderedHtml, childName, batchRecordState.date, {
                 activity: recordData.activityType,
-                observation: recordData.observation
+                observation: recordData.observation,
+                rawMarkdown: generatedText
             });
 
             results.push({
                 childName,
                 recordData,
                 generatedText,
+                renderedHtml,
                 reportKey,
                 reportId: saveResult?.id || null
             });
@@ -3817,13 +3822,15 @@ async function generateAllParentNotes() {
                                 .replace(/&/g, '&amp;')
                                 .replace(/</g, '&lt;')
                                 .replace(/>/g, '&gt;');
-                            const parentNoteHtml = `\n\n<div class="saved-parent-note" style="background:#fff8e1;border:2px solid #ffb300;padding:14px 16px;margin-top:20px;border-radius:8px;">\n<div style="color:#f57c00;font-weight:bold;margin-bottom:8px;">📮 保護者向け連絡帳</div>\n<div style="white-space:pre-wrap;line-height:1.7;">${escaped}</div>\n</div>`;
-                            const newHtml = result.generatedText + parentNoteHtml;
+                            const parentNoteHtml = `\n<div class="saved-parent-note" style="background:#fff8e1;border:2px solid #ffb300;padding:16px 18px;margin-top:24px;border-radius:8px;">\n<div style="color:#f57c00;font-weight:bold;font-size:1.05rem;margin-bottom:10px;">📮 保護者向け連絡帳</div>\n<div style="white-space:pre-wrap;line-height:1.8;color:#333;">${escaped}</div>\n</div>`;
+                            const baseHtml = result.renderedHtml || `<div class="record-rendered" style="line-height:1.8;color:#333;">${convertMarkdownToHTML(result.generatedText)}</div>`;
+                            const newHtml = baseHtml + parentNoteHtml;
                             await dataAdapter.updateDailyReport(targetKey, {
                                 html: newHtml,
                                 reportData: {
                                     activity: result.recordData.activityType,
                                     observation: result.recordData.observation,
+                                    rawMarkdown: result.generatedText,
                                     parentNote: note.parentNote
                                 }
                             });
