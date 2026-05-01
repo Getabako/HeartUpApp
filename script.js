@@ -2730,7 +2730,8 @@ const detailedActivityOptions = {
         { id: 'warmup_stretching', label: 'ストレッチ' },
         { id: 'warmup_dynamic', label: '動的ストレッチ' },
         { id: 'warmup_ball_handling', label: 'ボールハンドリング' },
-        { id: 'warmup_coordination', label: 'コーディネーショントレーニング' }
+        { id: 'warmup_coordination', label: 'コーディネーショントレーニング' },
+        { id: 'warmup_full_body', label: '全身運動' }
     ],
     individual: [
         { id: 'individual_dribble', label: 'ドリブル練習' },
@@ -2744,7 +2745,8 @@ const detailedActivityOptions = {
         { id: 'group_possession', label: 'ポゼッションゲーム' },
         { id: 'group_small_game', label: 'スモールサイドゲーム' },
         { id: 'group_cooperation', label: '協力ゲーム' },
-        { id: 'group_communication', label: 'コミュニケーション練習' }
+        { id: 'group_communication', label: 'コミュニケーション練習' },
+        { id: 'group_team_practice', label: 'チーム練習' }
     ],
     game: [
         { id: 'game_3v3', label: '3対3ゲーム' },
@@ -2787,14 +2789,18 @@ const goalOptions = [
     { id: 'goal_shoot', label: 'シュート' },
     { id: 'goal_ball_control', label: 'ボールコントロール（止める・蹴る・運ぶ）' },
     { id: 'goal_kick_type', label: 'キックの種類（インサイド・インステップ）' },
-    
+    { id: 'goal_trap', label: 'トラップ' },
+    { id: 'goal_floating_ball', label: '浮き玉' },
+    { id: 'goal_spatial_trap', label: '空間認知トラップ' },
+
     // 戦術・判断系
     { id: 'goal_judgment', label: '判断（正確性・スピード性）' },
     { id: 'goal_positioning', label: 'ポジショニング' },
     { id: 'goal_body_direction', label: '体の向き（攻撃時・守備時）' },
     { id: 'goal_defense', label: '守備（対人・グループ）' },
     { id: 'goal_tactics', label: '駆け引き（ボール保持・非保持時）' },
-    
+    { id: 'goal_attack_defense_switch', label: '攻守の切り替え' },
+
     // メンタル・社会性系
     { id: 'goal_switching', label: '切り替え（メンタル面・攻守切り替え）' },
     { id: 'goal_communication', label: 'コミュニケーション' },
@@ -2802,7 +2808,8 @@ const goalOptions = [
     { id: 'goal_concentration', label: '集中力' },
     { id: 'goal_order', label: '順番を守る' },
     { id: 'goal_cooperation', label: '協力意識' },
-    
+    { id: 'goal_scene_switch', label: '場面の切り替え' },
+
     // 身体能力・感覚系
     { id: 'goal_control', label: 'コントロール' },
     { id: 'goal_observation', label: '観察力（見る・聞く）' },
@@ -2810,7 +2817,9 @@ const goalOptions = [
     { id: 'goal_balance', label: 'バランス力' },
     { id: 'goal_agility', label: '俊敏性' },
     { id: 'goal_explosive', label: '瞬発力' },
-    
+    { id: 'goal_physical_improvement', label: '体力向上' },
+    { id: 'goal_athletic_improvement', label: '運動能力向上' },
+
     // 対人・グループ系
     { id: 'goal_one_on_one', label: '対人' },
     { id: 'goal_group_play', label: 'グループ活動' }
@@ -2821,22 +2830,22 @@ const goalCategoryDefinitions = {
     technical: {
         label: '⚽ 技術系',
         color: '#2e7d32',
-        goalIds: ['goal_dribble', 'goal_pass', 'goal_shoot', 'goal_ball_control', 'goal_kick_type']
+        goalIds: ['goal_dribble', 'goal_pass', 'goal_shoot', 'goal_ball_control', 'goal_kick_type', 'goal_trap', 'goal_floating_ball', 'goal_spatial_trap']
     },
     tactics: {
         label: '🎯 戦術・判断系',
         color: '#1565c0',
-        goalIds: ['goal_judgment', 'goal_positioning', 'goal_body_direction', 'goal_defense', 'goal_tactics']
+        goalIds: ['goal_judgment', 'goal_positioning', 'goal_body_direction', 'goal_defense', 'goal_tactics', 'goal_attack_defense_switch']
     },
     mental: {
         label: '🧠 メンタル・社会性系',
         color: '#7b1fa2',
-        goalIds: ['goal_switching', 'goal_communication', 'goal_challenge', 'goal_concentration', 'goal_order', 'goal_cooperation']
+        goalIds: ['goal_switching', 'goal_communication', 'goal_challenge', 'goal_concentration', 'goal_order', 'goal_cooperation', 'goal_scene_switch']
     },
     physical: {
         label: '💪 身体能力・感覚系',
         color: '#d84315',
-        goalIds: ['goal_control', 'goal_observation', 'goal_core_strength', 'goal_balance', 'goal_agility', 'goal_explosive']
+        goalIds: ['goal_control', 'goal_observation', 'goal_core_strength', 'goal_balance', 'goal_agility', 'goal_explosive', 'goal_physical_improvement', 'goal_athletic_improvement']
     },
     interpersonal: {
         label: '👥 対人・グループ系',
