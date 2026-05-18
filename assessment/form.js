@@ -650,6 +650,17 @@ async function generateAssessmentSheet(data) {
                     <td></td>
                 </tr>
 
+                ${data.staffNotes ? `
+                <tr class="category-header" style="background:#fff8e1;">
+                    <td colspan="3">スタッフ用備考（内部用）</td>
+                </tr>
+                <tr>
+                    <td>スタッフ用備考</td>
+                    <td class="details" style="background:#fffde7;">${data.staffNotes}</td>
+                    <td></td>
+                </tr>
+                ` : ''}
+
                 <!-- 優先課題領域 -->
                 ${data.sortedPriorities && data.sortedPriorities.length > 0 ? `
                 <tr class="category-header">
@@ -912,7 +923,7 @@ function renderOfficialIndividualPlanHTML(childData, planData) {
         </table>
         <div style="margin-top: 30px; display: flex; justify-content: space-between;">
             <div><p>説明同意日　令和　　年　　月　　日</p><p>保護者氏名 ____________________</p></div>
-            <div><p>カラーズFC鳥栖</p><p>児童発達支援管理責任者　岡本　陸佑</p></div>
+            <div><p>カラーズFC鳥栖</p><p>児童発達支援管理責任者　____________________</p></div>
         </div>
     </div>
 </body>

@@ -78,7 +78,7 @@
         <div class="section">
             <h2>スタッフ一覧</h2>
             <table>
-                <thead><tr><th>名前</th><th>メール</th><th>ロール</th><th>拠点</th><th></th></tr></thead>
+                <thead><tr><th>名前</th><th>メール</th><th>ロール</th><th>拠点</th><th>拠点変更</th></tr></thead>
                 <tbody id="staffBody"><tr><td colspan="5" class="empty-msg">読み込み中...</td></tr></tbody>
             </table>
         </div>
@@ -164,9 +164,10 @@
     <script>
         window.FIREBASE_CONFIG = { apiKey: '', authDomain: '', projectId: '' };
     </script>
-    <script src="config.js" onerror="console.log('config.js not found')"></script>
-    <script src="firebase-client.js"></script>
-    <script src="auth-guard.js"></script>
+    <script src="config.js?v=20260518" onerror="console.log('config.js not found')"></script>
+    <script src="firebase-client.js?v=20260518"></script>
+    <script src="data-adapter.js?v=20260518"></script>
+    <script src="auth-guard.js?v=20260518"></script>
     <script>
         let locations = [];
 
@@ -244,12 +245,17 @@
                     <tr>
                         <td>${s.name}</td>
                         <td>${s.email}</td>
-                        <td><span class="badge ${s.role === 'admin' ? 'badge-admin' : 'badge-staff'}">${s.role}</span></td>
-                        <td>${s.locations?.name || ''}</td>
                         <td>
                             <select onchange="changeStaffRole('${s.id}', this.value)" style="padding:4px;font-size:12px;">
                                 <option value="staff" ${s.role === 'staff' ? 'selected' : ''}>スタッフ</option>
                                 <option value="admin" ${s.role === 'admin' ? 'selected' : ''}>管理者</option>
+                            </select>
+                        </td>
+                        <td>${s.locations?.name || '<span style="color:#999;">未設定</span>'}</td>
+                        <td>
+                            <select onchange="changeStaffLocation('${s.id}', this.value)" style="padding:4px;font-size:12px;">
+                                <option value="">未設定</option>
+                                ${locations.map(l => `<option value="${l.id}" ${s.locationId === l.id ? 'selected' : ''}>${l.name}</option>`).join('')}
                             </select>
                         </td>
                     </tr>
@@ -265,6 +271,15 @@
                 await loadStaff();
             } catch (e) {
                 alert('ロール変更エラー: ' + e.message);
+            }
+        }
+
+        async function changeStaffLocation(staffId, locationId) {
+            try {
+                await heartUpDB.updateStaffLocation(staffId, locationId);
+                await loadStaff();
+            } catch (e) {
+                alert('拠点変更エラー: ' + e.message);
             }
         }
 
@@ -359,24 +374,19 @@
                 // テストデータを削除
                 for (const name of childNames) {
                     const lowerName = name.toLowerCase();
-                    const isTestData = testPatterns.some(pattern => 
+                    const isTestData = testPatterns.some(pattern =>
                         lowerName.includes(pattern.toLowerCase())
                     );
-                    
+
                     if (isTestData) {
-                        // テストデータを削除
-                        if (heartUpDB.isReady()) {
-                            // Firebaseから削除
-                            await heartUpDB.deleteChildByName(name);
+                        try {
+                            await dataAdapter.deleteChildAndRelatedData(name);
+                            deletedCount++;
+                        } catch (e) {
+                            console.error(`テストデータ「${name}」の削除エラー:`, e);
                         }
-                        // localStorageから削除
-                        delete children[name];
-                        deletedCount++;
                     }
                 }
-                
-                // localStorageを更新
-                localStorage.setItem('children', JSON.stringify(children));
                 
                 statusEl.innerHTML = `<span style="color: #2e7d32;">✅ テストデータ整理完了！</span><br>
                 <span style="font-size: 12px; color: #666;">${deletedCount}件のテストデータを削除しました。</span>`;

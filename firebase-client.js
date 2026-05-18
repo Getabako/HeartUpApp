@@ -227,6 +227,20 @@ const heartUpDB = {
         await batch.commit();
     },
 
+    async updateChildBasicInfo(childName, info) {
+        if (!this.isReady()) throw new Error('Firebase未初期化');
+        const snapshot = await this.db.collection('children').where('name', '==', childName).get();
+        if (snapshot.empty) throw new Error('児童が見つかりません: ' + childName);
+        const allowed = ['childNameKana', 'birthDate', 'gender', 'diagnosis', 'staffNotes'];
+        const updateData = { updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+        allowed.forEach(k => {
+            if (info[k] !== undefined) updateData[k] = info[k];
+        });
+        const batch = this.db.batch();
+        snapshot.docs.forEach(doc => batch.update(doc.ref, updateData));
+        await batch.commit();
+    },
+
     async deleteChildAndRelatedData(childName) {
         console.log('Firebase deleteChildAndRelatedData 開始:', childName);
         if (!this.isReady()) {
@@ -484,7 +498,7 @@ const heartUpDB = {
 
     async updateStaffLocation(staffId, locationId) {
         if (!this.isReady()) throw new Error('Firebase未初期化');
-        await this.db.collection('staff_profiles').doc(staffId).update({ location_id: locationId });
+        await this.db.collection('staff_profiles').doc(staffId).update({ locationId: locationId || '' });
         return { id: staffId };
     },
 

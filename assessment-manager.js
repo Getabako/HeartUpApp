@@ -239,6 +239,7 @@ async function amLoadChildren() {
                 gender: formData.gender || child.gender || '',
                 diagnosis: formData.diagnosis || child.diagnosis || '',
                 childNameKana: formData.childNameKana || child.childNameKana || '',
+                staffNotes: child.staffNotes || formData.staffNotes || '',
                 createdAt: child.createdAt,
                 locationId,
                 assessmentCount: childAssessments.length,
@@ -464,6 +465,7 @@ function amRenderChildren(childrenList) {
                 ` : `
                     <button class="am-btn am-btn-primary" onclick="window.location.href='assessment/form-simple.html'">アセスメント作成</button>
                 `}
+                <button class="am-btn" onclick="amShowEditChildModal('${escapedName}')" style="background:#1976d2; color:white; margin-top:4px;">基本情報編集</button>
                 <button class="am-btn am-btn-danger" onclick="amDeleteChild('${escapedName}')" style="background:#d32f2f; color:white; margin-top:4px;">削除</button>
             </div>
         `;
@@ -624,6 +626,118 @@ window.amExecuteChangeLocation = async function(childName, newLocationId) {
         }
     }
 }
+
+// === 児童 基本情報 編集モーダル ===
+window.amShowEditChildModal = function(childName) {
+    const child = amAllChildrenData.find(c => c.name === childName);
+    if (!child) {
+        alert('児童データが見つかりません');
+        return;
+    }
+
+    // 既存モーダル削除
+    document.getElementById('amEditChildModal')?.remove();
+
+    const escName = childName.replace(/'/g, "\\'");
+    const diagnoses = [
+        '自閉スペクトラム症/自閉症スペクトラム障害(ASD)',
+        '注意欠如多動症(ADHD)',
+        '限局性学習症/学習障害(SLD)',
+        '知的能力障害/知的発達症',
+        '発達性協調運動障害(DCD)'
+    ];
+    const currentDiagnosis = child.diagnosis || '';
+
+    const modal = document.createElement('div');
+    modal.id = 'amEditChildModal';
+    modal.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:flex; justify-content:center; align-items:center; z-index:1100;';
+    modal.innerHTML = `
+        <div style="background:white; border-radius:12px; padding:24px; max-width:560px; width:90%; max-height:85vh; overflow-y:auto;">
+            <h3 style="color:#2e7d32; margin-bottom:16px;">児童 基本情報の編集</h3>
+            <p style="color:#666; font-size:0.85rem; margin-bottom:16px;">児童名「<strong>${childName}</strong>」の基本情報を編集します。アセスメント本体の内容は別途「新規アセスメント作成」から再作成してください。</p>
+
+            <div style="margin-bottom:12px;">
+                <label style="display:block; font-size:13px; color:#555; margin-bottom:4px;">ふりがな</label>
+                <input type="text" id="editChildKana" value="${child.childNameKana || ''}" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px;">
+            </div>
+
+            <div style="margin-bottom:12px;">
+                <label style="display:block; font-size:13px; color:#555; margin-bottom:4px;">生年月日</label>
+                <input type="date" id="editChildBirthDate" value="${child.birthDate || ''}" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px;">
+            </div>
+
+            <div style="margin-bottom:12px;">
+                <label style="display:block; font-size:13px; color:#555; margin-bottom:4px;">性別</label>
+                <select id="editChildGender" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px;">
+                    <option value="" ${!child.gender ? 'selected' : ''}>未回答</option>
+                    <option value="男" ${child.gender === '男' ? 'selected' : ''}>男</option>
+                    <option value="女" ${child.gender === '女' ? 'selected' : ''}>女</option>
+                    <option value="その他" ${child.gender === 'その他' ? 'selected' : ''}>その他</option>
+                    <option value="回答しない" ${child.gender === '回答しない' ? 'selected' : ''}>回答しない</option>
+                </select>
+            </div>
+
+            <div style="margin-bottom:12px;">
+                <label style="display:block; font-size:13px; color:#555; margin-bottom:4px;">診断名（複数選択可）</label>
+                <div style="display:flex; flex-direction:column; gap:6px; padding:8px; border:1px solid #ddd; border-radius:6px;">
+                    ${diagnoses.map(d => `
+                        <label style="font-size:13px; display:flex; align-items:center; gap:6px;">
+                            <input type="checkbox" class="editChildDiag" value="${d}" ${currentDiagnosis.includes(d) ? 'checked' : ''}>
+                            ${d}
+                        </label>
+                    `).join('')}
+                </div>
+                <input type="text" id="editChildDiagOther" placeholder="その他（自由入力・既存内容を保持/上書き）" style="width:100%; margin-top:6px; padding:8px; border:1px solid #ddd; border-radius:6px;">
+            </div>
+
+            <div style="margin-bottom:16px; background:#fff8e1; padding:12px; border-radius:6px; border-left:4px solid #ff9800;">
+                <label style="display:block; font-size:13px; color:#555; margin-bottom:4px; font-weight:bold;">スタッフ用備考（内部用）</label>
+                <textarea id="editChildStaffNotes" rows="4" placeholder="スタッフ内部向けのメモ・申し送り事項など" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px;">${child.staffNotes || ''}</textarea>
+            </div>
+
+            <div style="display:flex; gap:8px; justify-content:flex-end;">
+                <button onclick="document.getElementById('amEditChildModal').remove()" style="padding:8px 16px; border:1px solid #ddd; border-radius:6px; background:white; cursor:pointer;">キャンセル</button>
+                <button id="amEditChildSubmitBtn" onclick="amSubmitEditChild('${escName}')" style="padding:8px 16px; border:none; border-radius:6px; background:#1976d2; color:white; cursor:pointer; font-weight:bold;">保存</button>
+            </div>
+        </div>
+    `;
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+};
+
+window.amSubmitEditChild = async function(childName) {
+    const btn = document.getElementById('amEditChildSubmitBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '保存中...'; }
+
+    try {
+        const diagChecked = Array.from(document.querySelectorAll('.editChildDiag:checked')).map(el => el.value);
+        const diagOther = document.getElementById('editChildDiagOther').value.trim();
+        const diagList = [...diagChecked];
+        if (diagOther) diagList.push(diagOther);
+
+        const info = {
+            childNameKana: document.getElementById('editChildKana').value.trim(),
+            birthDate: document.getElementById('editChildBirthDate').value,
+            gender: document.getElementById('editChildGender').value,
+            diagnosis: diagList.length > 0 ? diagList.join('、') : '',
+            staffNotes: document.getElementById('editChildStaffNotes').value
+        };
+
+        await dataAdapter.updateChildBasicInfo(childName, info);
+
+        // メモリ更新
+        const child = amAllChildrenData.find(c => c.name === childName);
+        if (child) Object.assign(child, info, { grade: amCalculateGrade(info.birthDate) });
+
+        document.getElementById('amEditChildModal')?.remove();
+        amRenderChildren(amAllChildrenData);
+        alert(`「${childName}」の基本情報を更新しました。`);
+    } catch (e) {
+        console.error('児童編集エラー:', e);
+        alert('更新に失敗しました: ' + e.message);
+        if (btn) { btn.disabled = false; btn.textContent = '保存'; }
+    }
+};
 
 // アセスメントHTMLをform_dataから生成（htmlが空の場合のフォールバック）
 function amGenerateAssessmentHtmlFromData(data) {
@@ -1149,7 +1263,7 @@ function amGenerateOfficialSupportPlanHTML(childData, planData, startDate, endDa
             <p>カラーズFC鳥栖</p>
             <div style="display:flex; margin-bottom:10px;">
                 <span style="width:180px;">児童発達支援管理責任者</span>
-                <span style="margin-left:20px;">岡本　陸佑</span>
+                <span style="margin-left:20px; flex:1; border-bottom:1px solid #333;"></span>
             </div>
         </div>
     </div>
@@ -1409,28 +1523,59 @@ window.amShowAllSupportPlans = async function() {
         return;
     }
 
-    let listHTML = '<h2 style="color:#2e7d32; margin-bottom:20px;">支援計画一覧</h2><div class="am-list-container">';
+    // 計画種別で分類
+    // officialIndividual / individual / support → 個別支援計画
+    // officialSupport / specialized → 専門支援計画
+    const individualPlans = [];
+    const specializedPlans = [];
+    Object.entries(supportPlans).forEach(([fileName, plan]) => {
+        const t = plan.type || 'support';
+        if (t === 'officialSupport' || t === 'specialized') {
+            specializedPlans.push([fileName, plan]);
+        } else {
+            individualPlans.push([fileName, plan]);
+        }
+    });
 
-    Object.entries(supportPlans)
-        .sort((a, b) => new Date(b[1].createdAt) - new Date(a[1].createdAt))
-        .forEach(([fileName, plan]) => {
-            const escapedFileName = fileName.replace(/'/g, "\\'");
-            listHTML += `
-                <div class="am-list-item">
-                    <div class="am-list-item-info">
-                        <h4>${plan.childName}</h4>
-                        <p>ファイル名: ${fileName}</p>
-                        <p>作成日: ${new Date(plan.createdAt).toLocaleDateString('ja-JP')}</p>
-                    </div>
-                    <div class="am-list-item-actions">
-                        <button class="am-btn am-btn-secondary" onclick="amViewSupportPlan('${escapedFileName}')">表示</button>
-                        <button class="am-btn am-btn-danger-small" onclick="amDeleteSupportPlan('${escapedFileName}')">削除</button>
-                    </div>
+    const renderItem = ([fileName, plan]) => {
+        const escapedFileName = fileName.replace(/'/g, "\\'");
+        return `
+            <div class="am-list-item">
+                <div class="am-list-item-info">
+                    <h4>${plan.childName}</h4>
+                    <p>ファイル名: ${fileName}</p>
+                    <p>作成日: ${new Date(plan.createdAt).toLocaleDateString('ja-JP')}</p>
                 </div>
-            `;
-        });
+                <div class="am-list-item-actions">
+                    <button class="am-btn am-btn-secondary" onclick="amViewSupportPlan('${escapedFileName}')">表示</button>
+                    <button class="am-btn am-btn-danger-small" onclick="amDeleteSupportPlan('${escapedFileName}')">削除</button>
+                </div>
+            </div>
+        `;
+    };
 
-    listHTML += '</div>';
+    const sortByDate = (a, b) => new Date(b[1].createdAt) - new Date(a[1].createdAt);
+    individualPlans.sort(sortByDate);
+    specializedPlans.sort(sortByDate);
+
+    let listHTML = '<h2 style="color:#2e7d32; margin-bottom:20px;">支援計画一覧</h2>';
+
+    // 個別支援計画
+    listHTML += `<h3 style="margin: 20px 0 10px; color: #1976d2; padding-bottom:6px; border-bottom:2px solid #1976d2;">個別支援計画 <span style="font-size:0.85rem; color:#666; font-weight:normal;">(${individualPlans.length}件)</span></h3>`;
+    if (individualPlans.length === 0) {
+        listHTML += '<div class="am-empty-state" style="padding:20px;"><p style="color:#999;">個別支援計画はまだ作成されていません</p></div>';
+    } else {
+        listHTML += '<div class="am-list-container">' + individualPlans.map(renderItem).join('') + '</div>';
+    }
+
+    // 専門支援計画
+    listHTML += `<h3 style="margin: 30px 0 10px; color: #d35400; padding-bottom:6px; border-bottom:2px solid #d35400;">専門支援計画 <span style="font-size:0.85rem; color:#666; font-weight:normal;">(${specializedPlans.length}件)</span></h3>`;
+    if (specializedPlans.length === 0) {
+        listHTML += '<div class="am-empty-state" style="padding:20px;"><p style="color:#999;">専門支援計画はまだ作成されていません</p></div>';
+    } else {
+        listHTML += '<div class="am-list-container">' + specializedPlans.map(renderItem).join('') + '</div>';
+    }
+
     container.innerHTML = listHTML;
 };
 
@@ -1614,101 +1759,3 @@ window.amDeleteReview = async function(fileName) {
     }
 };
 
-// === 拠点変更機能 ===
-
-// 拠点変更モーダルを表示
-window.amShowChangeLocationModal = function(childName, currentLocationId, currentLocationName) {
-    console.log('拠点変更モーダル表示:', childName, currentLocationId, currentLocationName);
-    
-    // モーダルHTMLを生成
-    const modalHtml = `
-        <div id="amLocationChangeModal" class="am-modal-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000;">
-            <div class="am-modal-content" style="background: white; padding: 30px; border-radius: 12px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto;">
-                <h3 style="color: #2e7d32; margin-bottom: 20px;">拠点変更: ${childName}</h3>
-                <p style="margin-bottom: 20px; color: #666;">現在の拠点: <strong>${currentLocationName || '未設定'}</strong></p>
-                
-                <div class="am-location-options" style="margin-bottom: 25px;">
-                    <h4 style="margin-bottom: 10px; color: #444;">新しい拠点を選択:</h4>
-                    <div class="am-location-option" style="margin: 8px 0; padding: 12px; background: #f8f9fa; border-radius: 8px; cursor: pointer; border: 2px solid #e0e0e0;" 
-                         onclick="amChangeLocation('${childName}', 'デフォルト拠点')">
-                        <strong>デフォルト拠点</strong>
-                        <span style="color: #666; font-size: 0.9rem; display: block; margin-top: 4px;">基本の拠点</span>
-                    </div>
-                    <div class="am-location-option" style="margin: 8px 0; padding: 12px; background: #f8f9fa; border-radius: 8px; cursor: pointer; border: 2px solid #e0e0e0;" 
-                         onclick="amChangeLocation('${childName}', 'カラーズFC鳥栖')">
-                        <strong>カラーズFC鳥栖</strong>
-                        <span style="color: #666; font-size: 0.9rem; display: block; margin-top: 4px;">鳥栖市の拠点</span>
-                    </div>
-                    <div class="am-location-option" style="margin: 8px 0; padding: 12px; background: #f8f9fa; border-radius: 8px; cursor: pointer; border: 2px solid #e0e0e0;" 
-                         onclick="amChangeLocation('${childName}', '鳥栖')">
-                        <strong>鳥栖</strong>
-                        <span style="color: #666; font-size: 0.9rem; display: block; margin-top: 4px;">鳥栖市（旧名称）</span>
-                    </div>
-                </div>
-                
-                <div style="display: flex; justify-content: flex-end; gap: 10px;">
-                    <button onclick="amCloseLocationChangeModal()" style="padding: 10px 20px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 6px; cursor: pointer;">
-                        キャンセル
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // モーダルを追加
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-};
-
-// 拠点変更モーダルを閉じる
-window.amCloseLocationChangeModal = function() {
-    const modal = document.getElementById('amLocationChangeModal');
-    if (modal) {
-        modal.remove();
-    }
-};
-
-// 拠点変更を実行
-window.amChangeLocation = async function(childName, newLocationName) {
-    console.log('拠点変更実行:', childName, '→', newLocationName);
-    
-    // 確認ダイアログ
-    if (!confirm(`${childName}の拠点を「${newLocationName}」に変更しますか？`)) {
-        return;
-    }
-    
-    try {
-        // モーダルを閉じる
-        amCloseLocationChangeModal();
-        
-        // ローディング表示
-        const loadingMsg = document.createElement('div');
-        loadingMsg.id = 'amLocationChangeLoading';
-        loadingMsg.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: white; padding: 20px; border-radius: 8px; z-index: 1001;';
-        loadingMsg.innerHTML = `<div style="text-align: center;">拠点を変更中...</div>`;
-        document.body.appendChild(loadingMsg);
-        
-        // 拠点変更処理
-        console.log('拠点変更処理開始:', childName, newLocationName);
-        
-        // dataAdapterを使用して拠点を更新
-        await dataAdapter.updateChildLocation(childName, newLocationName);
-        
-        // ローディングを削除
-        const loading = document.getElementById('amLocationChangeLoading');
-        if (loading) loading.remove();
-        
-        // 成功メッセージ
-        alert(`${childName}の拠点を「${newLocationName}」に変更しました！`);
-        
-        // データを再読み込み
-        await amLoadChildren();
-        
-    } catch (error) {
-        console.error('拠点変更エラー:', error);
-        alert('拠点変更に失敗しました: ' + error.message);
-        
-        // ローディングを削除
-        const loading = document.getElementById('amLocationChangeLoading');
-        if (loading) loading.remove();
-    }
-};

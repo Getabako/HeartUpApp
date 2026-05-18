@@ -1032,7 +1032,7 @@ class CSVImporter {
             </div>
             <div class="footer-right">
                 <p>${data.facilityName || 'カラーズFC鳥栖'}</p>
-                <p>児童発達支援管理責任者　岡本　陸佑</p>
+                <p>児童発達支援管理責任者　____________________</p>
             </div>
         </div>
     </div>

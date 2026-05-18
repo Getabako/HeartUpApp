@@ -70,6 +70,25 @@ const dataAdapter = {
         }
     },
 
+    async updateChildBasicInfo(childName, info) {
+        if (heartUpDB.isReady()) {
+            try {
+                await heartUpDB.updateChildBasicInfo(childName, info);
+            } catch (e) {
+                console.error('Firebase updateChildBasicInfo error:', e);
+                throw e;
+            }
+        }
+        // localStorageキャッシュも更新
+        const children = JSON.parse(localStorage.getItem('children') || '{}');
+        if (children[childName]) {
+            ['childNameKana', 'birthDate', 'gender', 'diagnosis', 'staffNotes'].forEach(k => {
+                if (info[k] !== undefined) children[childName][k] = info[k];
+            });
+            localStorage.setItem('children', JSON.stringify(children));
+        }
+    },
+
     async deleteChildAndRelatedData(childName) {
         console.log('dataAdapter.deleteChildAndRelatedData 開始:', childName);
 
