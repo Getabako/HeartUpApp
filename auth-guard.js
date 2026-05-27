@@ -224,6 +224,15 @@ const authGuard = {
 
         try {
             const user = this._regUser;
+            // 重複プロフィール防止: 同一メールが既に登録されていないか確認
+            const existing = await heartUpDB.findProfileByEmail(user.email);
+            if (existing && existing.id !== user.uid) {
+                errorEl.textContent = `このメール（${user.email}）は既に登録されています。管理者に連絡し、既存プロフィールを削除してもらってから再ログインしてください。`;
+                errorEl.style.display = 'block';
+                submitBtn.disabled = false;
+                submitBtn.textContent = '登録する';
+                return;
+            }
             const profileData = {
                 email: user.email,
                 name: name,

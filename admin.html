@@ -78,8 +78,8 @@
         <div class="section">
             <h2>スタッフ一覧</h2>
             <table>
-                <thead><tr><th>名前</th><th>メール</th><th>ロール</th><th>拠点</th><th>拠点変更</th></tr></thead>
-                <tbody id="staffBody"><tr><td colspan="5" class="empty-msg">読み込み中...</td></tr></tbody>
+                <thead><tr><th>名前</th><th>メール</th><th>ロール</th><th>拠点</th><th>拠点変更</th><th>操作</th></tr></thead>
+                <tbody id="staffBody"><tr><td colspan="6" class="empty-msg">読み込み中...</td></tr></tbody>
             </table>
         </div>
 
@@ -192,13 +192,24 @@
                     tbody.innerHTML = '<tr><td colspan="3" class="empty-msg">拠点がありません</td></tr>';
                     return;
                 }
-                tbody.innerHTML = locations.map(l => `
-                    <tr>
-                        <td>${l.name}</td>
+                // 同名拠点を検出して重複バッジを表示
+                const nameCount = {};
+                locations.forEach(l => { nameCount[l.name] = (nameCount[l.name] || 0) + 1; });
+                tbody.innerHTML = locations.map(l => {
+                    const isDup = nameCount[l.name] > 1;
+                    const dupBadge = isDup ? '<span style="display:inline-block;background:#ffebee;color:#c62828;padding:2px 6px;border-radius:4px;font-size:11px;margin-left:6px;">重複</span>' : '';
+                    const mergeBtn = isDup ? `<button class="btn btn-sm" style="background:#ff9800;color:white;margin-right:4px;" onclick="showMergeLocation('${l.id}','${(l.name || '').replace(/'/g, "\\'")}')">統合</button>` : '';
+                    return `
+                    <tr${isDup ? ' style="background:#fff8f8;"' : ''}>
+                        <td>${l.name}${dupBadge}<br><span style="color:#999;font-size:11px;">ID: ${l.id}</span></td>
                         <td>${new Date(l.created_at).toLocaleDateString('ja-JP')}</td>
-                        <td><button class="btn btn-danger btn-sm" onclick="deleteLocation('${l.id}','${l.name}')">削除</button></td>
+                        <td>
+                            ${mergeBtn}
+                            <button class="btn btn-danger btn-sm" onclick="deleteLocation('${l.id}','${(l.name || '').replace(/'/g, "\\'")}')">削除</button>
+                        </td>
                     </tr>
-                `).join('');
+                    `;
+                }).join('');
             } catch (e) {
                 console.error('拠点読み込みエラー:', e);
             }
@@ -222,12 +233,106 @@
         }
 
         async function deleteLocation(id, name) {
-            if (!confirm(`「${name}」を削除しますか？\n※ この拠点に紐づくスタッフがいる場合は削除できません。`)) return;
+            // 紐づくデータがある場合は削除を拒否
+            try {
+                const counts = await heartUpDB.countLocationUsage(id);
+                const total = Object.values(counts).reduce((a, b) => a + b, 0);
+                if (total > 0) {
+                    const detail = Object.entries(counts).filter(([, v]) => v > 0).map(([k, v]) => `${k}: ${v}件`).join(' / ');
+                    alert(`「${name}」には以下のデータが紐づいているため削除できません。\n\n${detail}\n\n「統合」機能で別の拠点にデータを移してから削除してください。`);
+                    return;
+                }
+            } catch (e) {
+                alert('利用状況の確認に失敗しました: ' + e.message);
+                return;
+            }
+            if (!confirm(`「${name}」を削除しますか？\nこの拠点には紐づくデータがありません。`)) return;
             try {
                 await heartUpDB.deleteLocation(id);
                 await loadAll();
             } catch (e) {
                 alert('削除エラー: ' + e.message);
+            }
+        }
+
+        // ---- 拠点統合（マージ） ----
+        async function showMergeLocation(fromId, fromName) {
+            // 同名 or 任意の他拠点を統合先候補にする
+            const candidates = locations.filter(l => l.id !== fromId);
+            if (candidates.length === 0) {
+                alert('統合先の拠点がありません。');
+                return;
+            }
+            // 利用状況を取得
+            let counts;
+            try {
+                counts = await heartUpDB.countLocationUsage(fromId);
+            } catch (e) {
+                alert('利用状況の取得に失敗: ' + e.message);
+                return;
+            }
+            const detail = Object.entries(counts).map(([k, v]) => `${k}: ${v}件`).join(' / ');
+
+            // 同名拠点を最優先候補に
+            const sameName = candidates.filter(l => l.name === fromName);
+            const others = candidates.filter(l => l.name !== fromName);
+            const sorted = [...sameName, ...others];
+
+            const optionsHtml = sorted.map(l =>
+                `<option value="${l.id}">${l.name}${l.name === fromName ? '（同名）' : ''} - ID:${l.id.substring(0,8)}…</option>`
+            ).join('');
+
+            // 簡易モーダル（既存スタイル流用）
+            const html = `
+                <div class="modal-overlay active" id="mergeLocationModal" style="display:flex;">
+                    <div class="modal">
+                        <h3>拠点を統合</h3>
+                        <p style="margin-bottom:12px;"><strong>統合元（消える側）:</strong><br>${fromName}<br><span style="color:#999;font-size:12px;">ID: ${fromId}</span></p>
+                        <p style="margin-bottom:12px;color:#666;font-size:13px;">この拠点に紐づくデータ:<br>${detail}</p>
+                        <div class="form-group">
+                            <label>統合先（残る側）</label>
+                            <select id="mergeTargetSelect">${optionsHtml}</select>
+                        </div>
+                        <p style="color:#d32f2f;font-size:13px;margin:12px 0;">
+                            ⚠ 統合元の全データ（児童・記録・アセスメント等）の拠点が「統合先」に書き換わります。<br>
+                            データ自体は削除されず、locationId のみ変更されます。<br>
+                            処理完了後、統合元の拠点（空）は自動削除されます。
+                        </p>
+                        <div class="modal-actions">
+                            <button class="btn" onclick="closeMergeModal()">キャンセル</button>
+                            <button class="btn btn-primary" id="mergeExecBtn" onclick="executeMerge('${fromId}','${(fromName || '').replace(/'/g, "\\'")}')">統合を実行</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            const wrap = document.createElement('div');
+            wrap.innerHTML = html;
+            document.body.appendChild(wrap.firstElementChild);
+        }
+
+        function closeMergeModal() {
+            const m = document.getElementById('mergeLocationModal');
+            if (m) m.remove();
+        }
+
+        async function executeMerge(fromId, fromName) {
+            const toId = document.getElementById('mergeTargetSelect').value;
+            if (!toId) return alert('統合先を選択してください');
+            const toLoc = locations.find(l => l.id === toId);
+            if (!confirm(`「${fromName}」のデータを全て「${toLoc?.name || toId}」に移します。\nこの操作は取り消せません。実行しますか？`)) return;
+            const btn = document.getElementById('mergeExecBtn');
+            btn.disabled = true;
+            btn.textContent = '統合中...';
+            try {
+                const result = await heartUpDB.mergeLocations(fromId, toId);
+                const movedDetail = Object.entries(result.moved).filter(([, v]) => v > 0).map(([k, v]) => `${k}: ${v}件`).join(' / ') || '移動データなし';
+                alert(`統合完了\n移動内訳: ${movedDetail}`);
+                closeMergeModal();
+                await loadAll();
+            } catch (e) {
+                alert('統合エラー: ' + e.message + '\n\nデータは安全のため統合元に残っています。再試行してください。');
+                btn.disabled = false;
+                btn.textContent = '統合を実行';
             }
         }
 
@@ -238,12 +343,18 @@
                 const staff = await heartUpDB.getStaffProfiles();
                 const tbody = document.getElementById('staffBody');
                 if (staff.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" class="empty-msg">スタッフがいません</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">スタッフがいません</td></tr>';
                     return;
                 }
-                tbody.innerHTML = staff.map(s => `
-                    <tr>
-                        <td>${s.name}</td>
+                // 同一メールが2件以上ある場合は重複マークを付ける
+                const emailCount = {};
+                staff.forEach(s => { emailCount[s.email] = (emailCount[s.email] || 0) + 1; });
+                tbody.innerHTML = staff.map(s => {
+                    const isDup = emailCount[s.email] > 1;
+                    const dupBadge = isDup ? '<span style="display:inline-block;background:#ffebee;color:#c62828;padding:2px 6px;border-radius:4px;font-size:11px;margin-left:6px;">重複</span>' : '';
+                    return `
+                    <tr${isDup ? ' style="background:#fff8f8;"' : ''}>
+                        <td>${s.name}${dupBadge}</td>
                         <td>${s.email}</td>
                         <td>
                             <select onchange="changeStaffRole('${s.id}', this.value)" style="padding:4px;font-size:12px;">
@@ -258,8 +369,12 @@
                                 ${locations.map(l => `<option value="${l.id}" ${s.locationId === l.id ? 'selected' : ''}>${l.name}</option>`).join('')}
                             </select>
                         </td>
+                        <td>
+                            <button class="btn btn-danger btn-sm" onclick="deleteStaff('${s.id}', '${(s.name || '').replace(/'/g, "\\'")}', '${(s.email || '').replace(/'/g, "\\'")}', '${s.role}')">削除</button>
+                        </td>
                     </tr>
-                `).join('');
+                    `;
+                }).join('');
             } catch (e) {
                 console.error('スタッフ読み込みエラー:', e);
             }
@@ -280,6 +395,17 @@
                 await loadStaff();
             } catch (e) {
                 alert('拠点変更エラー: ' + e.message);
+            }
+        }
+
+        async function deleteStaff(staffId, name, email, role) {
+            const msg = `スタッフプロフィールを削除します。\n\n名前: ${name}\nメール: ${email}\nロール: ${role}\n\n※このプロフィールが児童データを「作成した」記録には影響しません（児童データ自体は残ります）。\n※削除後、本人が再度ログインすると新規登録画面が表示されます。\n\n本当に削除しますか？`;
+            if (!confirm(msg)) return;
+            try {
+                await heartUpDB.deleteStaffProfile(staffId);
+                await loadStaff();
+            } catch (e) {
+                alert('削除エラー: ' + e.message);
             }
         }
 

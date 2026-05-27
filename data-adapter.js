@@ -10,29 +10,33 @@ const dataAdapter = {
 
     async getChildren() {
         if (heartUpDB.isReady()) {
-            try {
-                const rows = await heartUpDB.getChildren();
-                const obj = {};
-                rows.forEach(r => {
-                    const metadata = r.metadata || {};
-                    obj[r.name] = {
-                        id: r.id,
-                        createdAt: r.created_at,
-                        locationId: r.locationId,
-                        metadata: metadata,
-                        // 下位互換性のため主要なメタデータもルートレベルに展開
-                        grade: metadata.grade,
-                        characteristic: metadata.characteristic,
-                        birthDate: metadata.birthDate,
-                        gender: metadata.gender,
-                        diagnosis: metadata.diagnosis,
-                        childNameKana: metadata.childNameKana
-                    };
-                });
-                return obj;
-            } catch (e) {
-                console.error('Supabase getChildren error:', e);
+            // 認証プロフィール未取得ならロード（race condition対策）
+            // currentProfile が無いまま locationId フィルタを掛け損ねると、
+            // 全件クエリ→ルール/インデックス失敗→localStorageフォールバックで
+            // 端末ローカルの古いデータを表示する事故が起きるため待機する
+            if (!heartUpDB.currentProfile) {
+                try { await heartUpDB.getMyProfile(); } catch (e) { /* ignore */ }
             }
+            // Firebase接続中はlocalStorageフォールバックしない（古いデータを誤表示しないため）
+            const rows = await heartUpDB.getChildren();
+            const obj = {};
+            rows.forEach(r => {
+                const metadata = r.metadata || {};
+                obj[r.name] = {
+                    id: r.id,
+                    createdAt: r.created_at,
+                    locationId: r.locationId,
+                    metadata: metadata,
+                    // 下位互換性のため主要なメタデータもルートレベルに展開
+                    grade: metadata.grade,
+                    characteristic: metadata.characteristic,
+                    birthDate: metadata.birthDate,
+                    gender: metadata.gender,
+                    diagnosis: metadata.diagnosis,
+                    childNameKana: metadata.childNameKana
+                };
+            });
+            return obj;
         }
         return JSON.parse(localStorage.getItem('children') || '{}');
     },
@@ -123,22 +127,21 @@ const dataAdapter = {
 
     async getAssessments() {
         if (heartUpDB.isReady()) {
-            try {
-                const rows = await heartUpDB.getAssessments();
-                const obj = {};
-                rows.forEach(r => {
-                    const fileName = this._assessmentFileName(r);
-                    obj[fileName] = {
-                        _supabaseId: r.id,
-                        data: r.form_data || {},
-                        createdAt: r.created_at,
-                        filePath: `temp/assessmentSheet/${fileName}`
-                    };
-                });
-                return obj;
-            } catch (e) {
-                console.error('Supabase getAssessments error:', e);
+            if (!heartUpDB.currentProfile) {
+                try { await heartUpDB.getMyProfile(); } catch (e) { /* ignore */ }
             }
+            const rows = await heartUpDB.getAssessments();
+            const obj = {};
+            rows.forEach(r => {
+                const fileName = this._assessmentFileName(r);
+                obj[fileName] = {
+                    _supabaseId: r.id,
+                    data: r.form_data || {},
+                    createdAt: r.created_at,
+                    filePath: `temp/assessmentSheet/${fileName}`
+                };
+            });
+            return obj;
         }
         return JSON.parse(localStorage.getItem('assessments') || '{}');
     },
@@ -216,23 +219,22 @@ const dataAdapter = {
 
     async getSupportPlans() {
         if (heartUpDB.isReady()) {
-            try {
-                const rows = await heartUpDB.getSupportPlans();
-                const obj = {};
-                rows.forEach(r => {
-                    const fileName = this._supportPlanFileName(r);
-                    obj[fileName] = {
-                        _supabaseId: r.id,
-                        childName: r.child_name,
-                        planData: r.plan_data || {},
-                        createdAt: r.created_at,
-                        type: r.plan_type
-                    };
-                });
-                return obj;
-            } catch (e) {
-                console.error('Supabase getSupportPlans error:', e);
+            if (!heartUpDB.currentProfile) {
+                try { await heartUpDB.getMyProfile(); } catch (e) { /* ignore */ }
             }
+            const rows = await heartUpDB.getSupportPlans();
+            const obj = {};
+            rows.forEach(r => {
+                const fileName = this._supportPlanFileName(r);
+                obj[fileName] = {
+                    _supabaseId: r.id,
+                    childName: r.child_name,
+                    planData: r.plan_data || {},
+                    createdAt: r.created_at,
+                    type: r.plan_type
+                };
+            });
+            return obj;
         }
         return JSON.parse(localStorage.getItem('supportPlans') || '{}');
     },
@@ -304,23 +306,22 @@ const dataAdapter = {
 
     async getDailyReports() {
         if (heartUpDB.isReady()) {
-            try {
-                const rows = await heartUpDB.getDailyReports();
-                const obj = {};
-                rows.forEach(r => {
-                    const fileName = this._dailyReportFileName(r);
-                    obj[fileName] = {
-                        _supabaseId: r.id,
-                        childName: r.child_name,
-                        date: r.report_date,
-                        data: r.report_data || {},
-                        createdAt: r.created_at
-                    };
-                });
-                return obj;
-            } catch (e) {
-                console.error('Supabase getDailyReports error:', e);
+            if (!heartUpDB.currentProfile) {
+                try { await heartUpDB.getMyProfile(); } catch (e) { /* ignore */ }
             }
+            const rows = await heartUpDB.getDailyReports();
+            const obj = {};
+            rows.forEach(r => {
+                const fileName = this._dailyReportFileName(r);
+                obj[fileName] = {
+                    _supabaseId: r.id,
+                    childName: r.child_name,
+                    date: r.report_date,
+                    data: r.report_data || {},
+                    createdAt: r.created_at
+                };
+            });
+            return obj;
         }
         return JSON.parse(localStorage.getItem('dailyReports') || '{}');
     },
@@ -417,22 +418,21 @@ const dataAdapter = {
 
     async getReviews() {
         if (heartUpDB.isReady()) {
-            try {
-                const rows = await heartUpDB.getReviews();
-                const obj = {};
-                rows.forEach(r => {
-                    const fileName = this._reviewFileName(r);
-                    obj[fileName] = {
-                        _supabaseId: r.id,
-                        childName: r.child_name,
-                        data: r.review_data || {},
-                        createdAt: r.created_at
-                    };
-                });
-                return obj;
-            } catch (e) {
-                console.error('Supabase getReviews error:', e);
+            if (!heartUpDB.currentProfile) {
+                try { await heartUpDB.getMyProfile(); } catch (e) { /* ignore */ }
             }
+            const rows = await heartUpDB.getReviews();
+            const obj = {};
+            rows.forEach(r => {
+                const fileName = this._reviewFileName(r);
+                obj[fileName] = {
+                    _supabaseId: r.id,
+                    childName: r.child_name,
+                    data: r.review_data || {},
+                    createdAt: r.created_at
+                };
+            });
+            return obj;
         }
         return JSON.parse(localStorage.getItem('reviews') || '{}');
     },

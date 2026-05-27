@@ -128,6 +128,11 @@ const heartUpDB = {
 
     async createProfileFromInvitation(userId, email, invitation) {
         if (!this.isReady()) throw new Error('Firebase未初期化');
+        // 重複プロフィール防止
+        const existing = await this.findProfileByEmail(email);
+        if (existing && existing.id !== userId) {
+            throw new Error(`このメール（${email}）は既に登録されています。管理者に既存プロフィールの削除を依頼してください。`);
+        }
         const profileData = {
             email: email,
             name: invitation.name,
@@ -153,6 +158,11 @@ const heartUpDB = {
     },
 
     async bootstrapFirstAdmin(user) {
+        // 重複プロフィール防止
+        const existing = await this.findProfileByEmail(user.email);
+        if (existing && existing.id !== user.uid) {
+            throw new Error(`このメール（${user.email}）は既に別アカウントで登録されています。管理者に既存プロフィールの削除を依頼してください。`);
+        }
         // デフォルト拠点を作成
         const locRef = await this.db.collection('locations').add({
             name: 'デフォルト拠点',
@@ -467,6 +477,54 @@ const heartUpDB = {
         await this.db.collection('locations').doc(id).delete();
     },
 
+    // 拠点に紐づくデータ件数を集計（マージ前の確認用）
+    async countLocationUsage(locationId) {
+        if (!this.isReady()) throw new Error('Firebase未初期化');
+        const cols = ['children', 'assessments', 'support_plans', 'daily_reports', 'reviews', 'staff_profiles'];
+        const counts = {};
+        for (const col of cols) {
+            const snap = await this.db.collection(col).where('locationId', '==', locationId).get();
+            counts[col] = snap.size;
+        }
+        return counts;
+    },
+
+    // 拠点マージ: fromId に紐づく全データを toId に書き換え → fromId 拠点を削除
+    // データ削除は一切行わない（locationId の更新のみ）
+    async mergeLocations(fromId, toId) {
+        if (!this.isReady()) throw new Error('Firebase未初期化');
+        if (fromId === toId) throw new Error('同一の拠点はマージできません');
+        // toId 拠点が存在することを確認
+        const toDoc = await this.db.collection('locations').doc(toId).get();
+        if (!toDoc.exists) throw new Error('統合先の拠点が存在しません');
+
+        const cols = ['children', 'assessments', 'support_plans', 'daily_reports', 'reviews', 'staff_profiles'];
+        const moved = {};
+
+        for (const col of cols) {
+            const snap = await this.db.collection(col).where('locationId', '==', fromId).get();
+            moved[col] = snap.size;
+            // Firestoreのバッチは500件まで → 分割
+            const docs = snap.docs;
+            for (let i = 0; i < docs.length; i += 400) {
+                const batch = this.db.batch();
+                docs.slice(i, i + 400).forEach(d => batch.update(d.ref, { locationId: toId }));
+                await batch.commit();
+            }
+        }
+
+        // 移行後の検証
+        const remain = await this.countLocationUsage(fromId);
+        const total = Object.values(remain).reduce((a, b) => a + b, 0);
+        if (total > 0) {
+            throw new Error(`マージ検証失敗: ${fromId} に ${total} 件のデータが残存しています`);
+        }
+
+        // 空になった拠点を削除
+        await this.db.collection('locations').doc(fromId).delete();
+        return { moved };
+    },
+
     // ============================================================
     // Admin: スタッフ管理
     // ============================================================
@@ -500,6 +558,23 @@ const heartUpDB = {
         if (!this.isReady()) throw new Error('Firebase未初期化');
         await this.db.collection('staff_profiles').doc(staffId).update({ locationId: locationId || '' });
         return { id: staffId };
+    },
+
+    async deleteStaffProfile(staffId) {
+        if (!this.isReady()) throw new Error('Firebase未初期化');
+        // 自分自身は削除させない（admin操作中の事故防止）
+        const user = await this.getUser();
+        if (user && user.uid === staffId) {
+            throw new Error('自分自身のプロフィールは削除できません');
+        }
+        await this.db.collection('staff_profiles').doc(staffId).delete();
+    },
+
+    async findProfileByEmail(email) {
+        if (!this.isReady()) return null;
+        const snapshot = await this.db.collection('staff_profiles').where('email', '==', email).limit(1).get();
+        if (snapshot.empty) return null;
+        return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
     },
 
     // ============================================================
