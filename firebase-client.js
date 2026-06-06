@@ -128,9 +128,32 @@ const heartUpDB = {
         if (!user) return null;
 
         const doc = await this.db.collection('staff_profiles').doc(user.uid).get();
-        if (!doc.exists) return null;
+        let data;
+        if (doc.exists) {
+            data = doc.data();
+        } else {
+            // UIDキーで見つからない場合、同一メールの既存プロフィールを引き継ぐ。
+            // （Firebaseプロジェクト/プロジェクトID変更等でUIDが変わり、旧UIDキーの
+            //   プロフィールが残っているケースに対応。登録画面の板挟みを防ぐ）
+            const existing = await this.findProfileByEmail(user.email);
+            if (!existing) return null;
+            const { id: oldId } = existing;
+            data = {
+                email: existing.email,
+                name: existing.name,
+                role: existing.role,
+                locationId: existing.locationId,
+                createdAt: existing.createdAt || firebase.firestore.FieldValue.serverTimestamp()
+            };
+            try {
+                // 現在のUIDをキーに作り直し、旧ドキュメントを削除（重複解消）
+                await this.db.collection('staff_profiles').doc(user.uid).set(data, { merge: true });
+                if (oldId && oldId !== user.uid) {
+                    await this.db.collection('staff_profiles').doc(oldId).delete();
+                }
+            } catch (e) { console.warn('プロフィール引き継ぎに失敗:', e); }
+        }
 
-        const data = doc.data();
         // 拠点名も取得
         if (data.locationId) {
             try {
