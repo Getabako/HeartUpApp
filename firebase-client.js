@@ -75,6 +75,10 @@ const heartUpDB = {
 
     async signInWithGoogle() {
         if (!this.isReady()) throw new Error('Firebase未初期化');
+        // 認証状態をブラウザに永続化（ページ遷移後もログインを維持）
+        try {
+            await this.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+        } catch (e) { console.warn('setPersistence失敗:', e); }
         const provider = new firebase.auth.GoogleAuthProvider();
         return this.auth.signInWithPopup(provider);
     },

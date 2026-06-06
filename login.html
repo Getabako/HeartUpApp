@@ -83,7 +83,10 @@
                     throw new Error('Firebaseが設定されていません。管理者に連絡してください。');
                 }
                 await heartUpDB.signInWithGoogle();
-                // ポップアップ成功後、自動的にonAuthStateChangedでリダイレクト
+                // signInWithGoogleのawait完了 = 認証状態の永続化が完了。
+                // ここで明示的に遷移する（onAuthStateChangedリスナーに任せると
+                // 永続化書き込み前に遷移してしまいログインループになるため）。
+                window.location.href = '/index.html';
             } catch (e) {
                 loadingEl.style.display = 'none';
                 if (e.code === 'auth/popup-closed-by-user') return;
