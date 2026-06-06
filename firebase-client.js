@@ -49,6 +49,26 @@ const heartUpDB = {
         return ref;
     },
 
+    // クライアント側ソート（Firestore複合インデックス不要にするため）
+    // equalityフィルタ(locationId) + orderBy を同時に使うと複合インデックスが必要になるため、
+    // 並べ替えはJS側で行う。1拠点あたりの件数は小さく性能問題はない。
+    _sortByName(docs) {
+        return docs.slice().sort((a, b) =>
+            String(a.data().name || '').localeCompare(String(b.data().name || ''), 'ja'));
+    },
+
+    _sortByCreatedDesc(docs) {
+        const ms = (d) => {
+            const c = d.data().createdAt;
+            if (!c) return 0;
+            if (c.toMillis) return c.toMillis();
+            if (c.seconds) return c.seconds * 1000;
+            const t = new Date(c).getTime();
+            return isNaN(t) ? 0 : t;
+        };
+        return docs.slice().sort((a, b) => ms(b) - ms(a));
+    },
+
     // ============================================================
     // 認証
     // ============================================================
@@ -200,18 +220,22 @@ const heartUpDB = {
 
     async getChildren() {
         if (!this.isReady()) return [];
-        const snapshot = await this._locationQuery('children').orderBy('name').get();
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), created_at: this._ts(doc.data().createdAt) }));
+        const snapshot = await this._locationQuery('children').get();
+        return this._sortByName(snapshot.docs).map(doc => ({ id: doc.id, ...doc.data(), created_at: this._ts(doc.data().createdAt) }));
     },
 
     async getChildByName(name) {
         if (!this.isReady()) return null;
         const locationId = this.getMyLocationId();
-        let q = this.db.collection('children').where('name', '==', name);
-        if (locationId) q = q.where('locationId', '==', locationId);
-        const snapshot = await q.limit(1).get();
+        // 複合インデックス回避: name単一フィルタで取得し、locationIdはJS側で絞る
+        const snapshot = await this.db.collection('children').where('name', '==', name).get();
         if (snapshot.empty) return null;
-        return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+        let docs = snapshot.docs;
+        if (!this.isAdmin() && locationId) {
+            docs = docs.filter(d => (d.data().locationId || '') === locationId);
+        }
+        if (docs.length === 0) return null;
+        return { id: docs[0].id, ...docs[0].data() };
     },
 
     async getOrCreateChild(name) {
@@ -293,8 +317,8 @@ const heartUpDB = {
 
     async getAssessments() {
         if (!this.isReady()) return [];
-        const snapshot = await this._locationQuery('assessments').orderBy('createdAt', 'desc').get();
-        return snapshot.docs.map(doc => {
+        const snapshot = await this._locationQuery('assessments').get();
+        return this._sortByCreatedDesc(snapshot.docs).map(doc => {
             const d = doc.data();
             return { id: doc.id, child_name: d.childName, form_data: d.formData || {}, created_at: this._ts(d.createdAt) };
         });
@@ -331,8 +355,8 @@ const heartUpDB = {
 
     async getSupportPlans() {
         if (!this.isReady()) return [];
-        const snapshot = await this._locationQuery('support_plans').orderBy('createdAt', 'desc').get();
-        return snapshot.docs.map(doc => {
+        const snapshot = await this._locationQuery('support_plans').get();
+        return this._sortByCreatedDesc(snapshot.docs).map(doc => {
             const d = doc.data();
             return { id: doc.id, child_name: d.childName, plan_type: d.planType, plan_data: d.planData || {}, created_at: this._ts(d.createdAt) };
         });
@@ -369,8 +393,8 @@ const heartUpDB = {
 
     async getDailyReports() {
         if (!this.isReady()) return [];
-        const snapshot = await this._locationQuery('daily_reports').orderBy('createdAt', 'desc').get();
-        return snapshot.docs.map(doc => {
+        const snapshot = await this._locationQuery('daily_reports').get();
+        return this._sortByCreatedDesc(snapshot.docs).map(doc => {
             const d = doc.data();
             return { id: doc.id, child_name: d.childName, report_date: d.reportDate, report_data: d.reportData || {}, created_at: this._ts(d.createdAt) };
         });
@@ -416,8 +440,8 @@ const heartUpDB = {
 
     async getReviews() {
         if (!this.isReady()) return [];
-        const snapshot = await this._locationQuery('reviews').orderBy('createdAt', 'desc').get();
-        return snapshot.docs.map(doc => {
+        const snapshot = await this._locationQuery('reviews').get();
+        return this._sortByCreatedDesc(snapshot.docs).map(doc => {
             const d = doc.data();
             return { id: doc.id, child_name: d.childName, review_data: d.reviewData || {}, created_at: this._ts(d.createdAt) };
         });
@@ -625,10 +649,11 @@ const heartUpDB = {
 
         async function ensureChild(name) {
             if (childMap[name]) return childMap[name];
-            const snapshot = await db.collection('children')
-                .where('name', '==', name).where('locationId', '==', locationId).limit(1).get();
-            if (!snapshot.empty) {
-                childMap[name] = snapshot.docs[0].id;
+            // 複合インデックス回避: nameで取得しlocationIdはJS側で絞る
+            const snapshot = await db.collection('children').where('name', '==', name).get();
+            const match = snapshot.docs.find(d => (d.data().locationId || '') === locationId);
+            if (match) {
+                childMap[name] = match.id;
                 return childMap[name];
             }
             const docRef = await db.collection('children').add({
