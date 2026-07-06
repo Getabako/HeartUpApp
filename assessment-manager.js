@@ -30,7 +30,7 @@ function amCalculateGrade(birthDateStr) {
     } else {
         cohortStartYear = birth.getFullYear() - 1;
     }
-    const gradeAge = fiscalYear - cohortStartYear;
+    const gradeAge = Math.max(0, fiscalYear - cohortStartYear - 1);
     const labels = { 0:'0歳児', 1:'1歳児', 2:'2歳児', 3:'年少', 4:'年中', 5:'年長',
         6:'小1', 7:'小2', 8:'小3', 9:'小4', 10:'小5', 11:'小6',
         12:'中1', 13:'中2', 14:'中3', 15:'高1', 16:'高2', 17:'高3' };
