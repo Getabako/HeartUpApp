@@ -17,7 +17,9 @@ function amCalculateGrade(birthDateStr) {
         console.log('amCalculateGrade: birthDateStrが空', birthDateStr);
         return '';
     }
-    const birth = new Date(birthDateStr);
+    // 和暦・注釈付き文字列（例: 平成29年06月20日 (8歳)）も解釈できるよう正規化してからパース
+    const normalized = normalizeBirthDate(birthDateStr) || birthDateStr;
+    const birth = new Date(normalized);
     if (isNaN(birth.getTime())) {
         console.log('amCalculateGrade: 無効なbirthDateStr', birthDateStr);
         return '';
@@ -224,7 +226,9 @@ async function amLoadChildren() {
             const childAssessments = assessmentsByChild[name] || [];
             const latest = childAssessments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
             const formData = latest?.data || {};
-            const birthDate = formData.birthDate || child.birthDate || '';
+            const rawBirthDate = formData.birthDate || child.birthDate || '';
+            // 和暦・注釈付きの古いデータも YYYY-MM-DD に正規化（解釈不能なら原文のまま）
+            const birthDate = normalizeBirthDate(rawBirthDate) || rawBirthDate;
 
             const locationId = child.locationId || '';
             const locationName = locationId ? (locationMap[locationId] || `拠点:${locationId}`) : '未設定';
@@ -258,7 +262,8 @@ async function amLoadChildren() {
             if (processedNames.has(name)) return;
             const latest = childAssessments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
             const formData = latest?.data || {};
-            const birthDate = formData.birthDate || '';
+            const rawBirthDate = formData.birthDate || '';
+            const birthDate = normalizeBirthDate(rawBirthDate) || rawBirthDate;
 
             const aLocId = latest?.locationId || '';
             amAllChildrenData.push({
@@ -440,13 +445,20 @@ function amRenderChildren(childrenList) {
             ? 'background: #e3f2fd; color: #1565c0; border: 1px solid #90caf9;'
             : 'background: #fff3e0; color: #e65100; border: 1px solid #ffcc80;';
 
+        // 生年月日は和暦で表示し、年齢は表示のたびに生年月日から計算する（保存値の年齢は使わない）
+        let birthDisplay = '未設定';
+        if (child.birthDate) {
+            const age = calculateAgeFromBirthDate(child.birthDate);
+            birthDisplay = formatBirthDateJa(child.birthDate) + (age !== null ? `（${age}歳）` : '');
+        }
+
         childItem.innerHTML = `
             <div class="am-child-info">
                 <h3>${child.name}${child.childNameKana ? `（${child.childNameKana}）` : ''}
                     ${child.grade ? `<span class="am-grade-badge">${child.grade}</span>` : ''}
                     <span class="am-location-badge" style="${locBadgeStyle} padding: 2px 10px; border-radius: 12px; font-size: 0.75rem; margin-left: 6px; font-weight: normal; cursor: pointer;" onclick="amShowChangeLocationModal('${escapedName}', '${child.locationId || ''}', '${child.locationName || ''}')" title="クリックで拠点変更">📍${child.locationName || '未設定'}</span>
                 </h3>
-                <p>生年月日: ${child.birthDate || '未設定'} | 性別: ${child.gender || '未回答'}</p>
+                <p>生年月日: ${birthDisplay} | 性別: ${child.gender || '未回答'}</p>
                 <p>診断名: ${child.diagnosis || 'なし'}</p>
                 <p>登録日: ${child.createdAt ? new Date(child.createdAt).toLocaleDateString('ja-JP') : '不明'}</p>
                 <div class="am-child-records-summary">
@@ -770,7 +782,7 @@ function amGenerateAssessmentHtmlFromData(data) {
                     <th style="background:#e8f5e9; padding:10px; border:1px solid #c8e6c9; text-align:left; width:120px;">児童名</th>
                     <td style="padding:10px; border:1px solid #e0e0e0;">${data.childName || ''}（${data.childNameKana || ''}）</td>
                     <th style="background:#e8f5e9; padding:10px; border:1px solid #c8e6c9; text-align:left; width:120px;">生年月日</th>
-                    <td style="padding:10px; border:1px solid #e0e0e0;">${data.birthDate || '未設定'}</td>
+                    <td style="padding:10px; border:1px solid #e0e0e0;">${data.birthDate ? formatBirthDateJa(data.birthDate) : '未設定'}</td>
                 </tr>
                 <tr>
                     <th style="background:#e8f5e9; padding:10px; border:1px solid #c8e6c9; text-align:left;">性別</th>

@@ -219,7 +219,8 @@ class CSVImporter {
             const assessmentData = {
                 childName: childName,
                 childNameKana: childNameKana || data['ふりがな'] || data['フリガナ'] || '',
-                birthDate: data['生年月日'] || '',
+                // 和暦・注釈付きでも YYYY-MM-DD に正規化して保存（解釈不能なら原文のまま）
+                birthDate: normalizeBirthDate(data['生年月日']) || data['生年月日'] || '',
                 gender: data['性別'] || '',
                 diagnosis: diagnosis,
                 certificateNumber: data['受給者証番号'] || '',
@@ -266,7 +267,7 @@ class CSVImporter {
                 const assessmentData = {
                     childName: childName,
                     childNameKana: row['ふりがな'] || row['フリガナ'] || '',
-                    birthDate: row['生年月日'] || '',
+                    birthDate: normalizeBirthDate(row['生年月日']) || row['生年月日'] || '',
                     gender: row['性別'] || '',
                     diagnosis: row['診断名'] || row['症状'] || '',
                     certificateNumber: row['受給者証番号'] || '',

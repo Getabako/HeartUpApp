@@ -583,3 +583,78 @@ const dataAdapter = {
 
 // グローバルスコープで利用可能にする
 window.dataAdapter = dataAdapter;
+
+// ============================================
+// 生年月日ユーティリティ（全ページ共通）
+// ============================================
+
+// 生年月日文字列を YYYY-MM-DD に正規化する
+// 対応: 和暦（令和/平成/昭和/大正・元年・R/H/S略記）、西暦（YYYY年MM月DD日、YYYY-MM-DD、YYYY/MM/DD）
+// 「平成29年06月20日 (8歳) (小学3年生)」のような注釈付き文字列も注釈を除去して解釈する
+// 解釈できない場合は '' を返す
+function normalizeBirthDate(str) {
+    if (!str) return '';
+    let s = String(str).trim();
+    // 全角数字・全角スペースを半角に
+    s = s.replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0)).replace(/　/g, ' ');
+    // 括弧内の注釈（年齢・学年など）を除去
+    s = s.replace(/[（(][^（()）]*[）)]/g, ' ').trim();
+    const pad = n => String(parseInt(n, 10)).padStart(2, '0');
+    const isValid = (y, m, d) => {
+        const dt = new Date(y, m - 1, d);
+        return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
+    };
+    // 和暦
+    const eraBase = { '令和': 2018, 'R': 2018, '平成': 1988, 'H': 1988, '昭和': 1925, 'S': 1925, '大正': 1911, 'T': 1911 };
+    const wareki = s.match(/(令和|平成|昭和|大正|[RHST])\s*(元|\d{1,2})\s*[年.\/-]\s*(\d{1,2})\s*[月.\/-]\s*(\d{1,2})\s*日?/);
+    if (wareki) {
+        const eraYear = wareki[2] === '元' ? 1 : parseInt(wareki[2], 10);
+        const y = eraBase[wareki[1]] + eraYear;
+        const m = parseInt(wareki[3], 10), d = parseInt(wareki[4], 10);
+        return isValid(y, m, d) ? `${y}-${pad(m)}-${pad(d)}` : '';
+    }
+    // 西暦
+    const seireki = s.match(/(\d{4})\s*[年.\/-]\s*(\d{1,2})\s*[月.\/-]\s*(\d{1,2})\s*日?/);
+    if (seireki) {
+        const y = parseInt(seireki[1], 10), m = parseInt(seireki[2], 10), d = parseInt(seireki[3], 10);
+        if (isValid(y, m, d)) return `${y}-${pad(m)}-${pad(d)}`;
+    }
+    return '';
+}
+
+// 生年月日を「平成29年6月20日」のような和暦表示に変換（変換不能なら元の文字列のまま返す）
+function formatBirthDateJa(birthDateStr) {
+    const iso = normalizeBirthDate(birthDateStr);
+    if (!iso) return birthDateStr || '';
+    const [y, m, d] = iso.split('-').map(n => parseInt(n, 10));
+    const time = new Date(y, m - 1, d).getTime();
+    const eras = [
+        { name: '令和', start: new Date(2019, 4, 1).getTime(), base: 2018 },
+        { name: '平成', start: new Date(1989, 0, 8).getTime(), base: 1988 },
+        { name: '昭和', start: new Date(1926, 11, 25).getTime(), base: 1925 },
+    ];
+    for (const era of eras) {
+        if (time >= era.start) {
+            const eraYear = y - era.base;
+            return `${era.name}${eraYear === 1 ? '元' : eraYear}年${m}月${d}日`;
+        }
+    }
+    return `${y}年${m}月${d}日`;
+}
+
+// 生年月日から現在の満年齢を計算（不正な日付は null）
+function calculateAgeFromBirthDate(birthDateStr) {
+    const iso = normalizeBirthDate(birthDateStr);
+    if (!iso) return null;
+    const [y, m, d] = iso.split('-').map(n => parseInt(n, 10));
+    const today = new Date();
+    let age = today.getFullYear() - y;
+    if (today.getMonth() + 1 < m || (today.getMonth() + 1 === m && today.getDate() < d)) {
+        age--;
+    }
+    return age;
+}
+
+window.normalizeBirthDate = normalizeBirthDate;
+window.formatBirthDateJa = formatBirthDateJa;
+window.calculateAgeFromBirthDate = calculateAgeFromBirthDate;
