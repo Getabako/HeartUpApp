@@ -365,6 +365,7 @@ main {
 /* AI機能の内部タブ */
 .ai-tabs {
     display: flex;
+    flex-wrap: wrap;
     background: #f0f7f1;
     border-radius: 15px 15px 0 0;
     padding: 0.5rem;
@@ -373,12 +374,13 @@ main {
 }
 
 .ai-tab-button {
-    flex: 1;
+    flex: 1 1 auto;
+    white-space: nowrap;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    padding: 1rem 1.5rem;
+    padding: 0.9rem 0.7rem;
     background: transparent;
     border: none;
     border-radius: 10px;
@@ -2172,6 +2174,11 @@ main {
     transition: border-color 0.3s;
 }
 
+/* 選択肢が読み込まれる前でもセレクトが極端に狭くならないようにする */
+.am-filter-section select {
+    min-width: 140px;
+}
+
 .am-filter-section input:focus,
 .am-filter-section select:focus {
     border-color: #4caf50;
@@ -2188,7 +2195,8 @@ main {
     padding: 20px;
     margin-bottom: 15px;
     display: grid;
-    grid-template-columns: 1fr auto;
+    /* 情報列を優先して広く取り、ボタン列は2列グリッドの固定幅に収める */
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 20px;
     align-items: center;
     transition: border-color 0.3s;
@@ -2198,21 +2206,35 @@ main {
     border-color: #4caf50;
 }
 
+.am-child-info {
+    min-width: 0;
+}
+
 .am-child-info h3 {
     color: #333;
     margin-bottom: 8px;
+    line-height: 1.7;
 }
 
 .am-child-info p {
     color: #666;
     font-size: 14px;
     margin: 4px 0;
+    line-height: 1.7;
 }
 
 .am-child-actions {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(150px, 1fr));
+    gap: 8px;
+    align-content: start;
+}
+
+.am-child-actions .am-btn {
+    white-space: nowrap;
+    padding: 10px 12px;
+    text-align: center;
+    margin: 0;
 }
 
 .am-child-records-summary {
@@ -2369,7 +2391,7 @@ main {
         grid-template-columns: 1fr;
     }
     .am-child-actions {
-        justify-content: flex-start;
+        grid-template-columns: repeat(2, 1fr);
     }
     .am-list-item {
         flex-direction: column;

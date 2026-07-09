@@ -478,8 +478,8 @@ function amRenderChildren(childrenList) {
                 ` : `
                     <button class="am-btn am-btn-primary" onclick="window.location.href='assessment/form-simple.html'">アセスメント作成</button>
                 `}
-                <button class="am-btn" onclick="amShowEditChildModal('${escapedName}')" style="background:#1976d2; color:white; margin-top:4px;">基本情報編集</button>
-                <button class="am-btn am-btn-danger" onclick="amDeleteChild('${escapedName}')" style="background:#d32f2f; color:white; margin-top:4px;">削除</button>
+                <button class="am-btn" onclick="amShowEditChildModal('${escapedName}')" style="background:#1976d2; color:white;">基本情報編集</button>
+                <button class="am-btn am-btn-danger" onclick="amDeleteChild('${escapedName}')" style="background:#d32f2f; color:white;">削除</button>
             </div>
         `;
         container.appendChild(childItem);
