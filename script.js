@@ -610,6 +610,10 @@ document.addEventListener('DOMContentLoaded', function() {
     displayPracticeMenus();
     initializeAITabs();
 
+    // 資料アップロード（ドラッグ＆ドロップ）初期化＋アップロード済み資料の読み込み
+    initResourceDropZone();
+    loadUploadedResources();
+
     // Handle URL parameters to switch to specific tab and subtab
     if (tab && (tab === 'ai-tools' || tab === 'ai-assessment')) {
         // Switch to AI Assessment tab
@@ -667,13 +671,237 @@ function initializeAITabs() {
     amLoadChildren();
 }
 
+// ============================================================
+// 勉強会資料のアップロード（UIからのPDF追加）
+// ============================================================
+
+// アップロード済み資料（Firestore/localStorageから読み込み）
+let uploadedResources = [];
+
+function escapeResourceHtml(s) {
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+// アップロード済み資料を読み込んで一覧を更新
+async function loadUploadedResources() {
+    try {
+        const rows = await dataAdapter.getStudyResources();
+        uploadedResources = rows.map(r => ({
+            id: r.id,
+            title: r.title,
+            category: r.category || 'other',
+            description: r.description || '',
+            date: r.date || (r.createdAt ? String(r.createdAt).split('T')[0] : ''),
+            tags: r.tags || [],
+            isUploaded: true,
+            hasFile: true
+        }));
+    } catch (e) {
+        console.error('アップロード資料の読み込みエラー:', e);
+        uploadedResources = [];
+    }
+    displayResources();
+}
+
+// ファイル選択ダイアログを開く
+function triggerResourceFilePick() {
+    const input = document.getElementById('resourceFileInput');
+    if (input) input.click();
+}
+
+// アップロードフォーム（ファイル選択/ドロップ後に表示）
+function showResourceUploadModal(file) {
+    if (!file) return;
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+        alert('PDFファイルを選択してください。');
+        return;
+    }
+    const MAX_MB = 20;
+    if (file.size > MAX_MB * 1024 * 1024) {
+        alert(`ファイルサイズが大きすぎます（最大${MAX_MB}MB）。\n選択されたファイル: ${(file.size / 1024 / 1024).toFixed(1)}MB`);
+        return;
+    }
+
+    window._pendingResourceFile = file;
+    const defaultTitle = file.name.replace(/\.pdf$/i, '');
+
+    const modal = document.getElementById('modal');
+    const modalBody = document.getElementById('modalBody');
+    modalBody.innerHTML = `
+        <h2 style="color: #2e7d32; margin-bottom: 1.5rem;">勉強会資料を追加</h2>
+        <p style="color:#666; margin-bottom:1rem;">ファイル: <strong>${escapeResourceHtml(file.name)}</strong>（${(file.size / 1024 / 1024).toFixed(1)}MB）</p>
+        <form id="resourceUploadForm" onsubmit="submitResourceUpload(event)">
+            <div class="form-group">
+                <label for="resUploadTitle">タイトル <span style="color: #e74c3c;">*</span></label>
+                <input type="text" id="resUploadTitle" required value="${escapeResourceHtml(defaultTitle)}">
+            </div>
+            <div class="form-group">
+                <label for="resUploadDescription">説明</label>
+                <textarea id="resUploadDescription" rows="3" placeholder="資料の内容を簡単に説明"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="resUploadCategory">カテゴリ</label>
+                <select id="resUploadCategory">
+                    <option value="soccer">サッカー療育</option>
+                    <option value="aba">応用行動分析</option>
+                    <option value="case">事例研究</option>
+                    <option value="psychology">心理・支援スキル</option>
+                    <option value="other">その他</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="resUploadTags">タグ（カンマ区切り・任意）</label>
+                <input type="text" id="resUploadTags" placeholder="例：実行機能, 見立て, 特性理解">
+            </div>
+            <div id="resUploadProgress" style="display:none; margin:1rem 0; color:#2e7d32; font-weight:bold;"></div>
+            <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+                <button type="button" class="btn-secondary" onclick="closeModal()">キャンセル</button>
+                <button type="submit" class="btn-primary" id="resUploadSubmitBtn">アップロード</button>
+            </div>
+        </form>
+    `;
+    modal.classList.remove('hidden');
+}
+
+// アップロードを実行
+async function submitResourceUpload(event) {
+    event.preventDefault();
+    const file = window._pendingResourceFile;
+    if (!file) {
+        alert('ファイルが見つかりません。もう一度選択してください。');
+        return;
+    }
+    const title = document.getElementById('resUploadTitle').value.trim();
+    if (!title) {
+        alert('タイトルを入力してください。');
+        return;
+    }
+
+    const submitBtn = document.getElementById('resUploadSubmitBtn');
+    const progress = document.getElementById('resUploadProgress');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'アップロード中...';
+    progress.style.display = 'block';
+    progress.textContent = 'ファイルを読み込んでいます...';
+
+    try {
+        // PDFをbase64に変換
+        const base64Data = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(String(e.target.result).split(',')[1]);
+            reader.onerror = () => reject(new Error('ファイルの読み込みに失敗しました'));
+            reader.readAsDataURL(file);
+        });
+
+        const meta = {
+            title: title,
+            description: document.getElementById('resUploadDescription').value.trim(),
+            category: document.getElementById('resUploadCategory').value,
+            tags: document.getElementById('resUploadTags').value.split(',').map(t => t.trim()).filter(Boolean),
+            date: new Date().toISOString().split('T')[0],
+            fileName: file.name,
+            fileSize: file.size
+        };
+
+        await dataAdapter.saveStudyResource(meta, base64Data, (done, total) => {
+            progress.textContent = `アップロード中... ${Math.round(done / total * 100)}%（${done}/${total}）`;
+        });
+
+        window._pendingResourceFile = null;
+        document.getElementById('resourceFileInput').value = '';
+        closeModal();
+        alert('資料を追加しました！');
+        await loadUploadedResources();
+    } catch (e) {
+        console.error('資料アップロードエラー:', e);
+        alert('アップロードに失敗しました: ' + e.message);
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'アップロード';
+        progress.style.display = 'none';
+    }
+}
+
+// アップロード済みPDFを開く
+async function openUploadedResourcePDF(id) {
+    // ポップアップブロック回避のため、awaitの前にウィンドウを開いておく
+    const win = window.open('about:blank', '_blank');
+    try {
+        const base64Data = await dataAdapter.getStudyResourcePdf(id);
+        if (!base64Data) throw new Error('PDFデータが見つかりません');
+        const bytes = atob(base64Data);
+        const arr = new Uint8Array(bytes.length);
+        for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+        const blob = new Blob([arr], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        if (win) {
+            win.location = url;
+        } else {
+            window.open(url, '_blank');
+        }
+    } catch (e) {
+        if (win) win.close();
+        console.error('PDF取得エラー:', e);
+        alert('PDFの取得に失敗しました: ' + e.message);
+    }
+}
+
+// アップロード済み資料を削除
+async function deleteUploadedResource(id, title) {
+    if (!confirm(`「${title}」を削除しますか？\nこの操作は元に戻せません。`)) return;
+    try {
+        await dataAdapter.deleteStudyResource(id);
+        closeModal();
+        alert('削除しました。');
+        await loadUploadedResources();
+    } catch (e) {
+        console.error('資料削除エラー:', e);
+        alert('削除に失敗しました: ' + e.message);
+    }
+}
+
+// ドラッグ＆ドロップの初期化
+function initResourceDropZone() {
+    const dropZone = document.getElementById('resourceDropZone');
+    const fileInput = document.getElementById('resourceFileInput');
+    if (!dropZone || !fileInput) return;
+
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files && fileInput.files[0]) {
+            showResourceUploadModal(fileInput.files[0]);
+        }
+    });
+
+    // 資料タブ全体でドロップを受け付ける（ゾーン外ドロップでブラウザがPDFを開くのを防ぐ）
+    const resourcesTab = document.getElementById('resources');
+    ['dragover', 'drop'].forEach(evt => {
+        resourcesTab?.addEventListener(evt, (e) => e.preventDefault());
+    });
+
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        const file = e.dataTransfer?.files?.[0];
+        if (file) showResourceUploadModal(file);
+    });
+}
+
 // 資料を表示する関数
 function displayResources() {
     const grid = document.getElementById('resourcesGrid');
     const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-    
-    // フィルタリング
-    let filteredResources = sampleResources;
+
+    // フィルタリング（固定資料＋アップロード資料を日付降順で統合）
+    let filteredResources = [...uploadedResources, ...sampleResources]
+        .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
     
     // カテゴリフィルター
     if (currentCategory !== 'all') {
@@ -708,8 +936,8 @@ function displayResources() {
         
         card.innerHTML = `
             <span class="resource-type">${categoryLabel}</span>
-            <h3>${resource.title}</h3>
-            <p>${resource.description}</p>
+            <h3>${escapeResourceHtml(resource.title)}</h3>
+            <p>${escapeResourceHtml(resource.description)}</p>
             <div style="margin-top: 1rem; font-size: 0.85rem; color: #999;">
                 ${resource.date}
             </div>
@@ -893,30 +1121,41 @@ function openResourceModal(resource) {
     const modalBody = document.getElementById('modalBody');
 
     // 資料を開くボタンの処理
-    const openButtonHTML = resource.hasFile
-        ? `<button class="btn-primary" onclick="openResourcePDF('${resource.filename}')">資料を開く</button>`
-        : `<button class="btn-primary" onclick="alert('この資料のPDFファイルはまだ追加されていません。')">資料を開く</button>`;
+    let openButtonHTML;
+    if (resource.isUploaded) {
+        openButtonHTML = `<button class="btn-primary" onclick="openUploadedResourcePDF('${resource.id}')">資料を開く</button>`;
+    } else if (resource.hasFile) {
+        openButtonHTML = `<button class="btn-primary" onclick="openResourcePDF('${resource.filename}')">資料を開く</button>`;
+    } else {
+        openButtonHTML = `<button class="btn-primary" onclick="alert('この資料のPDFファイルはまだ追加されていません。')">資料を開く</button>`;
+    }
+
+    // アップロード資料には削除ボタンを表示
+    const deleteButtonHTML = resource.isUploaded
+        ? `<button class="btn-secondary" style="color:#c62828; border-color:#ef9a9a;" onclick="deleteUploadedResource('${resource.id}', '${escapeResourceHtml(resource.title).replace(/'/g, "\\'")}')">削除</button>`
+        : '';
 
     modalBody.innerHTML = `
-        <h2 style="color: #2e7d32; margin-bottom: 1rem;">${resource.title}</h2>
+        <h2 style="color: #2e7d32; margin-bottom: 1rem;">${escapeResourceHtml(resource.title)}</h2>
         <div style="margin-bottom: 1.5rem;">
             <span class="resource-type">${getCategoryLabel(resource.category)}</span>
             <span style="margin-left: 1rem; color: #666;">${resource.date}</span>
         </div>
         <div style="margin-bottom: 1.5rem;">
-            ${resource.tags.map(tag => `<span style="display: inline-block; padding: 0.3rem 0.8rem; background: #e8f5e9; color: #2e7d32; border-radius: 15px; margin-right: 0.5rem; margin-bottom: 0.5rem; font-size: 0.9rem;">#${tag}</span>`).join('')}
+            ${resource.tags.map(tag => `<span style="display: inline-block; padding: 0.3rem 0.8rem; background: #e8f5e9; color: #2e7d32; border-radius: 15px; margin-right: 0.5rem; margin-bottom: 0.5rem; font-size: 0.9rem;">#${escapeResourceHtml(tag)}</span>`).join('')}
         </div>
-        <p style="line-height: 1.8; color: #333; margin-bottom: 1.5rem;">${resource.description}</p>
+        <p style="line-height: 1.8; color: #333; margin-bottom: 1.5rem;">${escapeResourceHtml(resource.description)}</p>
         <div style="padding: 1.5rem; background: #f8f9fa; border-radius: 10px; margin-bottom: 1.5rem;">
             <h3 style="color: #2e7d32; margin-bottom: 1rem;">資料について</h3>
             <p style="color: #666; line-height: 1.6;">
-                この資料では、${resource.title}について詳しく解説しています。
+                この資料では、${escapeResourceHtml(resource.title)}について詳しく解説しています。
                 実際の指導現場で活用できる具体的な方法や、注意すべきポイントなどを
                 イラストや図表を交えて分かりやすく説明しています。
             </p>
         </div>
         <div style="display: flex; gap: 1rem; justify-content: center;">
             ${openButtonHTML}
+            ${deleteButtonHTML}
             <button class="btn-secondary" onclick="closeModal()">閉じる</button>
         </div>
     `;

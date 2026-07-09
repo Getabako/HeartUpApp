@@ -578,6 +578,56 @@ const dataAdapter = {
             createdAt: new Date().toISOString()
         };
         localStorage.setItem('reviews', JSON.stringify(reviews));
+    },
+
+    // ============================================================
+    // 勉強会資料（アップロードPDF）
+    // Firebase接続時はFirestoreに保存、未接続時はlocalStorageにフォールバック
+    // ============================================================
+
+    async getStudyResources() {
+        if (heartUpDB.isReady()) {
+            try {
+                return await heartUpDB.getStudyResources();
+            } catch (e) {
+                console.error('getStudyResources error:', e);
+            }
+        }
+        const local = JSON.parse(localStorage.getItem('uploadedStudyResources') || '[]');
+        return local.map(r => ({ ...r, _local: true }));
+    },
+
+    async saveStudyResource(meta, base64Data, onProgress) {
+        if (heartUpDB.isReady()) {
+            return await heartUpDB.saveStudyResource(meta, base64Data, onProgress);
+        }
+        // フォールバック: localStorage（容量約5MBのため小さいファイルのみ）
+        const local = JSON.parse(localStorage.getItem('uploadedStudyResources') || '[]');
+        const id = 'local_' + Date.now();
+        local.push({ id, ...meta, data: base64Data, createdAt: new Date().toISOString() });
+        try {
+            localStorage.setItem('uploadedStudyResources', JSON.stringify(local));
+        } catch (e) {
+            throw new Error('ブラウザの保存容量を超えました。Firebase接続時はより大きなファイルを保存できます。');
+        }
+        return id;
+    },
+
+    async getStudyResourcePdf(id) {
+        if (heartUpDB.isReady() && !String(id).startsWith('local_')) {
+            return await heartUpDB.getStudyResourcePdf(id);
+        }
+        const local = JSON.parse(localStorage.getItem('uploadedStudyResources') || '[]');
+        const found = local.find(r => r.id === id);
+        return found ? found.data : '';
+    },
+
+    async deleteStudyResource(id) {
+        if (heartUpDB.isReady() && !String(id).startsWith('local_')) {
+            return await heartUpDB.deleteStudyResource(id);
+        }
+        const local = JSON.parse(localStorage.getItem('uploadedStudyResources') || '[]');
+        localStorage.setItem('uploadedStudyResources', JSON.stringify(local.filter(r => r.id !== id)));
     }
 };
 

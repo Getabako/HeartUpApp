@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HeartUp - サッカー療育支援システム</title>
-    <link rel="stylesheet" href="styles.css?v=20260709b">
+    <link rel="stylesheet" href="styles.css?v=20260709c">
 </head>
 <body>
     <header>
@@ -49,6 +49,12 @@
                         </div>
                     </div>
                 </div>
+
+                <div id="resourceDropZone" class="resource-drop-zone" onclick="triggerResourceFilePick()">
+                    <span class="drop-zone-icon">＋</span>
+                    <span>PDFをここにドラッグ＆ドロップ、またはクリックして資料を追加</span>
+                </div>
+                <input type="file" id="resourceFileInput" accept=".pdf,application/pdf" style="display:none">
 
                 <div class="resources-grid" id="resourcesGrid">
                     <!-- 資料カードがここに表示されます -->
@@ -238,15 +244,15 @@
         };
         window.FIREBASE_CONFIG = { apiKey: '', authDomain: '', projectId: '' };
     </script>
-    <script src="config.js?v=20260709b" onerror="console.log('config.js not found - using default API_CONFIG')"></script>
-    <script src="firebase-client.js?v=20260709b"></script>
-    <script src="data-adapter.js?v=20260709b"></script>
-    <script src="auth-guard.js?v=20260709b"></script>
-    <script src="gemini-api.js?v=20260709b"></script>
-    <script src="csv-importer.js?v=20260709b"></script>
-    <script src="markdown-renderer.js?v=20260709b"></script>
-    <script src="assessment-manager.js?v=20260709b"></script>
-    <script src="script.js?v=20260709b"></script>
+    <script src="config.js?v=20260709c" onerror="console.log('config.js not found - using default API_CONFIG')"></script>
+    <script src="firebase-client.js?v=20260709c"></script>
+    <script src="data-adapter.js?v=20260709c"></script>
+    <script src="auth-guard.js?v=20260709c"></script>
+    <script src="gemini-api.js?v=20260709c"></script>
+    <script src="csv-importer.js?v=20260709c"></script>
+    <script src="markdown-renderer.js?v=20260709c"></script>
+    <script src="assessment-manager.js?v=20260709c"></script>
+    <script src="script.js?v=20260709c"></script>
     <script>
         // Firebase初期化 + 認証ガード
         heartUpDB.init();

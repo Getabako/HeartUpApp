@@ -751,5 +751,71 @@ const heartUpDB = {
         }
 
         return results;
+    },
+
+    // ============================================================
+    // 勉強会資料（アップロードPDF）
+    // PDFはbase64化して study_resources/{id}/chunks/{n} に分割保存する
+    // （Firestoreの1ドキュメント1MiB制限のため）
+    // ============================================================
+
+    async getStudyResources() {
+        if (!this.isReady()) return [];
+        const snapshot = await this.db.collection('study_resources').get();
+        return this._sortByCreatedDesc(snapshot.docs).map(d => ({ id: d.id, ...d.data(), createdAt: this._ts(d.data().createdAt) }));
+    },
+
+    async saveStudyResource(meta, base64Data, onProgress) {
+        if (!this.isReady()) throw new Error('Firebase未初期化');
+        const CHUNK_SIZE = 700000; // 700KB相当（1MiB制限に対して余裕を持たせる）
+        const chunkCount = Math.ceil(base64Data.length / CHUNK_SIZE);
+
+        const docRef = await this.db.collection('study_resources').add({
+            title: meta.title,
+            description: meta.description || '',
+            category: meta.category || 'other',
+            tags: meta.tags || [],
+            date: meta.date,
+            fileName: meta.fileName || '',
+            fileSize: meta.fileSize || 0,
+            chunkCount: chunkCount,
+            uploadedBy: this.currentUser?.email || '',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        try {
+            for (let i = 0; i < chunkCount; i++) {
+                await docRef.collection('chunks').doc(String(i).padStart(4, '0')).set({
+                    index: i,
+                    data: base64Data.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)
+                });
+                if (onProgress) onProgress(i + 1, chunkCount);
+            }
+        } catch (e) {
+            // 途中で失敗したら中途半端なデータを残さない
+            await this.deleteStudyResource(docRef.id).catch(() => {});
+            throw e;
+        }
+        return docRef.id;
+    },
+
+    async getStudyResourcePdf(id) {
+        if (!this.isReady()) throw new Error('Firebase未初期化');
+        const snapshot = await this.db.collection('study_resources').doc(id).collection('chunks').get();
+        const chunks = snapshot.docs
+            .map(d => d.data())
+            .sort((a, b) => a.index - b.index)
+            .map(c => c.data);
+        return chunks.join('');
+    },
+
+    async deleteStudyResource(id) {
+        if (!this.isReady()) throw new Error('Firebase未初期化');
+        const docRef = this.db.collection('study_resources').doc(id);
+        const chunks = await docRef.collection('chunks').get();
+        for (const d of chunks.docs) {
+            await d.ref.delete();
+        }
+        await docRef.delete();
     }
 };

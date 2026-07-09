@@ -2146,6 +2146,49 @@ main {
 }
 
 /* ============================================
+   勉強会資料アップロード（ドロップゾーン）
+   ============================================ */
+.resource-drop-zone {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    margin: 1.2rem 0;
+    padding: 1.2rem;
+    border: 2px dashed #a5d6a7;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.7);
+    color: #2e7d32;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.resource-drop-zone:hover {
+    background: #e8f5e9;
+    border-color: #4caf50;
+}
+
+.resource-drop-zone.dragover {
+    background: #c8e6c9;
+    border-color: #2e7d32;
+    transform: scale(1.01);
+}
+
+.drop-zone-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #4caf50;
+    color: white;
+    font-size: 1.3rem;
+    font-weight: bold;
+}
+
+/* ============================================
    Assessment Manager Styles (embedded)
    ============================================ */
 .am-children-list {
