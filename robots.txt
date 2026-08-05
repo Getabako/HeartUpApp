@@ -2,3 +2,5 @@
 User-agent: *
 Allow: /$
 Disallow: /
+
+Sitemap: https://heartup.if-juku.net/sitemap.xml
