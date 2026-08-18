@@ -456,7 +456,7 @@ function amRenderChildren(childrenList) {
             <div class="am-child-info">
                 <h3>${child.name}${child.childNameKana ? `（${child.childNameKana}）` : ''}
                     ${child.grade ? `<span class="am-grade-badge">${child.grade}</span>` : ''}
-                    <span class="am-location-badge" style="${locBadgeStyle} padding: 2px 10px; border-radius: 12px; font-size: 0.75rem; margin-left: 6px; font-weight: normal; cursor: pointer;" onclick="amShowChangeLocationModal('${escapedName}', '${child.locationId || ''}', '${child.locationName || ''}')" title="クリックで拠点変更">📍${child.locationName || '未設定'}</span>
+                    <span class="am-location-badge" style="${locBadgeStyle} padding: 2px 10px; border-radius: 12px; font-size: 0.75rem; margin-left: 6px; font-weight: normal; cursor: pointer;" onclick="amShowChangeLocationModal('${escapedName}', '${child.locationId || ''}', '${child.locationName || ''}')" title="クリックで拠点変更">${child.locationName || '拠点未設定'}</span>
                 </h3>
                 <p>生年月日: ${birthDisplay} | 性別: ${child.gender || '未回答'}</p>
                 <p>診断名: ${child.diagnosis || 'なし'}</p>
@@ -505,7 +505,7 @@ window.amDeleteChild = async function(childName) {
         console.log('削除実行開始:', childName);
         await dataAdapter.deleteChildAndRelatedData(childName);
         console.log('削除成功:', childName);
-        alert(`「${childName}」と関連データを削除しました。`);
+        showToast(`「${childName}」と関連データを削除しました。`);
         
         // 削除後に児童一覧を再読み込み
         console.log('児童一覧再読み込み開始');
@@ -535,14 +535,14 @@ window.amDeleteChild = async function(childName) {
     } catch (error) {
         console.error('児童削除エラー:', error);
         console.error('エラー詳細:', error.stack);
-        alert('削除に失敗しました: ' + error.message);
+        showToast('削除に失敗しました: ' + error.message);
     }
 }
 
 // 拠点変更モーダルを表示
 window.amShowChangeLocationModal = async function(childName, currentLocationId, currentLocationName) {
     if (!heartUpDB.isReady()) {
-        alert('拠点変更にはFirebase接続が必要です。');
+        showToast('拠点変更にはFirebase接続が必要です。');
         return;
     }
 
@@ -551,12 +551,12 @@ window.amShowChangeLocationModal = async function(childName, currentLocationId, 
         locations = await heartUpDB.getLocations();
     } catch (e) {
         console.error('拠点一覧取得エラー:', e);
-        alert('拠点一覧の取得に失敗しました。');
+        showToast('拠点一覧の取得に失敗しました。');
         return;
     }
 
     if (locations.length === 0) {
-        alert('拠点が登録されていません。管理画面から拠点を追加してください。');
+        showToast('拠点が登録されていません。管理画面から拠点を追加してください。');
         return;
     }
 
@@ -629,10 +629,10 @@ window.amExecuteChangeLocation = async function(childName, newLocationId) {
         await amUpdateLocationFilter();
         amRenderChildren(amAllChildrenData);
 
-        alert(`「${childName}」の拠点を変更しました。`);
+        showToast(`「${childName}」の拠点を変更しました。`);
     } catch (error) {
         console.error('拠点変更エラー:', error);
-        alert('拠点変更に失敗しました: ' + error.message);
+        showToast('拠点変更に失敗しました: ' + error.message);
         if (submitBtn) {
             submitBtn.disabled = false;
             submitBtn.textContent = '変更する';
@@ -644,7 +644,7 @@ window.amExecuteChangeLocation = async function(childName, newLocationId) {
 window.amShowEditChildModal = function(childName) {
     const child = amAllChildrenData.find(c => c.name === childName);
     if (!child) {
-        alert('児童データが見つかりません');
+        showToast('児童データが見つかりません');
         return;
     }
 
@@ -744,10 +744,10 @@ window.amSubmitEditChild = async function(childName) {
 
         document.getElementById('amEditChildModal')?.remove();
         amRenderChildren(amAllChildrenData);
-        alert(`「${childName}」の基本情報を更新しました。`);
+        showToast(`「${childName}」の基本情報を更新しました。`);
     } catch (e) {
         console.error('児童編集エラー:', e);
-        alert('更新に失敗しました: ' + e.message);
+        showToast('更新に失敗しました: ' + e.message);
         if (btn) { btn.disabled = false; btn.textContent = '保存'; }
     }
 };
@@ -818,7 +818,7 @@ window.amCloseModal = function() {
 window.amViewAssessment = async function(fileName) {
     const assessment = await dataAdapter.getAssessmentWithHtml(fileName);
     if (!assessment) {
-        alert('アセスメントデータが見つかりません');
+        showToast('アセスメントデータが見つかりません');
         return;
     }
 
@@ -1034,7 +1034,7 @@ window.amGenerateSupportPlan = async function(fileName) {
     }
 
     if (!assessment) {
-        alert('アセスメントデータが見つかりません');
+        showToast('アセスメントデータが見つかりません');
         return;
     }
 
@@ -1091,11 +1091,11 @@ function amShowIntentModal(assessment) {
         }
         try {
             const result = await amGeneratePlanCore(assessment, { selfIntent, familyIntent });
-            alert('支援計画が作成されました！');
+            showToast('支援計画が作成されました！');
             if (content) content.innerHTML = result.supportPlanHTML;
         } catch (error) {
             console.error('Error generating support plan:', error);
-            alert('支援計画の作成に失敗しました。もう一度お試しください。');
+            showToast('支援計画の作成に失敗しました。もう一度お試しください。');
         }
     };
 }
@@ -1361,7 +1361,7 @@ function amGenerateOfficialSupportPlanHTML(childData, planData, startDate, endDa
 window.amCreateDailyReport = async function(fileName) {
     const assessment = await dataAdapter.getAssessmentWithHtml(fileName);
     if (!assessment) {
-        alert('アセスメントデータが見つかりません');
+        showToast('アセスメントデータが見つかりません');
         return;
     }
     if (!assessment.data && assessment.form_data) assessment.data = assessment.form_data;
@@ -1435,7 +1435,7 @@ HTMLフォーマットで、見やすく整理された日々の記録を作成�
             observation: observation
         });
 
-        alert('日々の記録が作成されました！');
+        showToast('日々の記録が作成されました！');
 
         // modalとcontentは既に宣言済みなので再代入
         modal = document.getElementById('amAssessmentModal');
@@ -1444,7 +1444,7 @@ HTMLフォーマットで、見やすく整理された日々の記録を作成�
         modal.classList.add('active');
     } catch (error) {
         console.error('Error creating daily report:', error);
-        alert('日々の記録の作成に失敗しました。もう一度お試しください。');
+        showToast('日々の記録の作成に失敗しました。もう一度お試しください。');
     }
 };
 
@@ -1452,7 +1452,7 @@ HTMLフォーマットで、見やすく整理された日々の記録を作成�
 window.amCreateReview = async function(fileName) {
     const assessment = await dataAdapter.getAssessmentWithHtml(fileName);
     if (!assessment) {
-        alert('アセスメントデータが見つかりません');
+        showToast('アセスメントデータが見つかりません');
         return;
     }
     if (!assessment.data && assessment.form_data) assessment.data = assessment.form_data;
@@ -1476,12 +1476,12 @@ window.amCreateReview = async function(fileName) {
 
         const result = await amGenerateReviewCore(assessment);
 
-        alert('成長の振り返りが作成されました！');
+        showToast('成長の振り返りが作成されました！');
         if (content) content.innerHTML = result.reviewHTML;
         if (modal) modal.classList.add('active');
     } catch (error) {
         console.error('Error creating review:', error);
-        alert('成長の振り返りの作成に失敗しました。もう一度お試しください。');
+        showToast('成長の振り返りの作成に失敗しました。もう一度お試しください。');
     }
 };
 
@@ -1743,12 +1743,12 @@ window.amDeleteAssessment = async function(fileName) {
     }
     try {
         await dataAdapter.deleteAssessment(fileName);
-        alert('削除しました');
+        showToast('削除しました');
         amCloseModal();
         await amLoadChildren();
     } catch (error) {
         console.error('削除エラー:', error);
-        alert('削除に失敗しました');
+        showToast('削除に失敗しました');
     }
 };
 
@@ -1759,12 +1759,12 @@ window.amDeleteSupportPlan = async function(fileName) {
     }
     try {
         await dataAdapter.deleteSupportPlan(fileName);
-        alert('削除しました');
+        showToast('削除しました');
         amCloseModal();
         await amLoadChildren();
     } catch (error) {
         console.error('削除エラー:', error);
-        alert('削除に失敗しました');
+        showToast('削除に失敗しました');
     }
 };
 
@@ -1806,12 +1806,12 @@ window.amDeleteDailyReport = async function(fileName) {
     }
     try {
         await dataAdapter.deleteDailyReport(fileName);
-        alert('削除しました');
+        showToast('削除しました');
         amCloseModal();
         await amLoadChildren();
     } catch (error) {
         console.error('削除エラー:', error);
-        alert('削除に失敗しました');
+        showToast('削除に失敗しました');
     }
 };
 
@@ -1836,12 +1836,12 @@ window.amDeleteReview = async function(fileName) {
     }
     try {
         await dataAdapter.deleteReview(fileName);
-        alert('削除しました');
+        showToast('削除しました');
         amCloseModal();
         await amLoadChildren();
     } catch (error) {
         console.error('削除エラー:', error);
-        alert('削除に失敗しました');
+        showToast('削除に失敗しました');
     }
 };
 
@@ -1856,7 +1856,7 @@ let amRenewalState = null;
 
 window.amStartPlanRenewal = async function(childName, fileName) {
     if (!fileName) {
-        alert('アセスメントが未作成のため、計画書更新フローを開始できません。先にアセスメントを作成してください。');
+        showToast('アセスメントが未作成のため、計画書更新フローを開始できません。先にアセスメントを作成してください。');
         return;
     }
     let assessment = await dataAdapter.getAssessmentWithHtml(fileName);
@@ -1868,7 +1868,7 @@ window.amStartPlanRenewal = async function(childName, fileName) {
         assessment.data = assessment.form_data;
     }
     if (!assessment) {
-        alert('アセスメントデータが見つかりません');
+        showToast('アセスメントデータが見つかりません');
         return;
     }
 
@@ -1993,7 +1993,7 @@ window.amRenewalCreateReview = async function() {
         `;
     } catch (error) {
         console.error('Error creating review in renewal flow:', error);
-        alert('成長の振り返りの作成に失敗しました。もう一度お試しください。');
+        showToast('成長の振り返りの作成に失敗しました。もう一度お試しください。');
         amRenewalRenderStep(1);
     }
 };
@@ -2051,7 +2051,7 @@ window.amRenewalSaveAssessmentUpdate = async function() {
             amRenewalState.updatedAssessment = { data: updatedData, html: updatedHtml };
         } catch (error) {
             console.error('アセスメント更新の保存エラー:', error);
-            alert('アセスメント更新の保存に失敗しましたが、計画書作成には入力内容を反映します。');
+            showToast('アセスメント更新の保存に失敗しましたが、計画書作成には入力内容を反映します。');
             amRenewalState.updatedAssessment = {
                 data: Object.assign({}, amRenewalState.assessment.data)
             };
@@ -2089,7 +2089,7 @@ window.amRenewalGeneratePlan = async function() {
         amLoadChildren();
     } catch (error) {
         console.error('Error generating plan in renewal flow:', error);
-        alert('計画書の作成に失敗しました。もう一度お試しください。');
+        showToast('計画書の作成に失敗しました。もう一度お試しください。');
         amRenewalRenderStep(3);
     }
 };

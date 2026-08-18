@@ -644,16 +644,19 @@ main {
 
 .user-name {
     color: rgba(255, 255, 255, 0.9);
-    font-size: 0.75rem;
+    font-size: 0.85rem;
 }
 
 .admin-link {
     color: white;
-    font-size: 0.7rem;
+    font-size: 0.85rem;
     text-decoration: none;
-    padding: 3px 8px;
+    padding: 8px 14px;
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
     border: 1px solid rgba(255,255,255,0.4);
-    border-radius: 6px;
+    border-radius: 8px;
 }
 
 .admin-link:hover {
@@ -664,9 +667,10 @@ main {
     background: rgba(255, 255, 255, 0.2);
     border: 1px solid rgba(255, 255, 255, 0.3);
     color: white;
-    padding: 3px 10px;
-    border-radius: 6px;
-    font-size: 0.7rem;
+    padding: 8px 14px;
+    min-height: 40px;
+    border-radius: 8px;
+    font-size: 0.85rem;
     cursor: pointer;
 }
 
@@ -1076,10 +1080,29 @@ main {
 @media (max-width: 768px) {
     .header-content {
         padding: 0 1rem;
+        text-align: center;
+    }
+
+    /* スマホではヘッダー右側を絶対配置にせず、タイトルの下に配置（重なり防止） */
+    .header-right {
+        position: static;
+        transform: none;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+        margin-top: 0.75rem;
+    }
+
+    .logo {
+        justify-content: center;
+    }
+
+    .subtitle {
+        margin-left: 0;
     }
 
     h1 {
-        font-size: 2rem;
+        font-size: 1.6rem;
     }
 
     main {
@@ -2600,4 +2623,25 @@ main {
     background: #fff3e0;
     color: #ef6c00;
     border: 1px solid #ffcc80;
+}
+
+/* ============================================
+   タップ領域・押しやすさの改善（他事業所フィードバック対応）
+   ============================================ */
+.btn-small,
+.btn-video,
+.am-btn-danger-small {
+    min-height: 40px;
+    padding: 8px 14px;
+    font-size: 0.9rem;
+}
+
+.close-button,
+.am-close-modal {
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #555;
 }

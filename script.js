@@ -717,12 +717,12 @@ function triggerResourceFilePick() {
 function showResourceUploadModal(file) {
     if (!file) return;
     if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-        alert('PDFファイルを選択してください。');
+        showToast('PDFファイルを選択してください。');
         return;
     }
     const MAX_MB = 20;
     if (file.size > MAX_MB * 1024 * 1024) {
-        alert(`ファイルサイズが大きすぎます（最大${MAX_MB}MB）。\n選択されたファイル: ${(file.size / 1024 / 1024).toFixed(1)}MB`);
+        showToast(`ファイルサイズが大きすぎます（最大${MAX_MB}MB）。\n選択されたファイル: ${(file.size / 1024 / 1024).toFixed(1)}MB`);
         return;
     }
 
@@ -772,12 +772,12 @@ async function submitResourceUpload(event) {
     event.preventDefault();
     const file = window._pendingResourceFile;
     if (!file) {
-        alert('ファイルが見つかりません。もう一度選択してください。');
+        showToast('ファイルが見つかりません。もう一度選択してください。');
         return;
     }
     const title = document.getElementById('resUploadTitle').value.trim();
     if (!title) {
-        alert('タイトルを入力してください。');
+        showToast('タイトルを入力してください。');
         return;
     }
 
@@ -814,11 +814,11 @@ async function submitResourceUpload(event) {
         window._pendingResourceFile = null;
         document.getElementById('resourceFileInput').value = '';
         closeModal();
-        alert('資料を追加しました！');
+        showToast('資料を追加しました！');
         await loadUploadedResources();
     } catch (e) {
         console.error('資料アップロードエラー:', e);
-        alert('アップロードに失敗しました: ' + e.message);
+        showToast('アップロードに失敗しました: ' + e.message);
         submitBtn.disabled = false;
         submitBtn.textContent = 'アップロード';
         progress.style.display = 'none';
@@ -845,7 +845,7 @@ async function openUploadedResourcePDF(id) {
     } catch (e) {
         if (win) win.close();
         console.error('PDF取得エラー:', e);
-        alert('PDFの取得に失敗しました: ' + e.message);
+        showToast('PDFの取得に失敗しました: ' + e.message);
     }
 }
 
@@ -855,11 +855,11 @@ async function deleteUploadedResource(id, title) {
     try {
         await dataAdapter.deleteStudyResource(id);
         closeModal();
-        alert('削除しました。');
+        showToast('削除しました。');
         await loadUploadedResources();
     } catch (e) {
         console.error('資料削除エラー:', e);
-        alert('削除に失敗しました: ' + e.message);
+        showToast('削除に失敗しました: ' + e.message);
     }
 }
 
@@ -1030,7 +1030,7 @@ function displayPracticeMenus() {
                 } else {
                     standardFooterHTML += `<a href="${savedVideoUrl}" target="_blank" rel="noopener" class="btn-video" onclick="event.stopPropagation()">▶ 動画</a>`;
                 }
-                standardFooterHTML += `<button class="btn-edit-video" onclick="event.stopPropagation(); editMenuVideo(${menu.id}, '${menu.title.replace(/'/g, "\\'")}')" title="動画を編集">✏️</button>`;
+                standardFooterHTML += `<button class="btn-edit-video" onclick="event.stopPropagation(); editMenuVideo(${menu.id}, '${menu.title.replace(/'/g, "\\'")}')" title="動画を編集">編集</button>`;
             } else {
                 standardFooterHTML += `<button class="btn-add-video" onclick="event.stopPropagation(); editMenuVideo(${menu.id}, '${menu.title.replace(/'/g, "\\'")}')" title="動画を追加">+ 動画</button>`;
             }
@@ -1127,7 +1127,7 @@ function openResourceModal(resource) {
     } else if (resource.hasFile) {
         openButtonHTML = `<button class="btn-primary" onclick="openResourcePDF('${resource.filename}')">資料を開く</button>`;
     } else {
-        openButtonHTML = `<button class="btn-primary" onclick="alert('この資料のPDFファイルはまだ追加されていません。')">資料を開く</button>`;
+        openButtonHTML = `<button class="btn-primary" onclick="showToast('この資料のPDFファイルはまだ追加されていません。')">資料を開く</button>`;
     }
 
     // アップロード資料には削除ボタンを表示
@@ -1529,7 +1529,7 @@ function printReview() {
 // 振り返りレポートを手動保存（localStorageに保存）
 async function saveReviewManually() {
     if (!lastGeneratedReview || !lastReviewData) {
-        alert('先に振り返りレポートを生成してください');
+        showToast('先に振り返りレポートを生成してください');
         return;
     }
 
@@ -1537,7 +1537,7 @@ async function saveReviewManually() {
     const endDate = lastReviewData.endDate;
     const fileName = `${childName}_振り返り_${endDate}.html`;
     await dataAdapter.saveReview(fileName, lastGeneratedReview, childName, lastReviewData);
-    alert('振り返りレポートを保存しました');
+    showToast('振り返りレポートを保存しました');
 }
 
 // ツール詳細を閉じる（現在は使用していないが、互換性のため残す）
@@ -1564,7 +1564,7 @@ async function generateRecord(event) {
 
     // 活動が選択されているか確認
     if (selectedActivities.length === 0) {
-        alert('活動内容を1つ以上選択してください');
+        showToast('活動内容を1つ以上選択してください');
         return;
     }
 
@@ -1799,7 +1799,7 @@ function generateRecordHTML(childName, date, content, recordData) {
 // 記録を手動保存（localStorageに保存）
 async function saveRecordManually() {
     if (!lastGeneratedRecord || !lastRecordData) {
-        alert('先に記録を生成してください');
+        showToast('先に記録を生成してください');
         return;
     }
 
@@ -2264,12 +2264,12 @@ async function refineRecord() {
     const refinementRequest = document.getElementById('recordRefinementRequest').value.trim();
 
     if (!refinementRequest) {
-        alert('修正・追加要望を入力してください');
+        showToast('修正・追加要望を入力してください');
         return;
     }
 
     if (!lastGeneratedRecord || !lastRecordData) {
-        alert('先に記録を生成してください');
+        showToast('先に記録を生成してください');
         return;
     }
 
@@ -2305,12 +2305,12 @@ async function refinePlan() {
     const refinementRequest = document.getElementById('planRefinementRequest').value.trim();
 
     if (!refinementRequest) {
-        alert('修正・追加要望を入力してください');
+        showToast('修正・追加要望を入力してください');
         return;
     }
 
     if (!lastGeneratedPlan || !lastPlanData) {
-        alert('先に支援計画を生成してください');
+        showToast('先に支援計画を生成してください');
         return;
     }
 
@@ -2344,7 +2344,7 @@ async function refinePlan() {
 // 支援計画を手動保存
 async function saveSupportPlanManually() {
     if (!lastGeneratedPlan || !lastPlanData) {
-        alert('先に支援計画を生成してください');
+        showToast('先に支援計画を生成してください');
         return;
     }
 
@@ -2513,12 +2513,12 @@ async function refineReview() {
     const refinementRequest = document.getElementById('reviewRefinementRequest').value.trim();
 
     if (!refinementRequest) {
-        alert('修正・追加要望を入力してください');
+        showToast('修正・追加要望を入力してください');
         return;
     }
 
     if (!lastGeneratedReview || !lastReviewData) {
-        alert('先に振り返りを生成してください');
+        showToast('先に振り返りを生成してください');
         return;
     }
 
@@ -2602,12 +2602,12 @@ function saveApiKey() {
     const apiKey = apiKeyInput.value.trim();
 
     if (!apiKey) {
-        alert('APIキーを入力してください');
+        showToast('APIキーを入力してください');
         return;
     }
 
     if (!apiKey.startsWith('AIza')) {
-        alert('無効なAPIキー形式です。Gemini APIキーは「AIza」で始まります。');
+        showToast('無効なAPIキー形式です。Gemini APIキーは「AIza」で始まります。');
         return;
     }
 
@@ -2616,9 +2616,9 @@ function saveApiKey() {
 
     if (success) {
         updateApiStatus();
-        alert('APIキーを保存しました');
+        showToast('APIキーを保存しました');
     } else {
-        alert('APIキーの保存に失敗しました');
+        showToast('APIキーの保存に失敗しました');
     }
 }
 
@@ -2628,7 +2628,7 @@ async function testApiKey() {
     const apiKey = apiKeyInput.value.trim();
 
     if (!apiKey) {
-        alert('APIキーを入力してください');
+        showToast('APIキーを入力してください');
         return;
     }
 
@@ -2681,7 +2681,7 @@ function clearApiKey() {
 
         document.getElementById('geminiApiKeyInput').value = '';
         updateApiStatus();
-        alert('APIキーを削除しました');
+        showToast('APIキーを削除しました');
     }
 }
 
@@ -3108,27 +3108,27 @@ const goalOptions = [
 // 目標カテゴリ定義（IDベースで重複なし）
 const goalCategoryDefinitions = {
     technical: {
-        label: '⚽ 技術系',
+        label: '技術系',
         color: '#2e7d32',
         goalIds: ['goal_dribble', 'goal_pass', 'goal_shoot', 'goal_ball_control', 'goal_kick_type', 'goal_trap', 'goal_floating_ball', 'goal_spatial_trap']
     },
     tactics: {
-        label: '🎯 戦術・判断系',
+        label: '戦術・判断系',
         color: '#1565c0',
         goalIds: ['goal_judgment', 'goal_positioning', 'goal_body_direction', 'goal_defense', 'goal_tactics', 'goal_attack_defense_switch']
     },
     mental: {
-        label: '🧠 メンタル・社会性系',
+        label: 'メンタル・社会性系',
         color: '#7b1fa2',
         goalIds: ['goal_switching', 'goal_communication', 'goal_challenge', 'goal_concentration', 'goal_order', 'goal_cooperation', 'goal_scene_switch']
     },
     physical: {
-        label: '💪 身体能力・感覚系',
+        label: '身体能力・感覚系',
         color: '#d84315',
         goalIds: ['goal_control', 'goal_observation', 'goal_core_strength', 'goal_balance', 'goal_agility', 'goal_explosive', 'goal_physical_improvement', 'goal_athletic_improvement']
     },
     interpersonal: {
-        label: '👥 対人・グループ系',
+        label: '対人・グループ系',
         color: '#00838f',
         goalIds: ['goal_one_on_one', 'goal_group_play']
     }
@@ -3448,7 +3448,7 @@ function batchRecordStep1Submit(event) {
     });
 
     if (selectedActivities.length === 0) {
-        alert('活動内容を1つ以上選択してください');
+        showToast('活動内容を1つ以上選択してください');
         return;
     }
 
@@ -3740,7 +3740,7 @@ function batchRecordStep2Submit(event) {
     });
 
     if (selectedChildren.length === 0) {
-        alert('参加児童を1名以上選択してください');
+        showToast('参加児童を1名以上選択してください');
         return;
     }
 
@@ -4063,7 +4063,7 @@ function switchBatchTab(index) {
  */
 async function generateAllParentNotes() {
     if (!window.batchRecordResults || window.batchRecordResults.length === 0) {
-        alert('生成する記録がありません');
+        showToast('生成する記録がありません');
         return;
     }
 
@@ -4111,7 +4111,7 @@ async function generateAllParentNotes() {
                                 .replace(/&/g, '&amp;')
                                 .replace(/</g, '&lt;')
                                 .replace(/>/g, '&gt;');
-                            const parentNoteHtml = `\n<div class="saved-parent-note" style="background:#fff8e1;border:2px solid #ffb300;padding:16px 18px;margin-top:24px;border-radius:8px;">\n<div style="color:#f57c00;font-weight:bold;font-size:1.05rem;margin-bottom:10px;">📮 保護者向け連絡帳</div>\n<div style="white-space:pre-wrap;line-height:1.8;color:#333;">${escaped}</div>\n</div>`;
+                            const parentNoteHtml = `\n<div class="saved-parent-note" style="background:#fff8e1;border:2px solid #ffb300;padding:16px 18px;margin-top:24px;border-radius:8px;">\n<div style="color:#f57c00;font-weight:bold;font-size:1.05rem;margin-bottom:10px;border-left:4px solid #f57c00;padding-left:10px;">保護者向け連絡帳</div>\n<div style="white-space:pre-wrap;line-height:1.8;color:#333;">${escaped}</div>\n</div>`;
                             const baseHtml = result.renderedHtml || `<div class="record-rendered" style="line-height:1.8;color:#333;">${convertMarkdownToHTML(result.generatedText)}</div>`;
                             const newHtml = baseHtml + parentNoteHtml;
                             await dataAdapter.updateDailyReport(targetKey, {
@@ -4130,13 +4130,13 @@ async function generateAllParentNotes() {
                 }
             }
 
-            alert('連絡帳文章の生成が完了し、記録に保存されました');
+            showToast('連絡帳文章の生成が完了し、記録に保存されました');
         } else {
-            alert('Gemini APIが設定されていません。設定画面からAPIキーを設定してください。');
+            showToast('Gemini APIが設定されていません。設定画面からAPIキーを設定してください。');
         }
     } catch (error) {
         console.error('連絡帳生成エラー:', error);
-        alert('連絡帳の生成に失敗しました: ' + error.message);
+        showToast('連絡帳の生成に失敗しました: ' + error.message);
     } finally {
         btn.textContent = originalText;
         btn.disabled = false;
@@ -4337,7 +4337,7 @@ function copyParentNote(index) {
     const content = document.querySelector(`#parentNote_${index} .parent-note-content`);
     if (content) {
         navigator.clipboard.writeText(content.textContent).then(() => {
-            alert('連絡帳文章をコピーしました');
+            showToast('連絡帳文章をコピーしました');
         }).catch(err => {
             console.error('コピーエラー:', err);
             // フォールバック
@@ -4347,7 +4347,7 @@ function copyParentNote(index) {
             textarea.select();
             document.execCommand('copy');
             document.body.removeChild(textarea);
-            alert('連絡帳文章をコピーしました');
+            showToast('連絡帳文章をコピーしました');
         });
     }
 }
@@ -4394,15 +4394,15 @@ function showCsvImportForm() {
                 <h4>インポートするデータの種類を選択</h4>
                 <div class="import-type-buttons">
                     <button class="import-type-btn active" data-type="childInfo" onclick="selectImportType('childInfo')">
-                        <span class="import-type-icon">👤</span>
+                        <span class="import-type-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg></span>
                         <span class="import-type-label">児童基本情報</span>
                     </button>
                     <button class="import-type-btn" data-type="supportPlan" onclick="selectImportType('supportPlan')">
-                        <span class="import-type-icon">📋</span>
+                        <span class="import-type-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 3h-4.2c-.4-1.2-1.5-2-2.8-2s-2.4.8-2.8 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.6 0 1 .4 1 1s-.4 1-1 1-1-.4-1-1 .4-1 1-1zm-5 6h10v2H7V9zm0 4h10v2H7v-2zm0 4h7v2H7v-2z"/></svg></span>
                         <span class="import-type-label">支援計画</span>
                     </button>
                     <button class="import-type-btn" data-type="record" onclick="selectImportType('record')">
-                        <span class="import-type-icon">📝</span>
+                        <span class="import-type-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zM20.7 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></span>
                         <span class="import-type-label">活動記録</span>
                     </button>
                 </div>
@@ -4426,13 +4426,13 @@ function showCsvImportForm() {
 
                 <div class="file-upload-area" id="fileUploadArea">
                     <input type="file" id="csvFileInput" accept=".csv" onchange="handleCsvFileSelect(event)" style="display:none;">
-                    <div class="upload-icon">📁</div>
+                    <div class="upload-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg></div>
                     <p>クリックしてCSVファイルを選択<br>またはドラッグ＆ドロップ</p>
                     <p class="file-hint">対応形式: CSV (UTF-8)</p>
                 </div>
 
                 <div id="selectedFileInfo" class="selected-file-info" style="display:none;">
-                    <span class="file-icon">📄</span>
+                    <span class="file-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg></span>
                     <span id="selectedFileName" class="file-name"></span>
                     <button class="btn-remove-file" onclick="clearCsvFile()">×</button>
                 </div>
@@ -4472,7 +4472,7 @@ function showCsvImportForm() {
         if (files.length > 0 && files[0].name.endsWith('.csv')) {
             handleCsvFile(files[0]);
         } else {
-            alert('CSVファイルを選択してください');
+            showToast('CSVファイルを選択してください');
         }
     });
 
@@ -4645,13 +4645,13 @@ function downloadCsvTemplate() {
 async function executeImport() {
     try {
         if (!window.selectedCsvFile) {
-            alert('CSVファイルを選択してください');
+            showToast('CSVファイルを選択してください');
             return;
         }
 
         const btn = document.getElementById('importBtn');
         if (!btn) {
-            alert('インポートボタンが見つかりません');
+            showToast('インポートボタンが見つかりません');
             return;
         }
         const originalText = btn.textContent;
@@ -4698,7 +4698,7 @@ async function executeImport() {
             }
 
             // 成功メッセージをアラートで表示
-            alert(result.success ? result.message : 'インポートに失敗しました: ' + result.message);
+            showToast(result.success ? result.message : 'インポートに失敗しました: ' + result.message);
 
             // 結果を表示
             showImportResult(result);
@@ -4709,7 +4709,7 @@ async function executeImport() {
 
         } catch (error) {
             console.error('インポートエラー:', error);
-            alert('インポートエラー: ' + error.message);
+            showToast('インポートエラー: ' + error.message);
             try {
                 showImportResult({
                     success: false,
@@ -4726,7 +4726,7 @@ async function executeImport() {
         }
     } catch (outerError) {
         console.error('executeImport 外側エラー:', outerError);
-        alert('予期しないエラー: ' + outerError.message);
+        showToast('予期しないエラー: ' + outerError.message);
     }
 }
 
@@ -4771,18 +4771,13 @@ function showImportResult(result) {
 // 練習メニューアップロード機能
 // ========================================
 
-const PRACTICE_UPLOAD_PASSWORD = 'heartup';
+// 練習メニューの管理は招待制のGoogleログイン（auth-guard）で担保されるため、
+// 共有パスワード方式は廃止（他事業所フィードバック対応）
 
 /**
  * 練習メニューアップロードフォームを表示
  */
 function showPracticeUploadForm() {
-    const password = prompt('管理パスワードを入力してください:');
-    if (password !== PRACTICE_UPLOAD_PASSWORD) {
-        if (password !== null) alert('パスワードが正しくありません。');
-        return;
-    }
-
     const modal = document.getElementById('modal');
     const modalBody = document.getElementById('modalBody');
 
@@ -4850,7 +4845,7 @@ function submitPracticeUpload(event) {
 
     const title = document.getElementById('uploadTitle').value.trim();
     if (!title) {
-        alert('タイトルを入力してください。');
+        showToast('タイトルを入力してください。');
         return;
     }
 
@@ -4873,7 +4868,7 @@ function submitPracticeUpload(event) {
 
     closeModal();
     displayPracticeMenus();
-    alert('練習メニューを追加しました！');
+    showToast('練習メニューを追加しました！');
 }
 
 /**
@@ -4918,12 +4913,6 @@ function showYouTubeEmbed(videoId, title) {
  * アップロードされた練習メニューを削除
  */
 function deleteUploadedMenu(menuId) {
-    const password = prompt('管理パスワードを入力してください:');
-    if (password !== PRACTICE_UPLOAD_PASSWORD) {
-        if (password !== null) alert('パスワードが正しくありません。');
-        return;
-    }
-
     if (!confirm('このメニューを削除しますか？')) return;
 
     const uploaded = JSON.parse(localStorage.getItem('uploadedPracticeMenus') || '[]');
@@ -4931,19 +4920,13 @@ function deleteUploadedMenu(menuId) {
     localStorage.setItem('uploadedPracticeMenus', JSON.stringify(filtered));
 
     displayPracticeMenus();
-    alert('メニューを削除しました。');
+    showToast('メニューを削除しました。');
 }
 
 /**
  * 既存メニューに動画を追加/編集
  */
 function editMenuVideo(menuId, menuTitle) {
-    const password = prompt('管理パスワードを入力してください:');
-    if (password !== PRACTICE_UPLOAD_PASSWORD) {
-        if (password !== null) alert('パスワードが正しくありません。');
-        return;
-    }
-
     const menuVideos = JSON.parse(localStorage.getItem('practiceMenuVideos') || '{}');
     const currentUrl = menuVideos[menuId] || '';
 
@@ -4998,16 +4981,10 @@ function removeMenuVideo(menuId) {
  * アップロード済みメニューを編集
  */
 function editUploadedMenu(menuId) {
-    const password = prompt('管理パスワードを入力してください:');
-    if (password !== PRACTICE_UPLOAD_PASSWORD) {
-        if (password !== null) alert('パスワードが正しくありません。');
-        return;
-    }
-
     const uploaded = JSON.parse(localStorage.getItem('uploadedPracticeMenus') || '[]');
     const menu = uploaded.find(m => m.id === menuId);
     if (!menu) {
-        alert('メニューが見つかりません。');
+        showToast('メニューが見つかりません。');
         return;
     }
 
@@ -5078,14 +5055,14 @@ function saveUploadedMenuEdit(menuId, event) {
 
     const title = document.getElementById('editUpTitle').value.trim();
     if (!title) {
-        alert('タイトルを入力してください。');
+        showToast('タイトルを入力してください。');
         return;
     }
 
     const uploaded = JSON.parse(localStorage.getItem('uploadedPracticeMenus') || '[]');
     const index = uploaded.findIndex(m => m.id === menuId);
     if (index === -1) {
-        alert('メニューが見つかりません。');
+        showToast('メニューが見つかりません。');
         return;
     }
 
@@ -5100,5 +5077,5 @@ function saveUploadedMenuEdit(menuId, event) {
     localStorage.setItem('uploadedPracticeMenus', JSON.stringify(uploaded));
     closeModal();
     displayPracticeMenus();
-    alert('メニューを更新しました。');
+    showToast('メニューを更新しました。');
 }

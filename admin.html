@@ -164,6 +164,7 @@
     <script>
         window.FIREBASE_CONFIG = { apiKey: '', authDomain: '', projectId: '' };
     </script>
+    <script src="toast.js?v=20260818"></script>
     <script src="config.js?v=20260706" onerror="console.log('config.js not found')"></script>
     <script src="firebase-client.js?v=20260706"></script>
     <script src="data-adapter.js?v=20260706"></script>
@@ -222,13 +223,13 @@
 
         async function addLocation() {
             const name = document.getElementById('locationName').value.trim();
-            if (!name) return alert('拠点名を入力してください');
+            if (!name) return showToast('拠点名を入力してください');
             try {
                 await heartUpDB.createLocation(name);
                 closeModal('addLocationModal');
                 await loadAll();
             } catch (e) {
-                alert('エラー: ' + e.message);
+                showToast('エラー: ' + e.message);
             }
         }
 
@@ -239,11 +240,11 @@
                 const total = Object.values(counts).reduce((a, b) => a + b, 0);
                 if (total > 0) {
                     const detail = Object.entries(counts).filter(([, v]) => v > 0).map(([k, v]) => `${k}: ${v}件`).join(' / ');
-                    alert(`「${name}」には以下のデータが紐づいているため削除できません。\n\n${detail}\n\n「統合」機能で別の拠点にデータを移してから削除してください。`);
+                    showToast(`「${name}」には以下のデータが紐づいているため削除できません。\n\n${detail}\n\n「統合」機能で別の拠点にデータを移してから削除してください。`);
                     return;
                 }
             } catch (e) {
-                alert('利用状況の確認に失敗しました: ' + e.message);
+                showToast('利用状況の確認に失敗しました: ' + e.message);
                 return;
             }
             if (!confirm(`「${name}」を削除しますか？\nこの拠点には紐づくデータがありません。`)) return;
@@ -251,7 +252,7 @@
                 await heartUpDB.deleteLocation(id);
                 await loadAll();
             } catch (e) {
-                alert('削除エラー: ' + e.message);
+                showToast('削除エラー: ' + e.message);
             }
         }
 
@@ -260,7 +261,7 @@
             // 同名 or 任意の他拠点を統合先候補にする
             const candidates = locations.filter(l => l.id !== fromId);
             if (candidates.length === 0) {
-                alert('統合先の拠点がありません。');
+                showToast('統合先の拠点がありません。');
                 return;
             }
             // 利用状況を取得
@@ -268,7 +269,7 @@
             try {
                 counts = await heartUpDB.countLocationUsage(fromId);
             } catch (e) {
-                alert('利用状況の取得に失敗: ' + e.message);
+                showToast('利用状況の取得に失敗: ' + e.message);
                 return;
             }
             const detail = Object.entries(counts).map(([k, v]) => `${k}: ${v}件`).join(' / ');
@@ -294,7 +295,7 @@
                             <select id="mergeTargetSelect">${optionsHtml}</select>
                         </div>
                         <p style="color:#d32f2f;font-size:13px;margin:12px 0;">
-                            ⚠ 統合元の全データ（児童・記録・アセスメント等）の拠点が「統合先」に書き換わります。<br>
+                            【注意】統合元の全データ（児童・記録・アセスメント等）の拠点が「統合先」に書き換わります。<br>
                             データ自体は削除されず、locationId のみ変更されます。<br>
                             処理完了後、統合元の拠点（空）は自動削除されます。
                         </p>
@@ -317,7 +318,7 @@
 
         async function executeMerge(fromId, fromName) {
             const toId = document.getElementById('mergeTargetSelect').value;
-            if (!toId) return alert('統合先を選択してください');
+            if (!toId) return showToast('統合先を選択してください');
             const toLoc = locations.find(l => l.id === toId);
             if (!confirm(`「${fromName}」のデータを全て「${toLoc?.name || toId}」に移します。\nこの操作は取り消せません。実行しますか？`)) return;
             const btn = document.getElementById('mergeExecBtn');
@@ -326,11 +327,11 @@
             try {
                 const result = await heartUpDB.mergeLocations(fromId, toId);
                 const movedDetail = Object.entries(result.moved).filter(([, v]) => v > 0).map(([k, v]) => `${k}: ${v}件`).join(' / ') || '移動データなし';
-                alert(`統合完了\n移動内訳: ${movedDetail}`);
+                showToast(`統合完了\n移動内訳: ${movedDetail}`);
                 closeMergeModal();
                 await loadAll();
             } catch (e) {
-                alert('統合エラー: ' + e.message + '\n\nデータは安全のため統合元に残っています。再試行してください。');
+                showToast('統合エラー: ' + e.message + '\n\nデータは安全のため統合元に残っています。再試行してください。');
                 btn.disabled = false;
                 btn.textContent = '統合を実行';
             }
@@ -385,7 +386,7 @@
                 await heartUpDB.updateStaffRole(staffId, role);
                 await loadStaff();
             } catch (e) {
-                alert('ロール変更エラー: ' + e.message);
+                showToast('ロール変更エラー: ' + e.message);
             }
         }
 
@@ -394,7 +395,7 @@
                 await heartUpDB.updateStaffLocation(staffId, locationId);
                 await loadStaff();
             } catch (e) {
-                alert('拠点変更エラー: ' + e.message);
+                showToast('拠点変更エラー: ' + e.message);
             }
         }
 
@@ -405,7 +406,7 @@
                 await heartUpDB.deleteStaffProfile(staffId);
                 await loadStaff();
             } catch (e) {
-                alert('削除エラー: ' + e.message);
+                showToast('削除エラー: ' + e.message);
             }
         }
 
@@ -448,13 +449,13 @@
             const name = document.getElementById('inviteName').value.trim();
             const role = document.getElementById('inviteRole').value;
             const locationId = document.getElementById('inviteLocation').value;
-            if (!email || !name) return alert('メールと名前は必須です');
+            if (!email || !name) return showToast('メールと名前は必須です');
             try {
                 await heartUpDB.createInvitation(email, name, role, locationId);
                 closeModal('inviteModal');
                 await loadInvitations();
             } catch (e) {
-                alert('招待エラー: ' + e.message);
+                showToast('招待エラー: ' + e.message);
             }
         }
 
@@ -464,7 +465,7 @@
                 await heartUpDB.deleteInvitation(id);
                 await loadInvitations();
             } catch (e) {
-                alert('削除エラー: ' + e.message);
+                showToast('削除エラー: ' + e.message);
             }
         }
 
@@ -514,12 +515,12 @@
                     }
                 }
                 
-                statusEl.innerHTML = `<span style="color: #2e7d32;">✅ テストデータ整理完了！</span><br>
+                statusEl.innerHTML = `<span style="color: #2e7d32;">テストデータ整理が完了しました。</span><br>
                 <span style="font-size: 12px; color: #666;">${deletedCount}件のテストデータを削除しました。</span>`;
                 
             } catch (error) {
                 console.error('テストデータ整理エラー:', error);
-                statusEl.innerHTML = `<span style="color: #d32f2f;">❌ エラーが発生しました: ${error.message}</span>`;
+                statusEl.innerHTML = `<span style="color: #d32f2f;">エラーが発生しました: ${error.message}</span>`;
             }
         }
 
