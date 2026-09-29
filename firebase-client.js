@@ -385,7 +385,7 @@ const heartUpDB = {
         const snapshot = await this._locationQuery('support_plans').get();
         return this._sortByCreatedDesc(snapshot.docs).map(doc => {
             const d = doc.data();
-            return { id: doc.id, child_name: d.childName, plan_type: d.planType, plan_data: d.planData || {}, created_at: this._ts(d.createdAt) };
+            return { id: doc.id, child_name: d.childName, plan_type: d.planType, plan_data: d.planData || {}, location_id: d.locationId || '', created_at: this._ts(d.createdAt) };
         });
     },
 
@@ -409,6 +409,15 @@ const heartUpDB = {
         return { id: docRef.id, child_name: childName };
     },
 
+    async updateSupportPlan(id, updates) {
+        if (!this.isReady()) throw new Error('Firebase未初期化');
+        const data = { updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+        if (updates.html !== undefined) data.html = updates.html;
+        if (updates.planData !== undefined) data.planData = updates.planData;
+        await this.db.collection('support_plans').doc(id).update(data);
+        return { id };
+    },
+
     async deleteSupportPlan(id) {
         if (!this.isReady()) throw new Error('Firebase未初期化');
         await this.db.collection('support_plans').doc(id).delete();
@@ -423,7 +432,7 @@ const heartUpDB = {
         const snapshot = await this._locationQuery('daily_reports').get();
         return this._sortByCreatedDesc(snapshot.docs).map(doc => {
             const d = doc.data();
-            return { id: doc.id, child_name: d.childName, report_date: d.reportDate, report_data: d.reportData || {}, created_at: this._ts(d.createdAt) };
+            return { id: doc.id, child_name: d.childName, report_date: d.reportDate, report_data: d.reportData || {}, location_id: d.locationId || '', created_at: this._ts(d.createdAt) };
         });
     },
 
@@ -470,7 +479,7 @@ const heartUpDB = {
         const snapshot = await this._locationQuery('reviews').get();
         return this._sortByCreatedDesc(snapshot.docs).map(doc => {
             const d = doc.data();
-            return { id: doc.id, child_name: d.childName, review_data: d.reviewData || {}, created_at: this._ts(d.createdAt) };
+            return { id: doc.id, child_name: d.childName, review_data: d.reviewData || {}, location_id: d.locationId || '', created_at: this._ts(d.createdAt) };
         });
     },
 
@@ -521,6 +530,23 @@ const heartUpDB = {
         if (!this.isReady()) throw new Error('Firebase未初期化');
         await this.db.collection('locations').doc(id).update({ name });
         return { id, name };
+    },
+
+    // 拠点の設定を更新（例: { noSoccer: true } = サッカー活動を行わない拠点）
+    async updateLocationSettings(id, settings) {
+        if (!this.isReady()) throw new Error('Firebase未初期化');
+        await this.db.collection('locations').doc(id).update(settings || {});
+        this._locationsCache = null;
+        return { id };
+    },
+
+    // 拠点一覧のキャッシュ付き取得（記録生成時の拠点設定参照用）
+    async getLocationsCached() {
+        if (!this.isReady()) return [];
+        if (this._locationsCache && (Date.now() - this._locationsCacheAt) < 60000) return this._locationsCache;
+        this._locationsCache = await this.getLocations();
+        this._locationsCacheAt = Date.now();
+        return this._locationsCache;
     },
 
     async deleteLocation(id) {
@@ -758,6 +784,38 @@ const heartUpDB = {
     // PDFはbase64化して study_resources/{id}/chunks/{n} に分割保存する
     // （Firestoreの1ドキュメント1MiB制限のため）
     // ============================================================
+
+    // ============================================================
+    // AI生成練習メニュー（拠点ごと）
+    // ============================================================
+
+    async getGeneratedMenus() {
+        if (!this.isReady()) return [];
+        const snapshot = await this._locationQuery('generated_menus').get();
+        return this._sortByCreatedDesc(snapshot.docs).map(doc => ({ id: doc.id, ...doc.data(), created_at: this._ts(doc.data().createdAt) }));
+    },
+
+    async createGeneratedMenu(menu) {
+        if (!this.isReady()) throw new Error('Firebase未初期化');
+        const locationId = this.getMyLocationId();
+        const docRef = await this.db.collection('generated_menus').add({
+            ...menu, locationId,
+            createdBy: this.currentProfile?.name || this.currentProfile?.email || '',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        return { id: docRef.id };
+    },
+
+    async updateGeneratedMenu(id, updates) {
+        if (!this.isReady()) throw new Error('Firebase未初期化');
+        await this.db.collection('generated_menus').doc(id).update({ ...updates, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+        return { id };
+    },
+
+    async deleteGeneratedMenu(id) {
+        if (!this.isReady()) throw new Error('Firebase未初期化');
+        await this.db.collection('generated_menus').doc(id).delete();
+    },
 
     async getStudyResources() {
         if (!this.isReady()) return [];

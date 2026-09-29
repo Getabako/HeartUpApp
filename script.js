@@ -973,13 +973,26 @@ function displayPracticeMenus() {
         );
     }
 
+    // AI生成メニュー（拠点ごとに保存されたもの）
+    const generatedMenus = (typeof PracticeMenuGen !== 'undefined')
+        ? PracticeMenuGen.filtered(currentPracticeCategory, searchTerm)
+        : [];
+
     // HTMLの生成
     grid.innerHTML = '';
 
-    if (filteredMenus.length === 0) {
+    if (filteredMenus.length === 0 && generatedMenus.length === 0) {
         grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #999;">該当する練習メニューが見つかりませんでした。</p>';
         return;
     }
+
+    generatedMenus.forEach(menu => {
+        const card = document.createElement('div');
+        card.className = 'practice-card practice-card-generated';
+        card.onclick = () => PracticeMenuGen.openSaved(menu.id);
+        card.innerHTML = PracticeMenuGen.cardHtml(menu);
+        grid.appendChild(card);
+    });
 
     filteredMenus.forEach(menu => {
         const card = document.createElement('div');
@@ -1229,21 +1242,15 @@ async function showRecordForm() {
             <div class="form-group">
                 <label>活動内容（複数選択可）</label>
                 <div class="activity-checkboxes" id="activityTypeCheckboxes">
-                    <label><input type="checkbox" name="activityType" value="warmup"><span>ウォーミングアップ</span></label>
-                    <label><input type="checkbox" name="activityType" value="individual"><span>個別練習</span></label>
-                    <label><input type="checkbox" name="activityType" value="group"><span>グループ活動</span></label>
-                    <label><input type="checkbox" name="activityType" value="game"><span>ミニゲーム</span></label>
-                    <label><input type="checkbox" name="activityType" value="skill"><span>スキル練習</span></label>
-                    <label><input type="checkbox" name="activityType" value="cooldown"><span>クールダウン</span></label>
-                    <label><input type="checkbox" name="activityType" value="event"><span>イベント</span></label>
-                    <label><input type="checkbox" name="activityType" value="other"><span>その他</span></label>
+                    ${buildActivityCheckboxes('activityType')}
                 </div>
                 <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">※1つ以上選択してください</p>
             </div>
             
             <div class="form-group">
-                <label>観察された様子（簡単に）</label>
-                <textarea id="observation" placeholder="例: ボールを蹴る練習を楽しんでいた。友達とパスを交換できた。" required></textarea>
+                <label>観察された様子</label>
+                <textarea id="observation" placeholder="例: ボールを蹴る練習を楽しんでいた。友達とパスを交換できた。順番待ちで割り込む場面があり声かけで戻れた。" required></textarea>
+                <div class="memo-tools">${typeof VoiceInput !== 'undefined' ? VoiceInput.button('observation') : ''}</div>
             </div>
             
             <div class="form-group">
@@ -1596,6 +1603,7 @@ async function generateRecord(event) {
 
         // Gemini APIを使用して生成
         if (geminiAPI.isInitialized()) {
+            const locCtx = await dataAdapter.getChildLocationContext(childName);
             const recordData = {
                 date,
                 childName,
@@ -1603,6 +1611,7 @@ async function generateRecord(event) {
                 activities: selectedActivities,
                 observation,
                 notes,
+                nonSoccer: !!locCtx.noSoccer,
                 supportPlan: supportPlanData  // 支援計画データを追加
             };
 
@@ -1868,6 +1877,7 @@ async function generatePlan(event) {
 
     try {
         if (geminiAPI.isInitialized()) {
+            const planLocCtx = await dataAdapter.getChildLocationContext(childName);
             const planData = {
                 childName,
                 age,
@@ -1875,6 +1885,7 @@ async function generatePlan(event) {
                 issues,
                 strengths,
                 parentRequest,
+                nonSoccer: !!planLocCtx.noSoccer,
                 assessmentData  // アセスメントデータを追加
             };
 
@@ -1900,6 +1911,7 @@ async function generatePlan(event) {
                 endDate.setMonth(endDate.getMonth() + 6);
                 const officialData = await geminiAPI.generateOfficialIndividualPlan({
                     childName,
+                    nonSoccer: !!planLocCtx.noSoccer,
                     diagnosis: assessmentData?.diagnosis || '',
                     certificateNumber: assessmentData?.certificateNumber || '',
                     startDate: today.toLocaleDateString('ja-JP'),
@@ -2032,8 +2044,10 @@ async function generateReview(event) {
 
     try {
         if (geminiAPI.isInitialized()) {
+            const reviewLocCtx = await dataAdapter.getChildLocationContext(childName);
             const reviewData = {
                 childName,
+                nonSoccer: !!reviewLocCtx.noSoccer,
                 startDate,
                 endDate,
                 goals,
@@ -3048,6 +3062,34 @@ const detailedActivityOptions = {
         { id: 'cooldown_reflection', label: '振り返り' },
         { id: 'cooldown_cool_down', label: 'クールダウン運動' }
     ],
+    park: [
+        { id: 'park_play', label: '遊具遊び' },
+        { id: 'park_tag', label: '鬼ごっこ・かけっこ' },
+        { id: 'park_walk', label: '散歩・自然観察' },
+        { id: 'park_ball', label: 'ボール遊び' },
+        { id: 'park_group', label: '集団遊び' }
+    ],
+    craft: [
+        { id: 'craft_drawing', label: 'お絵かき・塗り絵' },
+        { id: 'craft_paper', label: '折り紙・切り貼り' },
+        { id: 'craft_making', label: '制作（工作物づくり）' },
+        { id: 'craft_clay', label: '粘土・造形' },
+        { id: 'craft_seasonal', label: '季節の制作' }
+    ],
+    cooking: [
+        { id: 'cooking_prep', label: '材料の準備・計量' },
+        { id: 'cooking_cut', label: '切る・混ぜる' },
+        { id: 'cooking_cook', label: '加熱・仕上げ' },
+        { id: 'cooking_serve', label: '盛り付け・配膳' },
+        { id: 'cooking_cleanup', label: '片付け・洗い物' }
+    ],
+    club: [
+        { id: 'club_sports', label: '運動系クラブ' },
+        { id: 'club_culture', label: '文化系クラブ' },
+        { id: 'club_game', label: 'ボードゲーム・カードゲーム' },
+        { id: 'club_study', label: '学習・宿題' },
+        { id: 'club_music', label: '音楽・ダンス' }
+    ],
     event: [
         { id: 'event_tournament', label: '大会参加' },
         { id: 'event_friendly', label: '交流試合' },
@@ -3142,9 +3184,20 @@ const ACTIVITY_LABELS = {
     game: 'ミニゲーム',
     skill: 'スキル練習',
     cooldown: 'クールダウン',
+    park: '公園',
+    craft: '工作',
+    cooking: '料理',
+    club: 'クラブ活動',
     event: 'イベント',
     other: 'その他'
 };
+
+// 活動チェックボックスのHTMLを生成（一括記録・単発記録で共通）
+function buildActivityCheckboxes(inputName) {
+    return Object.entries(ACTIVITY_LABELS).map(([id, label]) =>
+        `<label><input type="checkbox" name="${inputName}" value="${id}"><span>${label}</span></label>`
+    ).join('\n                        ');
+}
 
 // 活動内容→関連する目標カテゴリのマッピング
 const activityGoalMapping = {
@@ -3154,6 +3207,10 @@ const activityGoalMapping = {
     game: ['technical', 'tactics', 'mental', 'physical', 'interpersonal'],
     skill: ['technical', 'tactics', 'physical'],
     cooldown: ['mental', 'physical'],
+    park: ['physical', 'mental', 'interpersonal'],
+    craft: ['mental', 'physical'],
+    cooking: ['mental', 'interpersonal', 'physical'],
+    club: ['mental', 'interpersonal'],
     event: ['mental', 'interpersonal'],
     other: ['technical', 'tactics', 'mental', 'physical', 'interpersonal']
 };
@@ -3169,9 +3226,13 @@ const sortOptions = [
 
 // 学年マッピング
 const gradeOrder = {
+    '0歳児': 0, '1歳児': 0, '2歳児': 0,
     '年少': 1,
     '年中': 2,
     '年長': 3,
+    '小1': 4, '小2': 5, '小3': 6, '小4': 7, '小5': 8, '小6': 9,
+    '中1': 10, '中2': 11, '中3': 12,
+    '高1': 13, '高2': 14, '高3': 15,
     '小学1年': 4,
     '小学2年': 5,
     '小学3年': 6,
@@ -3202,51 +3263,51 @@ const characteristicOrder = {
 function sortStudents(students, sortBy) {
     console.log('sortStudents: 生徒数', students.length, 'sortBy:', sortBy);
     const studentsCopy = [...students];
-    
+
+    // 50音順: ふりがながあればふりがな、無ければ漢字名で比較（漢字だけでは50音順にならないため）
+    const byKana = (a, b) => {
+        const ka = (a.kana || a.name || '').replace(/\s+/g, '');
+        const kb = (b.kana || b.name || '').replace(/\s+/g, '');
+        // カタカナはひらがなに正規化
+        const norm = s => s.replace(/[ァ-ヶ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60));
+        return norm(ka).localeCompare(norm(kb), 'ja');
+    };
+
     switch(sortBy) {
         case 'name':
-            // 名前順（50音）
-            console.log('名前順でソート');
-            return studentsCopy.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
-            
+            return studentsCopy.sort(byKana);
+
         case 'grade':
-            // 学年順
             return studentsCopy.sort((a, b) => {
                 const gradeA = gradeOrder[a.grade] || 99;
                 const gradeB = gradeOrder[b.grade] || 99;
                 if (gradeA !== gradeB) return gradeA - gradeB;
-                // 学年が同じ場合は名前順
-                return a.name.localeCompare(b.name, 'ja');
+                return byKana(a, b);
             });
-            
+
         case 'characteristic':
-            // 特性順
             return studentsCopy.sort((a, b) => {
                 const charA = characteristicOrder[a.characteristic] || 99;
                 const charB = characteristicOrder[b.characteristic] || 99;
                 if (charA !== charB) return charA - charB;
-                // 特性が同じ場合は名前順
-                return a.name.localeCompare(b.name, 'ja');
+                return byKana(a, b);
             });
-            
+
         case 'location':
-            // 拠点順
             return studentsCopy.sort((a, b) => {
                 const locA = a.locationName || '未設定';
                 const locB = b.locationName || '未設定';
                 if (locA !== locB) return locA.localeCompare(locB, 'ja');
-                // 拠点が同じ場合は名前順
-                return a.name.localeCompare(b.name, 'ja');
+                return byKana(a, b);
             });
-            
+
         case 'recent':
-            // 最近追加順
             return studentsCopy.sort((a, b) => {
                 return new Date(b.createdAt) - new Date(a.createdAt);
             });
-            
+
         default:
-            return studentsCopy.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+            return studentsCopy.sort(byKana);
     }
 }
 
@@ -3266,7 +3327,7 @@ function showBatchRecordForm() {
         selectedChildren: [],
         childrenMemos: {},
         sortBy: localStorage.getItem('heartup_sortPreference') || 'name',
-        locationFilter: ''
+        locationFilter: null // null = 自拠点を自動選択
     };
 
     renderBatchRecordStep1(container);
@@ -3293,14 +3354,7 @@ function renderBatchRecordStep1(container) {
                 <div class="form-group">
                     <label>活動内容（複数選択可）</label>
                     <div class="activity-checkboxes" id="batchActivityCheckboxes">
-                        <label><input type="checkbox" name="batchActivity" value="warmup"><span>ウォーミングアップ</span></label>
-                        <label><input type="checkbox" name="batchActivity" value="individual"><span>個別練習</span></label>
-                        <label><input type="checkbox" name="batchActivity" value="group"><span>グループ活動</span></label>
-                        <label><input type="checkbox" name="batchActivity" value="game"><span>ミニゲーム</span></label>
-                        <label><input type="checkbox" name="batchActivity" value="skill"><span>スキル練習</span></label>
-                        <label><input type="checkbox" name="batchActivity" value="cooldown"><span>クールダウン</span></label>
-                        <label><input type="checkbox" name="batchActivity" value="event"><span>イベント</span></label>
-                        <label><input type="checkbox" name="batchActivity" value="other"><span>その他</span></label>
+                        ${buildActivityCheckboxes('batchActivity')}
                     </div>
                     <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">※1つ以上選択してください</p>
                 </div>
@@ -3507,22 +3561,49 @@ async function renderBatchRecordStep2(container) {
         }
     }
     
+    // アセスメントから最新の生年月日・ふりがなを引く（児童マスタに無い場合の補完）
+    const latestAssessmentByChild = {};
+    Object.values(assessments).forEach(a => {
+        const n = a.data?.childName;
+        if (!n) return;
+        const cur = latestAssessmentByChild[n];
+        if (!cur || new Date(a.createdAt || 0) > new Date(cur.createdAt || 0)) latestAssessmentByChild[n] = a;
+    });
+
     allStudentNames.forEach(name => {
         const childData = children[name] || {};
         const metadata = childData.metadata || {};
-        const locationId = childData.locationId || '';
+        const formData = latestAssessmentByChild[name]?.data || {};
+        const locationId = childData.locationId || latestAssessmentByChild[name]?.locationId || '';
         const locationName = locationId ? (locationsMap[locationId] || `拠点:${locationId}`) : '未設定';
+
+        // 学年は生年月日から算出（assessment-manager.js の amCalculateGrade を利用）
+        const rawBirth = childData.birthDate || metadata.birthDate || formData.birthDate || '';
+        const birthDate = (typeof normalizeBirthDate === 'function' ? normalizeBirthDate(rawBirth) : '') || rawBirth;
+        let grade = childData.grade || metadata.grade || '';
+        if (!grade && birthDate && typeof amCalculateGrade === 'function') {
+            grade = amCalculateGrade(birthDate) || '';
+        }
+        const kana = childData.childNameKana || metadata.childNameKana || formData.childNameKana || '';
+        const characteristic = childData.characteristic || metadata.characteristic || childData.diagnosis || metadata.diagnosis || formData.diagnosis || '';
 
         studentData.push({
             name,
-            grade: childData.grade || metadata.grade || '未設定',
-            characteristic: childData.characteristic || metadata.characteristic || '未設定',
+            kana,
+            grade: grade || '未設定',
+            characteristic: characteristic || '未設定',
             locationId,
             locationName,
-            createdAt: childData.createdAt || new Date().toISOString(),
+            createdAt: childData.createdAt || latestAssessmentByChild[name]?.createdAt || new Date().toISOString(),
             metadata: metadata
         });
     });
+
+    // 初回表示は自拠点の児童だけに絞る（他拠点の児童が混ざらないように）
+    if (batchRecordState.locationFilter === undefined || batchRecordState.locationFilter === null) {
+        const myLocName = (heartUpDB.isReady() && typeof heartUpDB.getMyLocationName === 'function') ? heartUpDB.getMyLocationName() : '';
+        batchRecordState.locationFilter = (myLocName && studentData.some(s => s.locationName === myLocName)) ? myLocName : '';
+    }
     
     // 拠点フィルタ用の拠点一覧を作成
     const locationNames = [...new Set(studentData.map(s => s.locationName).filter(n => n && n !== '未設定'))];
@@ -3538,16 +3619,7 @@ async function renderBatchRecordStep2(container) {
     // 並び替えを適用
     const sortedStudents = sortStudents(filteredStudents, batchRecordState.sortBy);
 
-    const activityLabels = {
-        'warmup': 'ウォーミングアップ',
-        'individual': '個別練習',
-        'group': 'グループ活動',
-        'game': 'ミニゲーム',
-        'skill': 'スキル練習',
-        'cooldown': 'クールダウン',
-        'event': 'イベント',
-        'other': 'その他'
-    };
+    const activityLabels = ACTIVITY_LABELS;
 
     const selectedActivityLabels = batchRecordState.activities.map(a => activityLabels[a]).join('、');
 
@@ -3572,7 +3644,7 @@ async function renderBatchRecordStep2(container) {
                 <label class="child-checkbox-label">
                     <input type="checkbox" name="batchChild" value="${student.name}" ${checked}>
                     <div class="student-info">
-                        <span class="student-name">${student.name}</span>
+                        <span class="student-name">${student.name}${student.kana ? `<span class="student-kana">${student.kana}</span>` : ''}</span>
                         <div class="student-metadata">
                             ${gradeBadge}
                             ${charBadge}
@@ -3776,16 +3848,7 @@ function batchRecordGoBack(step) {
  * Step 3: 個別メモ入力（一覧形式）
  */
 function renderBatchRecordStep3(container) {
-    const activityLabels = {
-        'warmup': 'ウォーミングアップ',
-        'individual': '個別練習',
-        'group': 'グループ活動',
-        'game': 'ミニゲーム',
-        'skill': 'スキル練習',
-        'cooldown': 'クールダウン',
-        'event': 'イベント',
-        'other': 'その他'
-    };
+    const activityLabels = ACTIVITY_LABELS;
 
     const selectedActivityLabels = batchRecordState.activities.map(a => activityLabels[a]).join('、');
 
@@ -3800,9 +3863,12 @@ function renderBatchRecordStep3(container) {
                 </div>
                 <textarea
                     id="memo_${index}"
-                    placeholder="本日の様子を入力..."
+                    placeholder="本日の様子を入力（できたこと・課題・気になった行動など、書いた内容はそのまま記録と連絡帳に反映されます）"
                     oninput="updateBatchMemo('${name}', this.value)"
                 >${memoData.memo}</textarea>
+                <div class="memo-tools">
+                    ${typeof VoiceInput !== 'undefined' ? VoiceInput.button(`memo_${index}`) : ''}
+                </div>
                 <label class="no-issue-label">
                     <input type="checkbox" id="noIssue_${index}"
                         ${memoData.noIssue ? 'checked' : ''}
@@ -3876,16 +3942,7 @@ function updateBatchNoIssue(name, checked) {
 async function generateBatchRecords() {
     const container = document.getElementById('batchRecordContent');
 
-    const activityLabels = {
-        'warmup': 'ウォーミングアップ',
-        'individual': '個別練習',
-        'group': 'グループ活動',
-        'game': 'ミニゲーム',
-        'skill': 'スキル練習',
-        'cooldown': 'クールダウン',
-        'event': 'イベント',
-        'other': 'その他'
-    };
+    const activityLabels = ACTIVITY_LABELS;
 
     const selectedActivityLabels = batchRecordState.activities.map(a => activityLabels[a]).join('、');
 
@@ -3898,6 +3955,17 @@ async function generateBatchRecords() {
     `;
 
     const results = [];
+
+    // 拠点設定（サッカー活動なし）を児童ごとに参照
+    const nonSoccerByChild = {};
+    for (const childName of batchRecordState.selectedChildren) {
+        try {
+            const ctx = await dataAdapter.getChildLocationContext(childName);
+            nonSoccerByChild[childName] = !!ctx.noSoccer;
+        } catch (e) {
+            nonSoccerByChild[childName] = false;
+        }
+    }
 
     try {
         for (const childName of batchRecordState.selectedChildren) {
@@ -3931,7 +3999,8 @@ async function generateBatchRecords() {
                 detailedActivities: detailedLabels.join('、'),
                 goals: goalLabels.join('、'),
                 observation,
-                notes: memoData.noIssue ? '特に問題なし' : ''
+                notes: memoData.noIssue ? '特に問題なし' : '',
+                nonSoccer: nonSoccerByChild[childName] === true
             };
 
             let generatedText = '';
@@ -4086,7 +4155,10 @@ async function generateAllParentNotes() {
             observation: r.recordData.observation,
             activities: r.recordData.activities,
             activityType: r.recordData.activityType,
-            date: r.recordData.date
+            date: r.recordData.date,
+            nonSoccer: r.recordData.nonSoccer === true
+                || (Array.isArray(r.recordData.activities) && r.recordData.activities.length > 0
+                    && r.recordData.activities.every(a => GeminiAPI.NON_SOCCER_ACTIVITIES.includes(a)))
         }));
 
         if (geminiAPI.isInitialized()) {

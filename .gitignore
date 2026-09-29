@@ -17,3 +17,11 @@ node_modules/
 # ログファイル
 *.log
 config.js
+old-key.json
+new-key.json
+migrate-firestore.js
+
+# 参考用の練習メニュー写真（児童名が写っているものがあるためコミットしない）
+メニュー/
+# 個別の計画書CSV（個人情報）
+*.csv.csv

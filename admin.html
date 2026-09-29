@@ -69,8 +69,8 @@
                 <button class="btn btn-primary" onclick="showAddLocationModal()">+ 拠点を追加</button>
             </div>
             <table>
-                <thead><tr><th>拠点名</th><th>作成日</th><th></th></tr></thead>
-                <tbody id="locationsBody"><tr><td colspan="3" class="empty-msg">読み込み中...</td></tr></tbody>
+                <thead><tr><th>拠点名</th><th>活動内容</th><th>作成日</th><th></th></tr></thead>
+                <tbody id="locationsBody"><tr><td colspan="4" class="empty-msg">読み込み中...</td></tr></tbody>
             </table>
         </div>
 
@@ -190,7 +190,7 @@
                 locations = await heartUpDB.getLocations();
                 const tbody = document.getElementById('locationsBody');
                 if (locations.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="3" class="empty-msg">拠点がありません</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="4" class="empty-msg">拠点がありません</td></tr>';
                     return;
                 }
                 // 同名拠点を検出して重複バッジを表示
@@ -203,6 +203,13 @@
                     return `
                     <tr${isDup ? ' style="background:#fff8f8;"' : ''}>
                         <td>${l.name}${dupBadge}<br><span style="color:#999;font-size:11px;">ID: ${l.id}</span></td>
+                        <td>
+                            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;">
+                                <input type="checkbox" ${l.noSoccer ? 'checked' : ''} onchange="toggleNoSoccer('${l.id}', this.checked)">
+                                <span>サッカー活動なし</span>
+                            </label>
+                            <div style="color:#999;font-size:11px;margin-top:2px;">ONにすると記録・連絡帳・計画書・モニタリングでサッカーに言及しません</div>
+                        </td>
                         <td>${new Date(l.created_at).toLocaleDateString('ja-JP')}</td>
                         <td>
                             ${mergeBtn}
@@ -213,6 +220,16 @@
                 }).join('');
             } catch (e) {
                 console.error('拠点読み込みエラー:', e);
+            }
+        }
+
+        async function toggleNoSoccer(id, checked) {
+            try {
+                await heartUpDB.updateLocationSettings(id, { noSoccer: !!checked });
+                showToast(checked ? 'サッカー活動なしの拠点として設定しました' : 'サッカー活動ありに戻しました');
+                await loadLocations();
+            } catch (e) {
+                showToast('エラー: ' + e.message);
             }
         }
 

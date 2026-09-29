@@ -108,7 +108,9 @@ subagent_type: "media"    → メディア・サブエージェント
 
 | 環境変数 | 用途 | 備考 |
 |---------|------|------|
-| `GEMINI_API_KEY` | Gemini API | AI書類生成で使用 |
+| `GEMINI_API_KEY` | Gemini API | AI書類生成・練習メニュー生成・ホワイトボード写真の読み取りで使用 |
+| `OPENAI_API_KEY` | OpenAI API（任意） | 練習メニューのイラスト生成（gpt-image-1）と音声入力の文字起こしで使用。未設定でもアプリは動く（イラストはプロンプト表示のみ、音声入力はブラウザ内蔵認識にフォールバック） |
+| `IMAGE_DAILY_LIMIT` | 画像生成の1日の目安枚数（任意） | 未設定なら20。端末ごとの目安表示に使う |
 | `FIREBASE_API_KEY` | Firebase APIキー | Firebase Consoleから取得 |
 | `FIREBASE_AUTH_DOMAIN` | Firebase Authドメイン | `xxx.firebaseapp.com` |
 | `FIREBASE_PROJECT_ID` | Firebase プロジェクトID | |
@@ -130,3 +132,41 @@ subagent_type: "media"    → メディア・サブエージェント
 5. プロジェクト設定 > マイアプリ > ウェブアプリを追加 → 設定値を取得
 6. Vercel環境変数に `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID` を設定
 7. 最初のユーザーがログインすると自動的にadmin + デフォルト拠点が作成される
+
+### サーバーレスAPI（`api/`、2026-09-29 追加）
+
+| エンドポイント | 役割 |
+|---------|------|
+| `GET /api/ai-status` | OpenAI連携（画像生成・音声認識）が有効かを返す。クライアントはこれを見てUIを切り替える |
+| `POST /api/generate-image` | 練習メニューのイラスト生成。`{ prompt, size, quality }` → `{ image: dataURL }`。キー未設定時は 501 |
+| `POST /api/transcribe` | 音声メモの文字起こし。`{ audio: dataURL }` → `{ text }`。キー未設定時は 501 |
+
+- `OPENAI_API_KEY` を Vercel の環境変数に入れて再デプロイするだけで有効になる（コード変更不要）
+- ローカルは `npm run dev`（server.js が同じパスで api/ を提供）
+- 画像は Firestore の1MB制限に合わせてクライアント側で縮小保存（高解像度は生成直後にダウンロード可）
+
+### 拠点設定「サッカー活動なし」（2026-09-29 追加）
+
+- admin.html の拠点一覧でON/OFF。`locations/{id}.noSoccer`
+- ONの拠点の児童は、活動記録・連絡帳・支援計画・モニタリング（成長の振り返り）・修正依頼のすべてでサッカーに言及しない
+- 活動内容が「公園・工作・料理・クラブ活動・イベント・その他」だけの記録は、拠点設定に関係なくサッカーに言及しない
+- 参照は `dataAdapter.getChildLocationContext(childName)`
+
+### 練習メニュー生成（`practice-menu-generator.js`）
+
+- 「テーマから作成」「ホワイトボード写真から作成」の2モード。Gemini が W-up / Tr.1 / Tr.2 / 試合 の型で構造化JSONを返す
+- 型と画風の指針は `gemini-api.js` の `PRACTICE_MENU_STYLE` / `ILLUSTRATION_STYLE`（現場のホワイトボード写真83枚を分析して抽出）
+- 生成結果からイラスト用プロンプトを組み立て（ChatGPTに貼れる）、APIキーがあればアプリ内で画像生成
+- 保存先は Firestore `generated_menus`（拠点ごと）、未接続時は localStorage `generatedPracticeMenus`
+- 参考写真フォルダ `メニュー/` は児童名が写るため git 管理外
+
+### 修正依頼機能
+
+- 支援計画一覧・成長記録一覧の「表示」モーダル下部に修正依頼欄。AIが修正して上書き保存
+- 計画書は公式様式JSON（`planData.selfSupport` 等）を修正して再レンダリング。日付は `planData._startDate/_endDate` に保持
+- 活動記録は `reportData.rawMarkdown` を修正。連絡帳文章（`.saved-parent-note`）は保持
+
+### 音声入力（`voice-input.js`）
+
+- 一括記録の各メモ欄・単発記録の観察欄に「音声入力」ボタン
+- サーバー側キーがあれば `/api/transcribe`、無ければブラウザの Web Speech API（Chrome/Edge/Safari）

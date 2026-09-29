@@ -1128,6 +1128,10 @@ ${opts.medicationNote ? `服薬・体調の変化: ${opts.medicationNote}` : ''}
 ${opts.concernsNote ? `新たな課題・困りごと: ${opts.concernsNote}` : ''}
 ` : '';
 
+        // 拠点がサッカー活動なしの場合はサッカーに言及しない
+        const locCtx = await dataAdapter.getChildLocationContext(assessment.data.childName);
+        const nonSoccer = !!locCtx.noSoccer;
+
         const prompt = `
 あなたは放課後等デイサービスの児童発達支援管理責任者です。
 以下のアセスメント情報を分析し、公式様式に準拠した個別支援計画をJSON形式で作成してください。
@@ -1136,7 +1140,7 @@ ${opts.concernsNote ? `新たな課題・困りごと: ${opts.concernsNote}` : '
 - 必ずJSON形式のみを出力してください（説明文は不要）
 - すべての項目に具体的な内容を記載してください
 - 「ー」や空文字列は使用しないでください
-- サッカー療育の文脈で記載してください
+- ${nonSoccer ? '事業所で実際に行う活動（運動遊び・制作・調理・公園活動・集団活動など）の文脈で記載してください\n- ' + GeminiAPI.NON_SOCCER_NOTICE : 'サッカー療育の文脈で記載してください'}
 
 【児童情報】
 児童名: ${assessment.data.childName}
@@ -1230,6 +1234,12 @@ JSONのみを出力してください。`;
         // スタッフが聞き取った意向は原文のまま計画書の意向欄に反映する
         if (opts.selfIntent) planData.selfIntent = amEscapeHtml(opts.selfIntent);
         if (opts.familyIntent) planData.familyIntent = amEscapeHtml(opts.familyIntent);
+
+        // 修正依頼で再レンダリングできるよう、日付と児童情報を計画データに保持する
+        planData._startDate = startDate;
+        planData._endDate = endDate;
+        planData._childName = assessment.data.childName;
+        planData._nonSoccer = nonSoccer;
 
         const supportPlanHTML = amGenerateOfficialSupportPlanHTML(assessment.data, planData, startDate, endDate);
 
@@ -1503,8 +1513,15 @@ async function amGenerateReviewCore(assessment) {
             .filter(([key, review]) => review.childName === assessment.data.childName)
             .sort((a, b) => new Date(b[1].createdAt) - new Date(a[1].createdAt));
 
+        const reviewLocCtx = await dataAdapter.getChildLocationContext(assessment.data.childName);
+        const reviewNonSoccer = !!reviewLocCtx.noSoccer;
+
         const promptText = `
-児童発達支援の成長の振り返りレポートを作成してください。
+児童発達支援の成長の振り返り（モニタリング）レポートを作成してください。
+${reviewNonSoccer ? '\n' + GeminiAPI.NON_SOCCER_NOTICE + '\n支援計画や過去の記録にサッカーへの言及が含まれていても、それを引用・再掲せず、実際の活動記録に基づく内容だけでまとめてください。\n' : ''}
+【事実ベースで書くこと】
+- 活動記録に書かれていない行動・エピソードを創作しないでください
+- 記録が少ない領域は「記録上は特記事項なし」と正直に記載してください
 
 児童名: ${assessment.data.childName}
 作成日: ${new Date().toLocaleDateString('ja-JP')}
@@ -1593,14 +1610,70 @@ window.amShowAllAssessments = async function() {
 };
 
 // === 全支援計画一覧 ===
+// ============================================================
+// 一覧の拠点絞り込み（成長記録一覧・支援計画一覧）
+// admin は全拠点のデータが見えるため、初期表示は自拠点に絞る
+// ============================================================
+let amListLocationFilter = null; // null = 未初期化（自拠点を自動選択）, '' = 全拠点
+
+async function amGetListLocationContext() {
+    const ctx = { locations: [], childLocation: {}, myLocationId: '', filterId: '' };
+    if (!heartUpDB.isReady()) return ctx;
+    try {
+        if (!heartUpDB.currentProfile) { try { await heartUpDB.getMyProfile(); } catch (e) { /* ignore */ } }
+        ctx.myLocationId = heartUpDB.getMyLocationId() || '';
+        ctx.locations = await heartUpDB.getLocationsCached();
+        // 児童→拠点のマップ（古い記録に locationId が無い場合の補完用）
+        const children = await dataAdapter.getChildren();
+        Object.entries(children).forEach(([name, c]) => { ctx.childLocation[name] = c.locationId || ''; });
+        if (amListLocationFilter === null) {
+            amListLocationFilter = ctx.myLocationId;
+        }
+        ctx.filterId = amListLocationFilter;
+    } catch (e) {
+        console.warn('amGetListLocationContext error:', e);
+    }
+    return ctx;
+}
+
+function amResolveItemLocation(item, ctx) {
+    return item.locationId || ctx.childLocation[item.childName] || '';
+}
+
+function amLocationFilterBar(ctx, onChangeFn) {
+    if (!heartUpDB.isReady() || ctx.locations.length === 0) return '';
+    const opts = ctx.locations.map(l => `<option value="${l.id}" ${ctx.filterId === l.id ? 'selected' : ''}>${amEscapeHtml(l.name || '')}</option>`).join('');
+    return `
+        <div class="am-list-filter">
+            <label>拠点で絞り込み</label>
+            <select onchange="${onChangeFn}(this.value)">
+                <option value="" ${!ctx.filterId ? 'selected' : ''}>全拠点</option>
+                ${opts}
+            </select>
+        </div>`;
+}
+
+window.amChangeListLocationFilter = function(locationId) {
+    amListLocationFilter = locationId || '';
+    amShowAllReports();
+    amShowAllSupportPlans();
+};
+
 window.amShowAllSupportPlans = async function() {
     const container = document.getElementById('amPlanListContent');
     if (!container) return;
 
-    const supportPlans = await dataAdapter.getSupportPlans();
+    const locCtx = await amGetListLocationContext();
+    const allPlans = await dataAdapter.getSupportPlans();
+    const supportPlans = {};
+    Object.entries(allPlans).forEach(([k, p]) => {
+        if (!locCtx.filterId || amResolveItemLocation(p, locCtx) === locCtx.filterId) supportPlans[k] = p;
+    });
 
     if (Object.keys(supportPlans).length === 0) {
         container.innerHTML = `
+            <h2 style="color:#2e7d32; margin-bottom:20px;">支援計画一覧</h2>
+            ${amLocationFilterBar(locCtx, 'amChangeListLocationFilter')}
             <div class="am-empty-state">
                 <h3>作成された支援計画はありません</h3>
                 <p>児童のアセスメントから「支援計画」をお試しください</p>
@@ -1644,7 +1717,7 @@ window.amShowAllSupportPlans = async function() {
     individualPlans.sort(sortByDate);
     specializedPlans.sort(sortByDate);
 
-    let listHTML = '<h2 style="color:#2e7d32; margin-bottom:20px;">支援計画一覧</h2>';
+    let listHTML = '<h2 style="color:#2e7d32; margin-bottom:20px;">支援計画一覧</h2>' + amLocationFilterBar(locCtx, 'amChangeListLocationFilter');
 
     // 個別支援計画
     listHTML += `<h3 style="margin: 20px 0 10px; color: #1976d2; padding-bottom:6px; border-bottom:2px solid #1976d2;">個別支援計画 <span style="font-size:0.85rem; color:#666; font-weight:normal;">(${individualPlans.length}件)</span></h3>`;
@@ -1670,14 +1743,25 @@ window.amShowAllReports = async function() {
     const container = document.getElementById('amRecordListContent');
     if (!container) return;
 
-    const dailyReports = await dataAdapter.getDailyReports();
-    const reviews = await dataAdapter.getReviews();
+    const locCtx = await amGetListLocationContext();
+    const allReports = await dataAdapter.getDailyReports();
+    const allReviews = await dataAdapter.getReviews();
+    const dailyReports = {};
+    const reviews = {};
+    Object.entries(allReports).forEach(([k, r]) => {
+        if (!locCtx.filterId || amResolveItemLocation(r, locCtx) === locCtx.filterId) dailyReports[k] = r;
+    });
+    Object.entries(allReviews).forEach(([k, r]) => {
+        if (!locCtx.filterId || amResolveItemLocation(r, locCtx) === locCtx.filterId) reviews[k] = r;
+    });
 
     const hasReports = Object.keys(dailyReports).length > 0;
     const hasReviews = Object.keys(reviews).length > 0;
 
     if (!hasReports && !hasReviews) {
         container.innerHTML = `
+            <h2 style="color:#2e7d32; margin-bottom:20px;">成長記録一覧</h2>
+            ${amLocationFilterBar(locCtx, 'amChangeListLocationFilter')}
             <div class="am-empty-state">
                 <h3>記録はまだありません</h3>
                 <p>児童のアセスメントから「日々の記録」または「成長振り返り」を作成してください</p>
@@ -1686,7 +1770,7 @@ window.amShowAllReports = async function() {
         return;
     }
 
-    let listHTML = '<h2 style="color:#2e7d32; margin-bottom:20px;">成長記録一覧</h2>';
+    let listHTML = '<h2 style="color:#2e7d32; margin-bottom:20px;">成長記録一覧</h2>' + amLocationFilterBar(locCtx, 'amChangeListLocationFilter');
 
     if (hasReports) {
         listHTML += '<h3 style="margin: 20px 0 10px; color: #ff9800;">日々の記録</h3><div class="am-list-container">';
@@ -1769,6 +1853,24 @@ window.amDeleteSupportPlan = async function(fileName) {
 };
 
 // === 支援計画を表示 ===
+// 修正依頼パネル（計画書・活動記録の表示モーダル下部に付ける）
+function amRefinePanelHtml(kind, key) {
+    const esc = String(key).replace(/'/g, "\\'");
+    const label = kind === 'plan' ? '計画書' : '記録';
+    const hint = kind === 'plan'
+        ? '例:「短期目標をもう少し具体的に」「家族支援の内容を家庭でできる工夫に変える」「本人支援の2番目を順番待ちの練習に変える」など、直したい点を書いてください。修正後は上書き保存されます。'
+        : '例:「やっていない行動が書かれているので削除して」「認知・行動の記述を事実だけにする」「課題の部分をもう少し詳しく」など、直したい点を書いてください。修正後は上書き保存されます（連絡帳文章は保持されます）。';
+    return `
+        <div class="am-refine-panel" id="amRefinePanel">
+            <h4>AIに${label}の修正を依頼</h4>
+            <p class="am-refine-hint">${hint}</p>
+            <textarea id="amRefineRequest" rows="3" placeholder="修正してほしい内容を入力"></textarea>
+            <div class="am-refine-actions">
+                <button class="am-btn am-btn-secondary" id="amRefineBtn" onclick="amSubmitRefine('${kind}', '${esc}')">修正を依頼して保存</button>
+            </div>
+        </div>`;
+}
+
 window.amViewSupportPlan = async function(fileName) {
     const plan = await dataAdapter.getSupportPlanWithHtml(fileName);
     const modal = document.getElementById('amAssessmentModal');
@@ -1778,7 +1880,8 @@ window.amViewSupportPlan = async function(fileName) {
         modal.classList.add('active');
         return;
     }
-    content.innerHTML = plan.html || '<div class="am-empty-state"><p>支援計画のHTMLデータがありません</p></div>';
+    const key = plan.id || fileName;
+    content.innerHTML = `<div id="amPlanViewBody">${plan.html || '<div class="am-empty-state"><p>支援計画のHTMLデータがありません</p></div>'}</div>` + amRefinePanelHtml('plan', key);
     modal.classList.add('active');
 };
 
@@ -1795,9 +1898,139 @@ window.amViewDailyReport = async function(fileName) {
     const rendered = (typeof renderDailyReportForView === 'function')
         ? renderDailyReportForView(report)
         : (report.html || '');
-    content.innerHTML = rendered || '<div class="am-empty-state"><p>記録のHTMLデータがありません</p></div>';
+    const key = report.id || fileName;
+    content.innerHTML = `<div id="amReportViewBody">${rendered || '<div class="am-empty-state"><p>記録のHTMLデータがありません</p></div>'}</div>` + amRefinePanelHtml('record', key);
     modal.classList.add('active');
 };
+
+// === 修正依頼の実行（計画書 / 活動記録） ===
+window.amSubmitRefine = async function(kind, key) {
+    const reqEl = document.getElementById('amRefineRequest');
+    const btn = document.getElementById('amRefineBtn');
+    const request = (reqEl?.value || '').trim();
+    if (!request) { showToast('修正内容を入力してください'); return; }
+    if (!geminiAPI.isInitialized()) { showToast('Gemini APIが設定されていません'); return; }
+
+    const originalLabel = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'AIが修正中...';
+    try {
+        if (kind === 'record') {
+            await amRefineDailyReport(key, request);
+            showToast('記録を修正して保存しました');
+            await amViewDailyReport(key);
+        } else {
+            await amRefineSupportPlan(key, request);
+            showToast('計画書を修正して保存しました');
+            await amViewSupportPlan(key);
+        }
+        amLoadChildren();
+    } catch (error) {
+        console.error('修正依頼エラー:', error);
+        showToast('修正に失敗しました: ' + (error.message || ''));
+        btn.disabled = false;
+        btn.textContent = originalLabel;
+    }
+};
+
+// 活動記録の修正: rawMarkdown があればそれを、無ければHTMLのテキストを元に修正し、連絡帳部分は保持する
+async function amRefineDailyReport(key, request) {
+    const report = await dataAdapter.getDailyReportWithHtml(key);
+    if (!report) throw new Error('記録が見つかりません');
+    const rd = report.report_data || report.data || {};
+    const nonSoccer = !!(await dataAdapter.getChildLocationContext(report.child_name || report.childName)).noSoccer;
+
+    let original = rd.rawMarkdown || '';
+    let useMarkdown = !!original;
+    if (!original) {
+        const div = document.createElement('div');
+        div.innerHTML = report.html || '';
+        const note = div.querySelector('.saved-parent-note');
+        if (note) note.remove();
+        original = (div.innerText || div.textContent || '').trim();
+    }
+    if (!original) throw new Error('修正元の記録が空です');
+
+    const fullRequest = request + (nonSoccer ? '\n\n' + GeminiAPI.NON_SOCCER_NOTICE : '') +
+        '\n\n【事実ベースの原則】スタッフの観察メモに無い行動・エピソードを新たに創作しないでください。' +
+        (rd.observation ? `\n【元のスタッフメモ】\n${rd.observation}` : '');
+    const refined = await geminiAPI.refineContent(original, fullRequest, 'record');
+
+    // 連絡帳が保存済みなら末尾に残す
+    let parentNoteHtml = '';
+    if (rd.parentNote) {
+        const escaped = String(rd.parentNote).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        parentNoteHtml = `\n<div class="saved-parent-note" style="background:#fff8e1;border:2px solid #ffb300;padding:16px 18px;margin-top:24px;border-radius:8px;">\n<div style="color:#f57c00;font-weight:bold;font-size:1.05rem;margin-bottom:10px;border-left:4px solid #f57c00;padding-left:10px;">保護者向け連絡帳</div>\n<div style="white-space:pre-wrap;line-height:1.8;color:#333;">${escaped}</div>\n</div>`;
+    }
+    const body = (typeof convertMarkdownToHTML === 'function')
+        ? convertMarkdownToHTML(refined)
+        : refined.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+    const newHtml = `<div class="record-rendered" style="line-height:1.8;color:#333;">${body}</div>` + parentNoteHtml;
+
+    const history = Array.isArray(rd.refineHistory) ? rd.refineHistory.slice(-9) : [];
+    history.push({ request, at: new Date().toISOString() });
+    await dataAdapter.updateDailyReport(key, {
+        html: newHtml,
+        reportData: Object.assign({}, rd, { rawMarkdown: useMarkdown ? refined : refined, refineHistory: history })
+    });
+}
+
+// 支援計画の修正: 公式様式(JSON)ならJSONを修正して再レンダリング、それ以外はHTML/テキストを修正
+async function amRefineSupportPlan(key, request) {
+    const plan = await dataAdapter.getSupportPlanWithHtml(key);
+    if (!plan) throw new Error('支援計画が見つかりません');
+    const pd = plan.plan_data || plan.planData || {};
+    const childName = plan.child_name || plan.childName || pd._childName || '';
+    const nonSoccer = pd._nonSoccer !== undefined ? !!pd._nonSoccer : !!(await dataAdapter.getChildLocationContext(childName)).noSoccer;
+
+    const isOfficialJson = Array.isArray(pd.selfSupport) && pd.familySupport && pd.transitionSupport && typeof amGenerateOfficialSupportPlanHTML === 'function';
+    const history = Array.isArray(pd.refineHistory) ? pd.refineHistory.slice(-9) : [];
+    history.push({ request, at: new Date().toISOString() });
+
+    if (isOfficialJson) {
+        const meta = {};
+        Object.keys(pd).forEach(k => { if (k.startsWith('_') || k === 'refineHistory') meta[k] = pd[k]; });
+        const editable = {};
+        Object.keys(pd).forEach(k => { if (!(k in meta)) editable[k] = pd[k]; });
+
+        const refined = await geminiAPI.refineStructuredPlan(editable, request, { nonSoccer });
+        const merged = Object.assign({}, pd, refined, meta, { refineHistory: history });
+
+        // 日付は保存済みのもの、無ければ既存HTMLから拾う
+        let startDate = pd._startDate, endDate = pd._endDate;
+        if (!startDate || !endDate) {
+            const m1 = (plan.html || '').match(/開始日<\/th>\s*<td[^>]*>([^<]*)</);
+            const m2 = (plan.html || '').match(/有効期限<\/th>\s*<td[^>]*>([^<]*)</);
+            startDate = startDate || (m1 ? m1[1].trim() : '');
+            endDate = endDate || (m2 ? m2[1].trim() : '');
+        }
+        const newHtml = amGenerateOfficialSupportPlanHTML({ childName }, merged, startDate, endDate);
+        await dataAdapter.updateSupportPlan(key, { html: newHtml, planData: merged });
+        return;
+    }
+
+    // 旧形式（Markdown/HTML）: HTMLをそのまま渡して修正後HTMLを受け取る
+    const original = plan.html || '';
+    if (!original) throw new Error('修正元の計画書が空です');
+    const prompt = `
+以下は既に生成された支援計画（HTML）です。スタッフからの修正依頼に基づいて内容を修正し、修正後のHTMLのみを出力してください。
+
+【現在の支援計画HTML】
+${original}
+
+【修正依頼】
+${request}
+
+【指示】
+- 修正依頼に関係する箇所だけを変更し、それ以外は原文のまま維持してください
+- HTMLの構造・スタイル属性はそのまま保ってください
+- 5領域の観点を維持してください
+${nonSoccer ? '- ' + GeminiAPI.NON_SOCCER_NOTICE : ''}
+- 出力はHTMLのみ（コードブロック記号や説明文は不要）`;
+    let refined = await geminiAPI.generateContent(prompt, { temperature: 0.4 });
+    refined = refined.replace(/^```(?:html)?\s*/i, '').replace(/```\s*$/i, '').trim();
+    await dataAdapter.updateSupportPlan(key, { html: refined, planData: Object.assign({}, pd, { refineHistory: history }) });
+}
 
 // === 日々の記録を削除 ===
 window.amDeleteDailyReport = async function(fileName) {

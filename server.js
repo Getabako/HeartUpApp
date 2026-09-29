@@ -117,6 +117,12 @@ app.get('/api/assessment/:fileName', async (req, res) => {
     }
 });
 
+// Vercel Serverless Functions（api/）をローカルでも同じパスで動かす
+// 環境変数 OPENAI_API_KEY を設定して `npm run dev` で確認できる
+app.all('/api/ai-status', (req, res) => require('./api/ai-status')(req, res));
+app.all('/api/generate-image', (req, res) => require('./api/generate-image')(req, res));
+app.all('/api/transcribe', (req, res) => require('./api/transcribe')(req, res));
+
 // Initialize and start server
 async function startServer() {
     try {

@@ -230,6 +230,7 @@ const dataAdapter = {
                     _supabaseId: r.id,
                     childName: r.child_name,
                     planData: r.plan_data || {},
+                    locationId: r.location_id || '',
                     createdAt: r.created_at,
                     type: r.plan_type
                 };
@@ -280,6 +281,31 @@ const dataAdapter = {
         localStorage.setItem('supportPlans', JSON.stringify(plans));
     },
 
+    async updateSupportPlan(fileNameOrId, updates) {
+        let firebaseId = null;
+        if (heartUpDB.isReady()) {
+            try {
+                firebaseId = this._extractSupabaseId(fileNameOrId);
+                if (!firebaseId) {
+                    const all = await this.getSupportPlans();
+                    const entry = all[fileNameOrId];
+                    if (entry?._supabaseId) firebaseId = entry._supabaseId;
+                }
+                if (firebaseId) {
+                    await heartUpDB.updateSupportPlan(firebaseId, updates);
+                }
+            } catch (e) {
+                console.error('Firebase updateSupportPlan error:', e);
+            }
+        }
+        const plans = JSON.parse(localStorage.getItem('supportPlans') || '{}');
+        if (plans[fileNameOrId]) {
+            if (updates.html !== undefined) plans[fileNameOrId].html = updates.html;
+            if (updates.planData !== undefined) plans[fileNameOrId].planData = updates.planData;
+            localStorage.setItem('supportPlans', JSON.stringify(plans));
+        }
+    },
+
     async deleteSupportPlan(fileNameOrId) {
         if (heartUpDB.isReady()) {
             try {
@@ -318,6 +344,8 @@ const dataAdapter = {
                     childName: r.child_name,
                     date: r.report_date,
                     data: r.report_data || {},
+                    activity: (r.report_data && r.report_data.activity) || '',
+                    locationId: r.location_id || '',
                     createdAt: r.created_at
                 };
             });
@@ -429,6 +457,7 @@ const dataAdapter = {
                     _supabaseId: r.id,
                     childName: r.child_name,
                     data: r.review_data || {},
+                    locationId: r.location_id || '',
                     createdAt: r.created_at
                 };
             });
@@ -584,6 +613,115 @@ const dataAdapter = {
     // 勉強会資料（アップロードPDF）
     // Firebase接続時はFirestoreに保存、未接続時はlocalStorageにフォールバック
     // ============================================================
+
+    // ============================================================
+    // 拠点コンテキスト（サッカー活動の有無など）
+    // ============================================================
+
+    /**
+     * 児童の所属拠点情報を返す
+     * @returns {Promise<{locationId:string, locationName:string, noSoccer:boolean}>}
+     */
+    async getChildLocationContext(childName) {
+        const result = { locationId: '', locationName: '', noSoccer: false };
+        if (!heartUpDB.isReady()) return result;
+        try {
+            const child = await heartUpDB.getChildByName(childName);
+            const locationId = child?.locationId || heartUpDB.getMyLocationId() || '';
+            result.locationId = locationId;
+            if (locationId) {
+                const locations = await heartUpDB.getLocationsCached();
+                const loc = locations.find(l => l.id === locationId);
+                if (loc) {
+                    result.locationName = loc.name || '';
+                    result.noSoccer = !!loc.noSoccer;
+                }
+            }
+        } catch (e) {
+            console.warn('getChildLocationContext error:', e);
+        }
+        return result;
+    },
+
+    /** ログイン中スタッフの拠点がサッカー活動なしか */
+    async isMyLocationNoSoccer() {
+        if (!heartUpDB.isReady()) return false;
+        try {
+            const myId = heartUpDB.getMyLocationId();
+            if (!myId) return false;
+            const locations = await heartUpDB.getLocationsCached();
+            const loc = locations.find(l => l.id === myId);
+            return !!(loc && loc.noSoccer);
+        } catch (e) {
+            return false;
+        }
+    },
+
+    // ============================================================
+    // AI生成練習メニュー
+    // Firebase接続時はFirestore（拠点ごと）、未接続時はlocalStorage
+    // ============================================================
+
+    async getGeneratedMenus() {
+        if (heartUpDB.isReady()) {
+            try {
+                if (!heartUpDB.currentProfile) {
+                    try { await heartUpDB.getMyProfile(); } catch (e) { /* ignore */ }
+                }
+                const rows = await heartUpDB.getGeneratedMenus();
+                return rows.map(r => ({ ...r, createdAt: r.created_at }));
+            } catch (e) {
+                console.error('Firebase getGeneratedMenus error:', e);
+            }
+        }
+        return JSON.parse(localStorage.getItem('generatedPracticeMenus') || '[]');
+    },
+
+    async saveGeneratedMenu(menu) {
+        if (heartUpDB.isReady()) {
+            try {
+                const result = await heartUpDB.createGeneratedMenu(menu);
+                return { ...menu, id: result.id, createdAt: new Date().toISOString() };
+            } catch (e) {
+                console.error('Firebase saveGeneratedMenu error:', e);
+            }
+        }
+        const list = JSON.parse(localStorage.getItem('generatedPracticeMenus') || '[]');
+        const saved = { ...menu, id: 'gen_' + Date.now(), createdAt: new Date().toISOString() };
+        list.unshift(saved);
+        localStorage.setItem('generatedPracticeMenus', JSON.stringify(list));
+        return saved;
+    },
+
+    async updateGeneratedMenu(id, updates) {
+        if (heartUpDB.isReady() && !String(id).startsWith('gen_')) {
+            try {
+                await heartUpDB.updateGeneratedMenu(id, updates);
+                return;
+            } catch (e) {
+                console.error('Firebase updateGeneratedMenu error:', e);
+            }
+        }
+        const list = JSON.parse(localStorage.getItem('generatedPracticeMenus') || '[]');
+        const idx = list.findIndex(m => m.id === id);
+        if (idx !== -1) {
+            list[idx] = { ...list[idx], ...updates };
+            localStorage.setItem('generatedPracticeMenus', JSON.stringify(list));
+        }
+    },
+
+    async deleteGeneratedMenu(id) {
+        if (heartUpDB.isReady() && !String(id).startsWith('gen_')) {
+            try {
+                await heartUpDB.deleteGeneratedMenu(id);
+                return;
+            } catch (e) {
+                console.error('Firebase deleteGeneratedMenu error:', e);
+            }
+        }
+        const list = JSON.parse(localStorage.getItem('generatedPracticeMenus') || '[]');
+        localStorage.setItem('generatedPracticeMenus', JSON.stringify(list.filter(m => m.id !== id)));
+    },
 
     async getStudyResources() {
         if (heartUpDB.isReady()) {
