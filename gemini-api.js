@@ -1,9 +1,18 @@
 // Gemini API統合モジュール
 class GeminiAPI {
     // サッカーを含まない活動ID（これらのみの記録はサッカーに言及しない）
-    static NON_SOCCER_ACTIVITIES = ['event', 'other', 'park', 'craft', 'cooking', 'club'];
+    static NON_SOCCER_ACTIVITIES = ['event', 'other', 'park', 'craft', 'cooking', 'club', 'outing'];
 
     static NON_SOCCER_NOTICE = '【重要】この事業所ではサッカーは行っていません。サッカーに関する内容（練習・プレー・ボール・チームプレー・試合・コーチ等）は一切記載せず、実際に行われた活動と観察された様子のみに基づいて作成してください。';
+
+    // サッカーを週の一部の日だけ行う拠点（例: 火・金のみ）向けの注意
+    static PARTIAL_SOCCER_NOTICE = '【重要】この事業所ではサッカー活動は週の一部の日のみ（例: 週2回）行い、それ以外の日は公園・工作・料理・お出かけなどサッカー以外の活動を行っています。サッカーだけに偏らず、サッカー以外の活動を通じた支援も同じ比重で盛り込んでください。';
+
+    // 連絡帳・記録に共通する文体ルール（他事業所からの「丁寧すぎる」フィードバックを反映）
+    static PLAIN_POLITE_STYLE = `語尾は「です」「ます」「でした」「ました」の基本的な丁寧語にそろえる。
+「〜しておられました」「〜なさっていました」「〜と存じます」「〜いただいております」のような過剰な敬語・謙譲語・尊敬語は使わない。
+良い例: 「友達と協力してゲームに取り組んでいました。」「最後まで集中して参加できました。」「順番を待つのが難しい場面がありました。」
+悪い例: 「友達と協力して取り組んでおられました。」「集中して参加されたことと存じます。」`;
 
     constructor() {
         this.apiKey = null;
@@ -191,7 +200,7 @@ ${domainSection}
 【入力情報】
 日付: ${recordData.date}
 対象児童: ${recordData.childName}
-活動内容: ${recordData.activityType}${recordData.detailedActivities ? `\n詳細活動: ${recordData.detailedActivities}` : ''}${recordData.goals ? `\n本日の目標項目: ${recordData.goals}` : ''}
+活動内容: ${recordData.activityType}${recordData.outingDetail ? `\nお出かけ先・内容: ${recordData.outingDetail}` : ''}${recordData.detailedActivities ? `\n詳細活動: ${recordData.detailedActivities}` : ''}${recordData.goals ? `\n本日の目標項目: ${recordData.goals}` : ''}
 観察された様子（スタッフメモ・原文）: ${recordData.observation}
 特記事項: ${recordData.notes || 'なし'}
 
@@ -216,6 +225,9 @@ ${domainSection}
 3. 本日の成長ポイント${recordData.supportPlan ? '\n4. 支援計画の目標に対する達成度評価\n   - 設定された課題への進捗\n   - 優先課題領域における成長\n   - 次回に向けた支援のポイント\n5. 次回への課題と目標' : '\n4. 次回への課題と目標'}
 
 各領域はメモに根拠がある内容だけを記載し${recordData.supportPlan ? '、設定されている支援計画の目標との関連を明確にして、' : '、'}落ち着いた丁寧な文章で保護者にも分かりやすく記述してください。根拠のない領域は短く「特記事項なし」で構いません。
+
+【文体】
+${GeminiAPI.PLAIN_POLITE_STYLE}
 `;
 
         return await this.generateContent(prompt);
@@ -374,7 +386,7 @@ ${criticalBehaviors.length > 0 ? '9. ' : '8. '}移行支援計画
 ${criticalBehaviors.length > 0 ? '10. ' : '9. '}評価と見直しの時期
 
 ${criticalBehaviors.length > 0 ? '**重要**: 問題行動への対応を最優先としながらも、5領域のバランスを考慮した実践的な計画を作成してください。問題行動の軽減が、他の領域の成長にもつながることを意識してください。' : '5領域のバランスを考慮しつつ、優先課題を中心とした実践的な計画を作成してください。'}
-${planData.nonSoccer ? GeminiAPI.NON_SOCCER_NOTICE : ''}
+${planData.nonSoccer ? GeminiAPI.NON_SOCCER_NOTICE : (planData.soccerPartial ? GeminiAPI.PARTIAL_SOCCER_NOTICE : '')}
 `;
 
         return await this.generateContent(prompt);
@@ -384,7 +396,7 @@ ${planData.nonSoccer ? GeminiAPI.NON_SOCCER_NOTICE : ''}
     async generateReview(reviewData) {
         const prompt = `
 あなたは${reviewData.nonSoccer ? '児童発達支援・放課後等デイサービスの療育' : 'サッカー療育'}の評価・分析の専門家です。以下の情報を基に、5つの発達領域の観点から成長の振り返りレポートを作成してください。
-${reviewData.nonSoccer ? '\n' + GeminiAPI.NON_SOCCER_NOTICE + '\n' : ''}
+${reviewData.nonSoccer ? '\n' + GeminiAPI.NON_SOCCER_NOTICE + '\n' : (reviewData.soccerPartial ? '\n' + GeminiAPI.PARTIAL_SOCCER_NOTICE + '\n' : '')}
 
 【5つの発達領域】
 1. 健康・生活：定期的な運動習慣を通じて身体的な健康を促進し、生活リズムの安定や体力向上につなげます
@@ -469,6 +481,7 @@ ${refinementRequest}
 - 元の${typeLabels[contentType]}の良い部分は残しながら、ユーザーの要望を反映してください
 - 5つの発達領域（健康・生活、運動・感覚、認知・行動、言語・コミュニケーション、人間関係・社会性）の観点を維持してください
 - 全体の構成とフォーマットは元の形式を踏襲してください
+- 文体: ${GeminiAPI.PLAIN_POLITE_STYLE.replace(/\n/g, ' ')}
 - 修正後の${typeLabels[contentType]}のみを出力してください（説明や前置きは不要です）
 `;
 
@@ -482,7 +495,7 @@ ${refinementRequest}
      * @returns {Promise<string>} 生成された連絡帳文章
      */
     async generateParentNote(data) {
-        const { staffNote, childName, activities, date, nonSoccer } = data;
+        const { staffNote, childName, activities, date, nonSoccer, styleRules } = data;
 
         const prompt = `
 あなたは児童発達支援施設「カラーズFC」のスタッフです。
@@ -495,7 +508,7 @@ ${refinementRequest}
 ${staffNote}
 
 【変換ルール】
-1. 事業所から保護者への正式な連絡文としてふさわしい、落ち着いた丁寧な文体で書く（「〜しておりました」「〜される様子が見られました」「〜に取り組んでおられました」等）
+1. 事業所から保護者への連絡文として、落ち着いた丁寧な文体で書く。ただし丁寧すぎないこと。${GeminiAPI.PLAIN_POLITE_STYLE.replace(/\n/g, '\n   ')}
 2. 感嘆符（！）や絵文字は使わない
 3. 「〜でしたよ！」「〜ですね！」のような話し言葉・フランクな表現は使わない
 4. 「私たちもうれしく思いました」のようなスタッフの感想を主役にした表現は避け、児童の様子・事実を中心に記述する
@@ -506,7 +519,10 @@ ${staffNote}
 9. 文字数の上限は設けない。メモの情報量に応じて、内容が十分に伝わる長さ（目安として200〜500文字、メモが多ければそれ以上）で書く。メモが一言程度の場合は無理に膨らませない
 10. 活動内容に沿って「何をして、どのような様子だったか」が具体的に分かる文章にする
 ${nonSoccer ? '11. この事業所ではサッカーは行っていません。サッカー・ボール・チーム練習などの表現は使わず、実際の活動内容に沿って書く' : ''}
-
+${styleRules ? `
+【この事業所の文体ルール（最優先で守ること）】
+${styleRules}
+` : ''}
 【出力形式】
 保護者向けの連絡帳文章のみを出力してください。
 挨拶文や署名は不要です。
@@ -531,7 +547,8 @@ ${nonSoccer ? '11. この事業所ではサッカーは行っていません。�
                     childName: record.childName,
                     activities: record.activityType || record.activities?.join('、') || '',
                     date: record.date,
-                    nonSoccer: !!record.nonSoccer
+                    nonSoccer: !!record.nonSoccer,
+                    styleRules: record.styleRules || ''
                 });
                 results.push({
                     childName: record.childName,
@@ -710,7 +727,7 @@ ${data.assessmentSummary || '詳細なアセスメント結果なし'}
     }
 }
 
-${data.nonSoccer ? GeminiAPI.NON_SOCCER_NOTICE + '\n事業所で実際に行う活動（運動遊び・制作・調理・公園活動・集団活動など）の文脈で、' : 'サッカー療育の文脈で、'}5領域（認知や行動、言語やコミュニケーション、健康や生活、運動や感覚、人間関係や社会性）との関連を含めてください。
+${data.nonSoccer ? GeminiAPI.NON_SOCCER_NOTICE + '\n事業所で実際に行う活動（運動遊び・制作・調理・公園活動・集団活動など）の文脈で、' : (data.soccerPartial ? GeminiAPI.PARTIAL_SOCCER_NOTICE + '\nサッカー療育とサッカー以外の活動（公園・工作・料理・お出かけなど）の両方の文脈で、' : 'サッカー療育の文脈で、')}5領域（認知や行動、言語やコミュニケーション、健康や生活、運動や感覚、人間関係や社会性）との関連を含めてください。
 
 JSONのみを出力し、他の説明は不要です。`;
 

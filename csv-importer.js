@@ -33,6 +33,14 @@ class CSVImporter {
 
         if (supportPlanScore >= 2) return 'supportPlan';
         if (recordScore >= 2) return 'record';
+
+        // 1行目が「日付,児童名,活動内容,様子,備考」のような表形式なら活動記録とみなす
+        const firstLine = (text.split(/\r?\n/).find(l => l.trim()) || '');
+        const headers = this.parseCSVLine(firstLine).map(h => h.trim());
+        const hasDate = headers.some(h => /^(日付|活動日|記録日|利用日)$/.test(h));
+        const hasName = headers.some(h => /^(児童名|氏名|名前|利用者名|お名前)$/.test(h));
+        const hasBody = headers.some(h => /(様子|活動内容|備考|観察|記録|内容)/.test(h));
+        if (hasDate && hasName && hasBody) return 'record';
         return null;
     }
 
@@ -644,26 +652,41 @@ class CSVImporter {
         } else {
             // 横型CSV（テーブル形式）の処理
             const { headers, rows } = this.parseCSV(text);
+            const trimmedHeaders = headers.map(h => h.trim());
 
-            const requiredFields = ['日付', '児童名'];
-            const missingFields = requiredFields.filter(f => !headers.includes(f));
-            if (missingFields.length > 0) {
-                throw new Error(`必須フィールドがありません: ${missingFields.join(', ')}`);
+            // 列名のゆれに対応（Excel で独自に作った様式も読めるように）
+            const pick = (row, candidates) => {
+                for (const c of candidates) {
+                    const key = trimmedHeaders.find(h => h === c);
+                    if (key && row[key]) return row[key];
+                }
+                for (const c of candidates) {
+                    const key = trimmedHeaders.find(h => h.includes(c));
+                    if (key && row[key]) return row[key];
+                }
+                return '';
+            };
+            const dateKeys = ['日付', '活動日', '記録日', '利用日'];
+            const nameKeys = ['児童名', '氏名', '名前', '利用者名', 'お名前'];
+            if (!trimmedHeaders.some(h => dateKeys.includes(h)) || !trimmedHeaders.some(h => nameKeys.includes(h))) {
+                throw new Error('必須フィールドがありません: 「日付」と「児童名（または氏名）」の列が必要です');
             }
 
             for (const row of rows) {
-                if (!row['日付'] || !row['児童名']) continue;
+                const rawDate = pick(row, dateKeys);
+                const rawName = pick(row, nameKeys);
+                if (!rawDate || !rawName) continue;
 
-                const date = row['日付'];
-                const childName = row['児童名'];
-                const fileName = `${childName}_記録_${date.replace(/\//g, '-')}.html`;
+                const date = this.normalizeDate(rawDate);
+                const childName = this.cleanName(rawName);
+                const fileName = `${childName}_記録_${date}.html`;
 
                 const recordData = {
                     date,
                     childName,
-                    activity: row['活動内容'] || '',
-                    observation: row['様子'] || row['観察内容'] || '',
-                    notes: row['備考'] || row['特記事項'] || ''
+                    activity: pick(row, ['活動内容', '活動', 'プログラム', '内容']),
+                    observation: pick(row, ['様子', '本日の様子', '観察内容', '観察', '活動の様子', '記録']),
+                    notes: pick(row, ['備考', '特記事項', 'メモ', 'その他'])
                 };
 
                 dailyReports[fileName] = {
@@ -706,6 +729,13 @@ class CSVImporter {
      */
     detectRecordCSVFormat(csvText) {
         const lines = csvText.split(/\r?\n/).filter(line => line.trim());
+
+        // 1行目が表のヘッダー（日付 + 児童名/氏名）なら横型
+        const firstHeaders = this.parseCSVLine((lines[0] || '').replace(/^\ufeff/, '')).map(h => h.trim());
+        if (firstHeaders.some(h => /^(日付|活動日|記録日|利用日)$/.test(h))
+            && firstHeaders.some(h => /^(児童名|氏名|名前|利用者名|お名前)$/.test(h))) {
+            return 'horizontal';
+        }
 
         // 縦型の特徴: 先頭数行にヘッダー情報（利用者名、利用サービスなど）がある
         for (let i = 0; i < Math.min(10, lines.length); i++) {
@@ -809,16 +839,107 @@ class CSVImporter {
      * @returns {Promise<string>} ファイルテキスト
      */
     readFile(file) {
+        // 同じファイルを複数回読まないようにキャッシュ
+        if (this._lastFile === file && typeof this._lastText === 'string') {
+            return Promise.resolve(this._lastText);
+        }
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = (e) => {
-                // Shift-JIS対応を試みる
-                const text = e.target.result;
-                resolve(text);
+                try {
+                    const buf = e.target.result;
+                    const text = this.isExcelFile(file) ? this.excelToCSV(buf) : this.decodeText(buf);
+                    this._lastFile = file;
+                    this._lastText = text;
+                    resolve(text);
+                } catch (err) {
+                    reject(err);
+                }
             };
-            reader.onerror = (e) => reject(new Error('ファイルの読み込みに失敗しました'));
-            reader.readAsText(file, 'UTF-8');
+            reader.onerror = () => reject(new Error('ファイルの読み込みに失敗しました'));
+            reader.readAsArrayBuffer(file);
         });
+    }
+
+    /** Excel（.xlsx / .xls）かどうか */
+    isExcelFile(file) {
+        return /\.(xlsx|xlsm|xls)$/i.test(file?.name || '');
+    }
+
+    /** UTF-8 で読めなければ Shift_JIS として読む（Excel で保存した CSV 対応） */
+    decodeText(buf) {
+        try {
+            return new TextDecoder('utf-8', { fatal: true }).decode(buf);
+        } catch (e) {
+            try {
+                return new TextDecoder('shift_jis').decode(buf);
+            } catch (e2) {
+                return new TextDecoder('utf-8').decode(buf);
+            }
+        }
+    }
+
+    /**
+     * Excel の先頭シートを CSV テキストに変換（日付セルは YYYY-MM-DD に正規化）
+     * @param {ArrayBuffer} buf
+     * @returns {string}
+     */
+    excelToCSV(buf) {
+        if (typeof XLSX === 'undefined') {
+            throw new Error('Excel読み込み用ライブラリが読み込まれていません。ページを再読み込みしてください');
+        }
+        const wb = XLSX.read(new Uint8Array(buf), { type: 'array', cellDates: true });
+        const sheetName = wb.SheetNames[0];
+        const ws = wb.Sheets[sheetName];
+        if (!ws) throw new Error('Excelにシートがありません');
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
+        const esc = (v) => {
+            let str;
+            if (v instanceof Date) {
+                str = isNaN(v.getTime()) ? '' : this.formatDate(v);
+            } else if (v === null || v === undefined) {
+                str = '';
+            } else {
+                str = String(v);
+            }
+            return /[",\r\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+        };
+        return rows
+            .filter(r => Array.isArray(r) && r.some(v => v !== '' && v !== null && v !== undefined))
+            .map(r => r.map(esc).join(','))
+            .join('\n');
+    }
+
+    formatDate(d) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    }
+
+    /**
+     * いろいろな日付表記を YYYY-MM-DD に正規化
+     *   2026/9/30, 2026-09-30, 2026年9月30日, 9/30（年は今年）, Excelシリアル値(46205) など
+     */
+    normalizeDate(value) {
+        if (value instanceof Date) return this.formatDate(value);
+        let str = String(value ?? '').trim().replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+        if (!str) return '';
+        // Excel シリアル値
+        if (/^\d{4,6}(\.\d+)?$/.test(str) && Number(str) > 20000 && Number(str) < 80000) {
+            const d = new Date(Date.UTC(1899, 11, 30) + Math.floor(Number(str)) * 86400000);
+            return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+        }
+        let m = str.match(/^(\d{4})[\/\-.年]\s*(\d{1,2})[\/\-.月]\s*(\d{1,2})日?/);
+        if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+        m = str.match(/^(\d{1,2})[\/\-.月]\s*(\d{1,2})日?$/);
+        if (m) return `${new Date().getFullYear()}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
+        m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/); // 9/30/2026（英語ロケール）
+        if (m) {
+            const y = m[3].length === 2 ? '20' + m[3] : m[3];
+            return `${y}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
+        }
+        return str.replace(/\//g, '-');
     }
 
     /**

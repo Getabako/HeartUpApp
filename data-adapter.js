@@ -620,10 +620,12 @@ const dataAdapter = {
 
     /**
      * 児童の所属拠点情報を返す
-     * @returns {Promise<{locationId:string, locationName:string, noSoccer:boolean}>}
+     * @returns {Promise<{locationId:string, locationName:string, noSoccer:boolean, soccerMode:string, parentNoteStyle:string}>}
+     *   soccerMode: 'always'（毎回サッカー）| 'partial'（週に数回など一部の日のみ）| 'none'（サッカーなし）
+     *   parentNoteStyle: 連絡帳の文体ルール（admin で拠点ごとに設定・任意）
      */
     async getChildLocationContext(childName) {
-        const result = { locationId: '', locationName: '', noSoccer: false };
+        const result = { locationId: '', locationName: '', noSoccer: false, soccerMode: 'always', parentNoteStyle: '' };
         if (!heartUpDB.isReady()) return result;
         try {
             const child = await heartUpDB.getChildByName(childName);
@@ -634,7 +636,9 @@ const dataAdapter = {
                 const loc = locations.find(l => l.id === locationId);
                 if (loc) {
                     result.locationName = loc.name || '';
-                    result.noSoccer = !!loc.noSoccer;
+                    result.soccerMode = loc.soccerMode || (loc.noSoccer ? 'none' : 'always');
+                    result.noSoccer = result.soccerMode === 'none';
+                    result.parentNoteStyle = loc.parentNoteStyle || '';
                 }
             }
         } catch (e) {
@@ -651,7 +655,7 @@ const dataAdapter = {
             if (!myId) return false;
             const locations = await heartUpDB.getLocationsCached();
             const loc = locations.find(l => l.id === myId);
-            return !!(loc && loc.noSoccer);
+            return !!(loc && (loc.soccerMode ? loc.soccerMode === 'none' : loc.noSoccer));
         } catch (e) {
             return false;
         }

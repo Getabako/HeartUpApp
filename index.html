@@ -29,7 +29,7 @@
       }
     }
     </script>
-    <link rel="stylesheet" href="styles.css?v=20260929">
+    <link rel="stylesheet" href="styles.css?v=20261026">
 </head>
 <body>
     <header>
@@ -258,6 +258,7 @@
     <!-- 外部スクリプトの読み込み順序重要 -->
     <!-- html2pdf.js for PDF generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -272,17 +273,17 @@
         window.FIREBASE_CONFIG = { apiKey: '', authDomain: '', projectId: '' };
     </script>
     <script src="toast.js?v=20260818"></script>
-    <script src="config.js?v=20260929" onerror="console.log('config.js not found - using default API_CONFIG')"></script>
-    <script src="firebase-client.js?v=20260929"></script>
-    <script src="data-adapter.js?v=20260929"></script>
-    <script src="auth-guard.js?v=20260929"></script>
-    <script src="gemini-api.js?v=20260929"></script>
-    <script src="csv-importer.js?v=20260929"></script>
-    <script src="markdown-renderer.js?v=20260929"></script>
-    <script src="voice-input.js?v=20260929"></script>
-    <script src="assessment-manager.js?v=20260929"></script>
-    <script src="script.js?v=20260929"></script>
-    <script src="practice-menu-generator.js?v=20260929"></script>
+    <script src="config.js?v=20261026" onerror="console.log('config.js not found - using default API_CONFIG')"></script>
+    <script src="firebase-client.js?v=20261026"></script>
+    <script src="data-adapter.js?v=20261026"></script>
+    <script src="auth-guard.js?v=20261026"></script>
+    <script src="gemini-api.js?v=20261026"></script>
+    <script src="csv-importer.js?v=20261026"></script>
+    <script src="markdown-renderer.js?v=20261026"></script>
+    <script src="voice-input.js?v=20261026"></script>
+    <script src="assessment-manager.js?v=20261026"></script>
+    <script src="script.js?v=20261026"></script>
+    <script src="practice-menu-generator.js?v=20261026"></script>
     <script>
         // Firebase初期化 + 認証ガード
         heartUpDB.init();

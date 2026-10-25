@@ -204,11 +204,19 @@
                     <tr${isDup ? ' style="background:#fff8f8;"' : ''}>
                         <td>${l.name}${dupBadge}<br><span style="color:#999;font-size:11px;">ID: ${l.id}</span></td>
                         <td>
-                            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;">
-                                <input type="checkbox" ${l.noSoccer ? 'checked' : ''} onchange="toggleNoSoccer('${l.id}', this.checked)">
-                                <span>サッカー活動なし</span>
-                            </label>
-                            <div style="color:#999;font-size:11px;margin-top:2px;">ONにすると記録・連絡帳・計画書・モニタリングでサッカーに言及しません</div>
+                            ${(() => { const mode = l.soccerMode || (l.noSoccer ? 'none' : 'always'); return `
+                            <select onchange="setSoccerMode('${l.id}', this.value)" style="padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:14px;">
+                                <option value="always" ${mode === 'always' ? 'selected' : ''}>毎回サッカー活動あり</option>
+                                <option value="partial" ${mode === 'partial' ? 'selected' : ''}>一部の日のみサッカー（週2回など）</option>
+                                <option value="none" ${mode === 'none' ? 'selected' : ''}>サッカー活動なし</option>
+                            </select>`; })()}
+                            <div style="color:#999;font-size:11px;margin-top:4px;line-height:1.5;">「一部の日のみ」は、記録で「ウォーミングアップ・個別練習・ミニゲーム」などサッカー系の活動を選んだ日だけサッカーの記録を残し、公園・工作などだけの日はサッカーに触れません。計画書・モニタリングはサッカー以外の活動も含めて作成します。</div>
+                            <details style="margin-top:8px;">
+                                <summary style="cursor:pointer;color:#1976d2;font-size:13px;">連絡帳の文体ルール${l.parentNoteStyle ? '（設定あり）' : ''}</summary>
+                                <textarea id="noteStyle_${l.id}" rows="4" style="width:100%;margin-top:6px;padding:8px;border:1px solid #ccc;border-radius:4px;font-size:14px;line-height:1.7;" placeholder="例:&#10;・語尾は「です」「ます」「でした」。「おられました」「存じます」は使わない&#10;・「〇〇くん」ではなく「〇〇さん」と呼ぶ&#10;・最後に「ご家庭でも〜」の一言は入れない">${(l.parentNoteStyle || '').replace(/</g, '&lt;')}</textarea>
+                                <div style="color:#999;font-size:11px;margin:4px 0 6px;line-height:1.5;">連絡帳を作るときAIが毎回この指示を守ります。修正依頼で直した内容をここに書き足していくと、次回から同じ直しが不要になります。</div>
+                                <button class="btn btn-sm btn-primary" onclick="saveParentNoteStyle('${l.id}')">文体ルールを保存</button>
+                            </details>
                         </td>
                         <td>${new Date(l.created_at).toLocaleDateString('ja-JP')}</td>
                         <td>
@@ -223,10 +231,24 @@
             }
         }
 
-        async function toggleNoSoccer(id, checked) {
+        async function setSoccerMode(id, mode) {
+            const labels = { always: '毎回サッカー活動あり', partial: '一部の日のみサッカー', none: 'サッカー活動なし' };
             try {
-                await heartUpDB.updateLocationSettings(id, { noSoccer: !!checked });
-                showToast(checked ? 'サッカー活動なしの拠点として設定しました' : 'サッカー活動ありに戻しました');
+                // noSoccer は旧バージョン互換のため同時に更新
+                await heartUpDB.updateLocationSettings(id, { soccerMode: mode, noSoccer: mode === 'none' });
+                showToast(`サッカー活動の設定を「${labels[mode] || mode}」にしました`);
+                await loadLocations();
+            } catch (e) {
+                showToast('エラー: ' + e.message);
+            }
+        }
+
+        async function saveParentNoteStyle(id) {
+            const ta = document.getElementById('noteStyle_' + id);
+            const text = (ta?.value || '').trim();
+            try {
+                await heartUpDB.updateLocationSettings(id, { parentNoteStyle: text });
+                showToast(text ? '連絡帳の文体ルールを保存しました' : '連絡帳の文体ルールを削除しました');
                 await loadLocations();
             } catch (e) {
                 showToast('エラー: ' + e.message);

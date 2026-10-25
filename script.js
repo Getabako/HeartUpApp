@@ -1611,7 +1611,7 @@ async function generateRecord(event) {
                 activities: selectedActivities,
                 observation,
                 notes,
-                nonSoccer: !!locCtx.noSoccer,
+                nonSoccer: resolveNonSoccer(locCtx, selectedActivities),
                 supportPlan: supportPlanData  // 支援計画データを追加
             };
 
@@ -1885,7 +1885,8 @@ async function generatePlan(event) {
                 issues,
                 strengths,
                 parentRequest,
-                nonSoccer: !!planLocCtx.noSoccer,
+                nonSoccer: planLocCtx.soccerMode === 'none' || (!planLocCtx.soccerMode && !!planLocCtx.noSoccer),
+                soccerPartial: planLocCtx.soccerMode === 'partial',
                 assessmentData  // アセスメントデータを追加
             };
 
@@ -1911,7 +1912,8 @@ async function generatePlan(event) {
                 endDate.setMonth(endDate.getMonth() + 6);
                 const officialData = await geminiAPI.generateOfficialIndividualPlan({
                     childName,
-                    nonSoccer: !!planLocCtx.noSoccer,
+                    nonSoccer: planLocCtx.soccerMode === 'none' || (!planLocCtx.soccerMode && !!planLocCtx.noSoccer),
+                    soccerPartial: planLocCtx.soccerMode === 'partial',
                     diagnosis: assessmentData?.diagnosis || '',
                     certificateNumber: assessmentData?.certificateNumber || '',
                     startDate: today.toLocaleDateString('ja-JP'),
@@ -2047,7 +2049,8 @@ async function generateReview(event) {
             const reviewLocCtx = await dataAdapter.getChildLocationContext(childName);
             const reviewData = {
                 childName,
-                nonSoccer: !!reviewLocCtx.noSoccer,
+                nonSoccer: reviewLocCtx.soccerMode === 'none' || (!reviewLocCtx.soccerMode && !!reviewLocCtx.noSoccer),
+                soccerPartial: reviewLocCtx.soccerMode === 'partial',
                 startDate,
                 endDate,
                 goals,
@@ -3090,6 +3093,14 @@ const detailedActivityOptions = {
         { id: 'club_study', label: '学習・宿題' },
         { id: 'club_music', label: '音楽・ダンス' }
     ],
+    outing: [
+        { id: 'outing_shopping', label: '買い物' },
+        { id: 'outing_eatout', label: '外食' },
+        { id: 'outing_facility', label: '施設見学・社会科見学' },
+        { id: 'outing_library', label: '図書館・児童館' },
+        { id: 'outing_transport', label: '電車・バスでの移動' },
+        { id: 'outing_walk', label: '散策・ドライブ' }
+    ],
     event: [
         { id: 'event_tournament', label: '大会参加' },
         { id: 'event_friendly', label: '交流試合' },
@@ -3188,9 +3199,34 @@ const ACTIVITY_LABELS = {
     craft: '工作',
     cooking: '料理',
     club: 'クラブ活動',
+    outing: 'お出かけ',
     event: 'イベント',
     other: 'その他'
 };
+
+// 活動IDの配列をラベル文字列にする（お出かけ先があれば「お出かけ（〇〇）」にする）
+function formatActivityLabels(activities, outingDetail) {
+    return (activities || []).map(a => {
+        const label = ACTIVITY_LABELS[a] || a;
+        if (a === 'outing' && outingDetail) return `${label}（${outingDetail}）`;
+        return label;
+    }).join('、');
+}
+
+// サッカー系活動（これが含まれる日はサッカーの記録を残す）
+const SOCCER_ACTIVITIES = ['warmup', 'individual', 'group', 'game', 'skill', 'cooldown'];
+
+// 拠点のサッカー活動設定と当日の活動内容から「サッカーに言及しない」かを決める
+//   none    : 常にサッカーに言及しない
+//   partial : サッカー系の活動が選ばれた日だけサッカーに言及する（週2回など）
+//   always  : 従来どおり（サッカー以外の活動のみの日だけ言及しない）
+function resolveNonSoccer(locCtx, activities) {
+    const mode = locCtx?.soccerMode || (locCtx?.noSoccer ? 'none' : 'always');
+    const list = Array.isArray(activities) ? activities : [];
+    if (mode === 'none') return true;
+    if (mode === 'partial') return !list.some(a => SOCCER_ACTIVITIES.includes(a));
+    return list.length > 0 && list.every(a => !SOCCER_ACTIVITIES.includes(a));
+}
 
 // 活動チェックボックスのHTMLを生成（一括記録・単発記録で共通）
 function buildActivityCheckboxes(inputName) {
@@ -3211,6 +3247,7 @@ const activityGoalMapping = {
     craft: ['mental', 'physical'],
     cooking: ['mental', 'interpersonal', 'physical'],
     club: ['mental', 'interpersonal'],
+    outing: ['mental', 'interpersonal', 'physical'],
     event: ['mental', 'interpersonal'],
     other: ['technical', 'tactics', 'mental', 'physical', 'interpersonal']
 };
@@ -3326,6 +3363,7 @@ function showBatchRecordForm() {
         goals: [],
         selectedChildren: [],
         childrenMemos: {},
+        outingDetail: '', // お出かけ先・内容
         sortBy: localStorage.getItem('heartup_sortPreference') || 'name',
         locationFilter: null // null = 自拠点を自動選択
     };
@@ -3357,6 +3395,12 @@ function renderBatchRecordStep1(container) {
                         ${buildActivityCheckboxes('batchActivity')}
                     </div>
                     <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">※1つ以上選択してください</p>
+                </div>
+
+                <div class="form-group" id="outingDetailContainer" style="display: none;">
+                    <label>お出かけ先・内容</label>
+                    <input type="text" id="batchOutingDetail" placeholder="例: 〇〇公園へ散歩、スーパーで買い物、水族館見学" value="${batchRecordState.outingDetail || ''}" style="width:100%;">
+                    <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">※記録と連絡帳に「お出かけ（〇〇）」として反映されます</p>
                 </div>
 
                 <div class="form-group" id="detailedActivitiesContainer" style="display: none;">
@@ -3407,6 +3451,10 @@ function updateDetailedActivities() {
     document.querySelectorAll('#batchActivityCheckboxes input:checked').forEach(cb => {
         selectedActivities.push(cb.value);
     });
+
+    // お出かけ先の入力欄（お出かけ選択時のみ表示）
+    const outingContainer = document.getElementById('outingDetailContainer');
+    if (outingContainer) outingContainer.style.display = selectedActivities.includes('outing') ? 'block' : 'none';
 
     if (selectedActivities.length === 0) {
         detailedContainer.style.display = 'none';
@@ -3520,6 +3568,9 @@ function batchRecordStep1Submit(event) {
 
     batchRecordState.date = date;
     batchRecordState.activities = selectedActivities;
+    batchRecordState.outingDetail = selectedActivities.includes('outing')
+        ? (document.getElementById('batchOutingDetail')?.value || '').trim()
+        : '';
     batchRecordState.detailedActivities = selectedDetailedActivities;
     batchRecordState.goals = selectedGoals;
     batchRecordState.step = 2;
@@ -3848,9 +3899,7 @@ function batchRecordGoBack(step) {
  * Step 3: 個別メモ入力（一覧形式）
  */
 function renderBatchRecordStep3(container) {
-    const activityLabels = ACTIVITY_LABELS;
-
-    const selectedActivityLabels = batchRecordState.activities.map(a => activityLabels[a]).join('、');
+    const selectedActivityLabels = formatActivityLabels(batchRecordState.activities, batchRecordState.outingDetail);
 
     let childrenInputs = '';
     batchRecordState.selectedChildren.forEach((name, index) => {
@@ -3942,9 +3991,7 @@ function updateBatchNoIssue(name, checked) {
 async function generateBatchRecords() {
     const container = document.getElementById('batchRecordContent');
 
-    const activityLabels = ACTIVITY_LABELS;
-
-    const selectedActivityLabels = batchRecordState.activities.map(a => activityLabels[a]).join('、');
+    const selectedActivityLabels = formatActivityLabels(batchRecordState.activities, batchRecordState.outingDetail);
 
     // ローディング表示
     container.innerHTML = `
@@ -3956,14 +4003,17 @@ async function generateBatchRecords() {
 
     const results = [];
 
-    // 拠点設定（サッカー活動なし）を児童ごとに参照
+    // 拠点設定（サッカー活動の頻度・連絡帳の文体ルール）を児童ごとに参照
     const nonSoccerByChild = {};
+    const styleByChild = {};
     for (const childName of batchRecordState.selectedChildren) {
         try {
             const ctx = await dataAdapter.getChildLocationContext(childName);
-            nonSoccerByChild[childName] = !!ctx.noSoccer;
+            nonSoccerByChild[childName] = resolveNonSoccer(ctx, batchRecordState.activities);
+            styleByChild[childName] = ctx.parentNoteStyle || '';
         } catch (e) {
-            nonSoccerByChild[childName] = false;
+            nonSoccerByChild[childName] = resolveNonSoccer(null, batchRecordState.activities);
+            styleByChild[childName] = '';
         }
     }
 
@@ -4000,7 +4050,9 @@ async function generateBatchRecords() {
                 goals: goalLabels.join('、'),
                 observation,
                 notes: memoData.noIssue ? '特に問題なし' : '',
-                nonSoccer: nonSoccerByChild[childName] === true
+                outingDetail: batchRecordState.outingDetail || '',
+                nonSoccer: nonSoccerByChild[childName] === true,
+                parentNoteStyle: styleByChild[childName] || ''
             };
 
             let generatedText = '';
@@ -4158,7 +4210,8 @@ async function generateAllParentNotes() {
             date: r.recordData.date,
             nonSoccer: r.recordData.nonSoccer === true
                 || (Array.isArray(r.recordData.activities) && r.recordData.activities.length > 0
-                    && r.recordData.activities.every(a => GeminiAPI.NON_SOCCER_ACTIVITIES.includes(a)))
+                    && r.recordData.activities.every(a => GeminiAPI.NON_SOCCER_ACTIVITIES.includes(a))),
+            styleRules: r.recordData.parentNoteStyle || ''
         }));
 
         if (geminiAPI.isInitialized()) {
@@ -4497,10 +4550,10 @@ function showCsvImportForm() {
                 </div>
 
                 <div class="file-upload-area" id="fileUploadArea">
-                    <input type="file" id="csvFileInput" accept=".csv" onchange="handleCsvFileSelect(event)" style="display:none;">
+                    <input type="file" id="csvFileInput" accept=".csv,.xlsx,.xls,.xlsm" onchange="handleCsvFileSelect(event)" style="display:none;">
                     <div class="upload-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg></div>
-                    <p>クリックしてCSVファイルを選択<br>またはドラッグ＆ドロップ</p>
-                    <p class="file-hint">対応形式: CSV (UTF-8)</p>
+                    <p>クリックしてCSV / Excelファイルを選択<br>またはドラッグ＆ドロップ</p>
+                    <p class="file-hint">対応形式: CSV（UTF-8 / Shift_JIS）、Excel（.xlsx）</p>
                 </div>
 
                 <div id="selectedFileInfo" class="selected-file-info" style="display:none;">
@@ -4541,10 +4594,10 @@ function showCsvImportForm() {
         e.preventDefault();
         uploadArea.classList.remove('dragover');
         const files = e.dataTransfer.files;
-        if (files.length > 0 && files[0].name.endsWith('.csv')) {
+        if (files.length > 0 && /\.(csv|xlsx|xls|xlsm)$/i.test(files[0].name)) {
             handleCsvFile(files[0]);
         } else {
-            showToast('CSVファイルを選択してください');
+            showToast('CSVまたはExcelファイルを選択してください');
         }
     });
 
@@ -4600,7 +4653,7 @@ function selectImportType(type) {
         },
         record: {
             title: '活動記録のインポート',
-            description: 'CSVファイルに以下のフィールドを含めてください：',
+            description: 'CSVまたはExcel（.xlsx）の1行目に以下の列名を入れてください（HUG形式の縦型CSVも可）：',
             fields: [
                 { name: '日付', required: true },
                 { name: '児童名', required: true },
@@ -4732,12 +4785,8 @@ async function executeImport() {
 
         try {
             // CSVの内容を先読みしてデータ種別を自動検出
-            const csvText = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = (e) => resolve(e.target.result);
-                reader.onerror = () => reject(new Error('ファイルの読み込みに失敗しました'));
-                reader.readAsText(window.selectedCsvFile, 'UTF-8');
-            });
+            // Excel は先頭シートを CSV に変換、CSV は文字コードを自動判定して読む
+            const csvText = await csvImporter.readFile(window.selectedCsvFile);
 
             const detectedType = csvImporter.detectContentType(csvText);
             const importType = detectedType || window.currentImportType;
