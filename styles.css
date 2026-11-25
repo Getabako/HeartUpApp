@@ -3468,3 +3468,8 @@ details.pm-sec[open] .pm-sec-toggle { transform: rotate(180deg); }
 .pm-diff b { display: block; min-width: 0; }
 .pm-hero-error { margin: 0 0 0.6rem; padding: 0.6rem 0.8rem; background: #fff3e0; color: #b84a00; border-radius: 8px; font-size: 0.92rem; line-height: 1.7; }
 .pm-hero-error small { display: block; color: #8a6d55; font-size: 0.78rem; }
+.am-busy-overlay { position: fixed; inset: 0; z-index: 5000; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; }
+.am-busy-box { background: #fff; border-radius: 16px; padding: 1.4rem 2rem; display: flex; flex-direction: column; align-items: center; gap: 0.3rem; text-align: center; }
+.am-busy-box .ai-loading-ball { width: 52px; height: 52px; }
+.am-busy-box b { color: #c62828; font-size: 1.1rem; letter-spacing: 0.05em; }
+.am-busy-box span { color: #6b756c; font-size: 0.85rem; }

@@ -93,12 +93,19 @@ const dataAdapter = {
         }
     },
 
-    async deleteChildAndRelatedData(childName) {
+    async deleteChildAndRelatedData(childName, childId) {
         console.log('dataAdapter.deleteChildAndRelatedData 開始:', childName);
 
         // Firebase削除（エラーは呼び出し元に伝播させる）
         if (heartUpDB.isReady()) {
-            await heartUpDB.deleteChildAndRelatedData(childName);
+            // 一覧は「シートの中に書かれた名前」で児童をまとめている。保存時の名前と違っていても消せるよう、
+            // その児童として一覧に出ているアセスメントを ID で集めて一緒に消す
+            let assessmentIds = [];
+            try {
+                const rows = await heartUpDB.getAssessments();
+                assessmentIds = rows.filter(r => ((r.form_data || {}).childName || '') === childName || r.child_name === childName).map(r => r.id);
+            } catch (e) { /* 取れなければ名前での検索だけで消す */ }
+            await heartUpDB.deleteChildAndRelatedData(childName, childId, assessmentIds);
             console.log('Firebase削除成功:', childName);
         }
 

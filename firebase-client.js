@@ -302,40 +302,25 @@ const heartUpDB = {
         await batch.commit();
     },
 
-    async deleteChildAndRelatedData(childName) {
-        console.log('Firebase deleteChildAndRelatedData 開始:', childName);
-        if (!this.isReady()) {
-            console.error('Firebase未初期化');
-            throw new Error('Firebase未初期化');
-        }
-        
-        const batch = this.db.batch();
+    async deleteChildAndRelatedData(childName, childId, assessmentIds) {
+        if (!this.isReady()) throw new Error('Firebase未初期化');
         const collections = ['children', 'assessments', 'support_plans', 'daily_reports', 'reviews'];
-        let totalDeleted = 0;
-        
-        for (const col of collections) {
-            const field = col === 'children' ? 'name' : 'childName';
-            console.log(`Firebase ${col}削除検索:`, childName);
-            const snapshot = await this.db.collection(col).where(field, '==', childName).get();
-            console.log(`Firebase ${col}削除対象:`, snapshot.docs.length, '件');
-            
-            snapshot.docs.forEach(doc => {
-                batch.delete(doc.ref);
-                totalDeleted++;
-            });
+        // 5 つの検索は同時に行う（順番に待つと、電波が弱いときに長くかかる）
+        const snaps = await Promise.all(collections.map(col =>
+            this.db.collection(col).where(col === 'children' ? 'name' : 'childName', '==', childName).get()));
+        const refs = new Map();
+        snaps.forEach(snap => snap.docs.forEach(doc => refs.set(doc.ref.path, doc.ref)));
+        // 名前の表記ゆれで検索に掛からなくても、一覧に出ている児童そのものは必ず消す
+        if (childId) { const r = this.db.collection('children').doc(childId); refs.set(r.path, r); }
+        (assessmentIds || []).forEach(id => { const r = this.db.collection('assessments').doc(id); refs.set(r.path, r); });
+        // 1 回にまとめて消せるのは 500 件まで。多いときは分ける
+        const all = Array.from(refs.values());
+        for (let k = 0; k < all.length; k += 400) {
+            const batch = this.db.batch();
+            all.slice(k, k + 400).forEach(r => batch.delete(r));
+            await batch.commit();
         }
-        
-        console.log('Firebaseバッチコミット: 合計', totalDeleted, '件の削除');
-        await batch.commit();
-        
-        // 削除の検証: childrenコレクションに残っていないか確認
-        const verify = await this.db.collection('children').where('name', '==', childName).get();
-        if (!verify.empty) {
-            console.error('Firebase削除検証失敗: データが残っています');
-            throw new Error('Firebaseからの削除に失敗しました。データが残っています。');
-        }
-        
-        console.log('Firebase deleteChildAndRelatedData 完了:', childName, totalDeleted, '件削除');
+        console.log('Firebase deleteChildAndRelatedData 完了:', childName, all.length, '件削除');
     },
 
     // ============================================================

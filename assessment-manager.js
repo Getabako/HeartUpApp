@@ -556,9 +556,18 @@ window.amDeleteChild = async function(childName) {
         return;
     }
     
+    // 消している間は画面に出す（電波が弱いと数秒かかり、何も起きていないように見えていた）
+    const wait = document.createElement('div');
+    wait.className = 'am-busy-overlay';
+    wait.innerHTML = '<div class="am-busy-box"><img src="soccerball.png" alt="" class="ai-loading-ball"><b>削除しています</b><span>そのままお待ちください</span></div>';
+    document.body.appendChild(wait);
     try {
         console.log('削除実行開始:', childName);
-        await dataAdapter.deleteChildAndRelatedData(childName);
+        await Promise.race([
+            dataAdapter.deleteChildAndRelatedData(childName, totalRecords && totalRecords.childId),
+            new Promise((_, rej) => setTimeout(() => rej(new Error('電波が弱く、25秒待っても終わりませんでした。電波のよい所でもう一度お試しください')), 25000))
+        ]);
+        wait.remove();
         console.log('削除成功:', childName);
         showToast(`「${childName}」と関連データを削除しました。`);
         
@@ -589,8 +598,8 @@ window.amDeleteChild = async function(childName) {
         }, 500);
     } catch (error) {
         console.error('児童削除エラー:', error);
-        console.error('エラー詳細:', error.stack);
-        showToast('削除に失敗しました: ' + error.message);
+        wait.remove();
+        alert('削除できませんでした。\n\n' + (error && error.message ? error.message : error));
     }
 }
 
