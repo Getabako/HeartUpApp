@@ -1,8 +1,8 @@
 // HeartUpApp AI練習メニュー生成
 // - テーマ・条件を入力 → Gemini が事業所の型（W-up / Tr.1 / Tr.2 / 試合）で練習メニューを構造化生成
 // - ホワイトボード写真をアップロード → Gemini（画像読み取り）で内容を構造化
-// - 生成結果から「イラスト生成用プロンプト」を作成（ChatGPT等に貼り付けて画像化できる）
-// - Vercel に OPENAI_API_KEY が設定されていれば、アプリ内で直接イラストを生成（/api/generate-image）
+// - 生成結果から「イラスト生成用プロンプト」を作成（アプリ内で画像化。コピーして他の画像生成AIに貼ることもできる）
+// - アプリ内で直接イラストを生成（/api/generate-image。Gemini の画像生成。GEMINI_API_KEY で動く）
 // - 生成したメニューは拠点ごとに保存（Firestore、未接続時は localStorage）し、練習メニュー一覧にカード表示
 
 const PracticeMenuGen = {
@@ -298,7 +298,7 @@ const PracticeMenuGen = {
             ${menu.imageData ? `<div class="pm-image-wrap"><h4>生成したイラスト</h4><img src="${menu.imageData}" alt="練習メニューのイラスト"><div class="pm-inline-actions"><a class="btn-small" href="${menu.imageData}" download="${this.esc(menu.title)}.jpg">画像を保存</a></div></div>` : ''}
             ${menu.sourcePhoto ? `<details class="pm-details"><summary>元のホワイトボード写真</summary><img src="${menu.sourcePhoto}" alt="ホワイトボード写真" style="max-width:100%; border-radius:8px; margin-top:8px;"></details>` : ''}
             <details class="pm-details" id="pmPromptDetails">
-                <summary>イラスト生成用プロンプト（ChatGPTなどに貼り付けて画像化）</summary>
+                <summary>イラストの指示文（中身を見る・コピーする）</summary>
                 <textarea id="pmPromptText" rows="8" readonly>${this.esc(menu.illustrationPrompt || '')}</textarea>
                 <div class="pm-inline-actions">
                     <button type="button" class="btn-small" onclick="PracticeMenuGen.copyPrompt()">プロンプトをコピー</button>
@@ -307,7 +307,7 @@ const PracticeMenuGen = {
             <div class="pm-image-status ${canImage ? 'ok' : 'off'}">
                 ${canImage
                     ? 'アプリ内でのイラスト生成が使えます（1枚あたり料金が発生します。1日の目安: ' + (this.aiStatus.dailyImageLimit || 20) + '枚）'
-                    : 'アプリ内イラスト生成は、事業所のOpenAI APIキーをVercelに設定すると使えるようになります。それまでは上のプロンプトをコピーしてChatGPTに貼り付けてください。'}
+                    : 'いまはアプリ内でイラストを作れません。時間をおいてもう一度お試しください。'}
             </div>
             <div class="pm-refine">
                 <label>修正依頼（任意）</label>
@@ -371,7 +371,7 @@ const PracticeMenuGen = {
         const ta = document.getElementById('pmPromptText');
         if (!ta) return;
         const text = ta.value;
-        const done = () => showToast('プロンプトをコピーしました。ChatGPTに貼り付けて画像化してください。');
+        const done = () => showToast('イラストの指示文をコピーしました。');
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(text).then(done).catch(() => { ta.select(); document.execCommand('copy'); done(); });
         } else {
@@ -418,7 +418,7 @@ ${GeminiAPI.PRACTICE_MENU_STYLE}`;
     },
 
     // ============================================================
-    // イラスト生成（OpenAI 画像生成。サーバー側で API キーが設定されている場合のみ）
+    // イラスト生成（Gemini の画像生成。サーバー側の GEMINI_API_KEY を使う）
     // ============================================================
     dailyCountKey() {
         return 'heartup_imageGenCount_' + new Date().toISOString().split('T')[0];

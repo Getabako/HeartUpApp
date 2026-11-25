@@ -893,7 +893,7 @@ JSONのみを出力してください。`;
 
     /**
      * 構造化メニューからイラスト生成用プロンプト（日本語）を組み立てる
-     * ChatGPT等に貼り付けて画像化できる形にする
+     * 画像生成AIに渡せる形にする
      */
     buildIllustrationPrompt(menu) {
         const sec = (menu.sections || []).map((s, i) => {

@@ -108,8 +108,8 @@ subagent_type: "media"    → メディア・サブエージェント
 
 | 環境変数 | 用途 | 備考 |
 |---------|------|------|
-| `GEMINI_API_KEY` | Gemini API | AI書類生成・練習メニュー生成・ホワイトボード写真の読み取りで使用 |
-| `OPENAI_API_KEY` | OpenAI API（任意） | 練習メニューのイラスト生成（gpt-image-1）と音声入力の文字起こしで使用。未設定でもアプリは動く（イラストはプロンプト表示のみ、音声入力はブラウザ内蔵認識にフォールバック） |
+| `GEMINI_API_KEY` | Gemini API | AI書類生成・練習メニュー生成・ホワイトボード写真の読み取り・練習メニューのイラスト生成・音声入力の文字起こしで使用 |
+| `GEMINI_IMAGE_MODEL` / `GEMINI_TRANSCRIBE_MODEL` | 画像生成・文字起こしのモデル名（任意） | 未設定なら `gemini-3.1-flash-image` / `gemini-3.5-transcribe`。使えないときは `gemini-2.5-flash-image` / `gemini-2.5-flash` に自動で切り替え |
 | `IMAGE_DAILY_LIMIT` | 画像生成の1日の目安枚数（任意） | 未設定なら20。端末ごとの目安表示に使う |
 | `FIREBASE_API_KEY` | Firebase APIキー | Firebase Consoleから取得 |
 | `FIREBASE_AUTH_DOMAIN` | Firebase Authドメイン | `xxx.firebaseapp.com` |
@@ -137,11 +137,11 @@ subagent_type: "media"    → メディア・サブエージェント
 
 | エンドポイント | 役割 |
 |---------|------|
-| `GET /api/ai-status` | OpenAI連携（画像生成・音声認識）が有効かを返す。クライアントはこれを見てUIを切り替える |
+| `GET /api/ai-status` | 画像生成・音声認識（どちらも Gemini）が有効かを返す。クライアントはこれを見てUIを切り替える |
 | `POST /api/generate-image` | 練習メニューのイラスト生成。`{ prompt, size, quality }` → `{ image: dataURL }`。キー未設定時は 501 |
 | `POST /api/transcribe` | 音声メモの文字起こし。`{ audio: dataURL }` → `{ text }`。キー未設定時は 501 |
 
-- `OPENAI_API_KEY` を Vercel の環境変数に入れて再デプロイするだけで有効になる（コード変更不要）
+- 画像生成も音声の文字起こしも `GEMINI_API_KEY` だけで動く（2026-11-25 本人指示で OpenAI は使わない形に変更。共通部品は `api/_gemini.js`）
 - ローカルは `npm run dev`（server.js が同じパスで api/ を提供）
 - 画像は Firestore の1MB制限に合わせてクライアント側で縮小保存（高解像度は生成直後にダウンロード可）
 
@@ -168,7 +168,7 @@ subagent_type: "media"    → メディア・サブエージェント
 
 - 「テーマから作成」「ホワイトボード写真から作成」の2モード。Gemini が W-up / Tr.1 / Tr.2 / 試合 の型で構造化JSONを返す
 - 型と画風の指針は `gemini-api.js` の `PRACTICE_MENU_STYLE` / `ILLUSTRATION_STYLE`（現場のホワイトボード写真83枚を分析して抽出）
-- 生成結果からイラスト用プロンプトを組み立て（ChatGPTに貼れる）、APIキーがあればアプリ内で画像生成
+- 生成結果からイラスト用プロンプトを組み立て、アプリ内で画像生成（Gemini）
 - 保存先は Firestore `generated_menus`（拠点ごと）、未接続時は localStorage `generatedPracticeMenus`
 - 参考写真フォルダ `メニュー/` は児童名が写るため git 管理外
 

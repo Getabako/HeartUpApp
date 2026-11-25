@@ -1,6 +1,6 @@
 // HeartUpApp 音声入力モジュール
-// - OPENAI_API_KEY が Vercel に設定されていれば /api/transcribe（サーバー側の音声認識）を使う
-// - 未設定ならブラウザ内蔵の音声認識（Web Speech API）にフォールバック（Chrome / Edge / Safari）
+// - /api/transcribe（サーバー側の音声認識。Gemini。GEMINI_API_KEY で動く）を使う
+// - サーバー側が使えないときはブラウザ内蔵の音声認識（Web Speech API）にフォールバック（Chrome / Edge / Safari）
 // - どちらも使えない環境ではボタンを無効化してメッセージを出す
 //
 // 使い方: VoiceInput.attach(textareaElement, buttonElement)
@@ -120,7 +120,7 @@ const VoiceInput = {
         }
     },
 
-    // ---- サーバー側（OpenAI）で文字起こし ----
+    // ---- サーバー側（Gemini）で文字起こし ----
     async _recordForServer(target, btn) {
         if (!navigator.mediaDevices || !window.MediaRecorder) {
             if (this.hasBrowserRecognition()) return this._browserRecognize(target, btn);
