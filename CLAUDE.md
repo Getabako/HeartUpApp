@@ -109,7 +109,7 @@ subagent_type: "media"    → メディア・サブエージェント
 | 環境変数 | 用途 | 備考 |
 |---------|------|------|
 | `GEMINI_API_KEY` | Gemini API | AI書類生成・練習メニュー生成・ホワイトボード写真の読み取り・練習メニューのイラスト生成・音声入力の文字起こしで使用 |
-| `GEMINI_IMAGE_MODEL` / `GEMINI_TRANSCRIBE_MODEL` | 画像生成・文字起こしのモデル名（任意） | 未設定なら `gemini-3.1-flash-image` / `gemini-3.5-transcribe`。使えないときは `gemini-2.5-flash-image` / `gemini-2.5-flash` に自動で切り替え |
+| `GEMINI_IMAGE_MODEL` / `GEMINI_TRANSCRIBE_MODEL` | 画像生成・文字起こしのモデル名（任意） | 未設定なら `gemini-3-pro-image`（いちばん高品質。1枚 約0.134ドル）/ `gemini-3.5-transcribe`。使えないときは `gemini-3.1-flash-image` → `gemini-2.5-flash-image` / `gemini-2.5-flash` に自動で切り替え |
 | `IMAGE_DAILY_LIMIT` | 画像生成の1日の目安枚数（任意） | 未設定なら20。端末ごとの目安表示に使う |
 | `FIREBASE_API_KEY` | Firebase APIキー | Firebase Consoleから取得 |
 | `FIREBASE_AUTH_DOMAIN` | Firebase Authドメイン | `xxx.firebaseapp.com` |
