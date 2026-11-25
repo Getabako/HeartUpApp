@@ -29,7 +29,7 @@
       }
     }
     </script>
-    <link rel="stylesheet" href="styles.css?v=20261125k">
+    <link rel="stylesheet" href="styles.css?v=20261125m">
 </head>
 <body>
     <header>
@@ -191,6 +191,20 @@
                                     </select>
                                 </div>
                             </div>
+                            <div class="am-row-filter" id="amRowFilter" role="group" aria-label="名前の行でしぼる">
+                                <button type="button" class="am-row-btn active" data-row="" data-ic="0" onclick="amSetRow('')">全部</button>
+                                <button type="button" class="am-row-btn" data-row="あ" data-ic="0" onclick="amSetRow('あ')">あ</button>
+                                <button type="button" class="am-row-btn" data-row="か" data-ic="0" onclick="amSetRow('か')">か</button>
+                                <button type="button" class="am-row-btn" data-row="さ" data-ic="0" onclick="amSetRow('さ')">さ</button>
+                                <button type="button" class="am-row-btn" data-row="た" data-ic="0" onclick="amSetRow('た')">た</button>
+                                <button type="button" class="am-row-btn" data-row="な" data-ic="0" onclick="amSetRow('な')">な</button>
+                                <button type="button" class="am-row-btn" data-row="は" data-ic="0" onclick="amSetRow('は')">は</button>
+                                <button type="button" class="am-row-btn" data-row="ま" data-ic="0" onclick="amSetRow('ま')">ま</button>
+                                <button type="button" class="am-row-btn" data-row="や" data-ic="0" onclick="amSetRow('や')">や</button>
+                                <button type="button" class="am-row-btn" data-row="ら" data-ic="0" onclick="amSetRow('ら')">ら</button>
+                                <button type="button" class="am-row-btn" data-row="わ" data-ic="0" onclick="amSetRow('わ')">わ</button>
+                                <button type="button" class="am-row-btn" data-row="他" data-ic="0" onclick="amSetRow('他')">ほか</button>
+                            </div>
                             <div id="amChildrenContainer">
                                 <div class="am-empty-state">
                                     <h3>読み込み中...</h3>
@@ -289,19 +303,19 @@
         };
         window.FIREBASE_CONFIG = { apiKey: '', authDomain: '', projectId: '' };
     </script>
-    <script src="icons.js?v=20261125k"></script>
+    <script src="icons.js?v=20261125m"></script>
     <script src="toast.js?v=20260818"></script>
-    <script src="config.js?v=20261125k" onerror="console.log('config.js not found - using default API_CONFIG')"></script>
-    <script src="firebase-client.js?v=20261125k"></script>
-    <script src="data-adapter.js?v=20261125k"></script>
-    <script src="auth-guard.js?v=20261125k"></script>
-    <script src="gemini-api.js?v=20261125k"></script>
-    <script src="csv-importer.js?v=20261125k"></script>
-    <script src="markdown-renderer.js?v=20261125k"></script>
-    <script src="voice-input.js?v=20261125k"></script>
-    <script src="assessment-manager.js?v=20261125k"></script>
-    <script src="script.js?v=20261125k"></script>
-    <script src="practice-menu-generator.js?v=20261125k"></script>
+    <script src="config.js?v=20261125m" onerror="console.log('config.js not found - using default API_CONFIG')"></script>
+    <script src="firebase-client.js?v=20261125m"></script>
+    <script src="data-adapter.js?v=20261125m"></script>
+    <script src="auth-guard.js?v=20261125m"></script>
+    <script src="gemini-api.js?v=20261125m"></script>
+    <script src="csv-importer.js?v=20261125m"></script>
+    <script src="markdown-renderer.js?v=20261125m"></script>
+    <script src="voice-input.js?v=20261125m"></script>
+    <script src="assessment-manager.js?v=20261125m"></script>
+    <script src="script.js?v=20261125m"></script>
+    <script src="practice-menu-generator.js?v=20261125m"></script>
     <script>
         // Firebase初期化 + 認証ガード
         heartUpDB.init();

@@ -3473,3 +3473,82 @@ details.pm-sec[open] .pm-sec-toggle { transform: rotate(180deg); }
 .am-busy-box .ai-loading-ball { width: 52px; height: 52px; }
 .am-busy-box b { color: #c62828; font-size: 1.1rem; letter-spacing: 0.05em; }
 .am-busy-box span { color: #6b756c; font-size: 0.85rem; }
+
+/* ============================================
+   文字の折り返し: 1〜2 文字だけ次の行にこぼれないようにする（2026-11-25）
+   見出し・ボタン・短い案内は行の長さをそろえ、文は文節で折る
+   ============================================ */
+body { text-wrap: pretty; }
+h1, h2, h3, h4, button, label, summary, .ai-loading-text, .tab-guide-title, .tc-title, .cc-name, .pm-title, .pm-sec-name, .pm-hero-wait, .am-busy-box, .toast {
+    text-wrap: balance;
+    word-break: auto-phrase;
+}
+.ai-loading-text { text-align: center; line-height: 1.7; letter-spacing: 0.04em; }
+
+/* ============================================
+   読み込み中のオオカミ（リフティング・ドリブル・シュート）
+   2 コマの絵を切りかえ、ボールは別に動かす
+   ============================================ */
+.wolf-anim { position: relative; display: block; width: 8.5rem; height: 8.5rem; flex: none; }
+.wolf-anim .wa-f { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.wolf-anim .wa-f2 { opacity: 0; }
+.wolf-anim .wa-ball { position: absolute; width: 22%; height: auto; }
+.wolf-anim .wa-ground { position: absolute; left: 6%; right: 6%; bottom: -2px; height: 4px; border-radius: 2px; background: #cfe3cf; }
+
+/* リフティング: ひざを上げたコマのときにボールがひざに当たる */
+.wa-lift .wa-f1 { animation: waShowA 0.8s steps(1) infinite; }
+.wa-lift .wa-f2 { animation: waShowB 0.8s steps(1) infinite; }
+.wa-lift .wa-ball { left: 56%; top: 38%; animation: waBounce 0.8s infinite; }
+@keyframes waShowA { 0%, 80% { opacity: 1; } 25%, 79.9% { opacity: 0; } }
+@keyframes waShowB { 0%, 80% { opacity: 0; } 25%, 79.9% { opacity: 1; } }
+@keyframes waBounce {
+    0% { transform: translateY(0) rotate(0deg); animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1); }
+    50% { transform: translateY(-190%) rotate(180deg); animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.3); }
+    100% { transform: translateY(0) rotate(360deg); }
+}
+
+/* ドリブル: 足を入れかえながら、ボールを前に小さく押し出す */
+.wa-dribble .wa-f1 { animation: waFlipA 0.5s steps(1) infinite; }
+.wa-dribble .wa-f2 { animation: waFlipB 0.5s steps(1) infinite; }
+.wa-dribble .wa-f { transform-origin: 50% 100%; }
+.wa-dribble { animation: waRun 0.5s ease-in-out infinite; }
+.wa-dribble .wa-ball { left: 74%; bottom: 0; animation: waRoll 0.5s linear infinite; }
+.wa-dribble .wa-ground { background: repeating-linear-gradient(90deg, #cfe3cf 0 14px, transparent 14px 24px); background-size: 24px 4px; animation: waGround 0.3s linear infinite; }
+@keyframes waFlipA { 0% { opacity: 1; } 50% { opacity: 0; } }
+@keyframes waFlipB { 0% { opacity: 0; } 50% { opacity: 1; } }
+@keyframes waRun { 0%, 100% { transform: translateY(0); } 25%, 75% { transform: translateY(-3%); } }
+@keyframes waRoll { 0% { transform: translateX(0) rotate(0deg); } 50% { transform: translateX(22%) rotate(180deg); } 100% { transform: translateX(0) rotate(360deg); } }
+@keyframes waGround { to { background-position: -24px 0; } }
+
+/* シュート: 振りかぶる → 蹴る → ボールが飛ぶ → 新しいボールが転がってくる */
+.wa-shoot .wa-f1 { animation: waKickA 1.6s steps(1) infinite; }
+.wa-shoot .wa-f2 { animation: waKickB 1.6s steps(1) infinite; }
+.wa-shoot .wa-ball { left: 66%; bottom: 0; animation: waFly 1.6s infinite; }
+@keyframes waKickA { 0% { opacity: 1; } 40% { opacity: 0; } 85% { opacity: 1; } }
+@keyframes waKickB { 0% { opacity: 0; } 40% { opacity: 1; } 85% { opacity: 0; } }
+@keyframes waFly {
+    0% { transform: translate(-260%, 0) rotate(-360deg); opacity: 0; }
+    10% { opacity: 1; }
+    30%, 40% { transform: translate(0, 0) rotate(0deg); opacity: 1; animation-timing-function: cubic-bezier(0.1, 0.8, 0.3, 1); }
+    70% { transform: translate(330%, -260%) rotate(540deg) scale(0.7); opacity: 1; }
+    80%, 100% { transform: translate(380%, -300%) rotate(600deg) scale(0.6); opacity: 0; }
+}
+.ai-loading, .pm-hero-wait, .am-busy-box { overflow: hidden; }
+@media (prefers-reduced-motion: reduce) {
+    .wolf-anim, .wolf-anim * { animation: none !important; }
+}
+
+/* 児童の一覧: 名前の行でしぼるボタン */
+.am-row-filter { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin: 0 0 1rem; }
+.am-row-btn {
+    min-height: 46px; padding: 0; border: 2px solid #2e7d32; border-radius: 10px; background: #fff; color: #2e7d32;
+    font-size: 1.05rem; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #b9cdb9 !important;
+}
+.am-row-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #b9cdb9 !important; }
+.am-row-btn.active { background: #2e7d32; color: #fff; box-shadow: 0 3px 0 #184d1c !important; }
+.am-row-btn:disabled { border-color: #dfe5df; color: #b9c2ba; background: #f6f8f6; box-shadow: none !important; cursor: default; }
+@media (min-width: 769px) { .am-row-filter { grid-template-columns: repeat(12, 1fr); } }
+/* 児童カード: 性別（「未回答」など）が 1 文字だけこぼれないよう、列の幅を中身に合わせる */
+.cc-info { grid-template-columns: max-content 1fr max-content; }
+.cc-info > div:nth-child(2) b { white-space: nowrap; overflow-wrap: normal; }
+.cc-info b { text-wrap: balance; word-break: auto-phrase; }

@@ -426,7 +426,32 @@ async function amUpdateLocationFilter() {
 }
 
 // フィルタリング
+// 名前の行（あ行・か行…）でしぼる。ふりがながあればふりがな、なければ名前の最初の文字で見る。
+// 漢字だけでふりがなが無い児童は「ほか」に入る
+let amRowQuery = '';
+const AM_ROWS = { 'あ': 'あいうえおぁぃぅぇぉゔ', 'か': 'かきくけこがぎぐげご', 'さ': 'さしすせそざじずぜぞ', 'た': 'たちつてとだぢづでどっ', 'な': 'なにぬねの', 'は': 'はひふへほばびぶべぼぱぴぷぺぽ', 'ま': 'まみむめも', 'や': 'やゆよゃゅょ', 'ら': 'らりるれろ', 'わ': 'わをんゎ' };
+function amRowOf(child) {
+    const src = ((child.childNameKana || '').trim() || (child.name || '').trim());
+    let ch = src.charAt(0);
+    const code = ch.charCodeAt(0);
+    if (code >= 0x30A1 && code <= 0x30F6) ch = String.fromCharCode(code - 0x60);   // カタカナ → ひらがな
+    for (const row in AM_ROWS) { if (AM_ROWS[row].includes(ch)) return row; }
+    return '他';
+}
+window.amSetRow = function (row) {
+    amRowQuery = row;
+    document.querySelectorAll('#amRowFilter .am-row-btn').forEach(b => b.classList.toggle('active', b.dataset.row === row));
+    amFilterChildren();
+};
+// 該当する児童がいない行のボタンは薄くして押せなくする
+function amUpdateRowButtons() {
+    const has = {};
+    amAllChildrenData.forEach(c => { has[amRowOf(c)] = true; });
+    document.querySelectorAll('#amRowFilter .am-row-btn').forEach(b => { if (b.dataset.row) b.disabled = !has[b.dataset.row]; });
+}
+
 function amFilterChildren() {
+    amUpdateRowButtons();
     const nameQuery = (document.getElementById('amNameSearch')?.value || '').toLowerCase();
     const gradeQuery = document.getElementById('amGradeFilter')?.value || '';
     const locationQuery = document.getElementById('amLocationFilter')?.value || '';
@@ -436,7 +461,8 @@ function amFilterChildren() {
             (child.childNameKana || '').toLowerCase().includes(nameQuery);
         const gradeMatch = !gradeQuery || child.grade === gradeQuery;
         const locationMatch = !locationQuery || child.locationName === locationQuery;
-        return nameMatch && gradeMatch && locationMatch;
+        const rowMatch = !amRowQuery || amRowOf(child) === amRowQuery;
+        return nameMatch && gradeMatch && locationMatch && rowMatch;
     });
     
     // 並び替えを適用
@@ -446,6 +472,7 @@ function amFilterChildren() {
 
 // 児童一覧を描画
 function amRenderChildren(childrenList) {
+    amUpdateRowButtons();
     console.log('amRenderChildren: 描画開始', childrenList.length, '件');
     console.log('childrenListサンプル:', childrenList.slice(0, 3)); // 最初の3件を表示
     

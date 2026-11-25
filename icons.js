@@ -89,6 +89,19 @@
             }
             b.dataset.ic = '0';
         });
+        // 読み込み中の表示: 回るボールを、オオカミのリフティング・ドリブル・シュートに置きかえる（毎回どれかが出る）
+        (root.querySelectorAll ? root.querySelectorAll('img.ai-loading-ball') : []).forEach(function (img) {
+            const kinds = ['lift', 'dribble', 'shoot'];
+            let k = kinds[Math.floor(Math.random() * kinds.length)];
+            if (k === lastWolf) k = kinds[(kinds.indexOf(k) + 1) % kinds.length];
+            lastWolf = k;
+            const el = document.createElement('span');
+            el.className = 'wolf-anim wa-' + k;
+            el.setAttribute('role', 'img');
+            el.setAttribute('aria-label', '読み込み中');
+            el.innerHTML = '<img class="wa-f wa-f1" src="images/wolf/' + k + '_1.png" alt=""><img class="wa-f wa-f2" src="images/wolf/' + k + '_2.png" alt=""><img class="wa-ball" src="soccerball.png" alt=""><i class="wa-ground"></i>';
+            img.replaceWith(el);
+        });
         // data-icon="name" を持つ要素にアイコンを入れる
         (root.querySelectorAll ? root.querySelectorAll('[data-icon]:not([data-icon-done])') : []).forEach(function (el) {
             el.dataset.iconDone = '1';
@@ -96,6 +109,7 @@
         });
     }
 
+    let lastWolf = '';
     let queued = false;
     function schedule() {
         if (queued) return;
