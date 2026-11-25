@@ -3565,3 +3565,10 @@ html[data-swipe="left"] .tab-content.active { animation: swipeInL 0.22s ease-out
 html[data-swipe="right"] .tab-content.active { animation: swipeInR 0.22s ease-out; }
 @keyframes swipeInL { from { transform: translateX(28px); opacity: 0.4; } to { transform: none; opacity: 1; } }
 @keyframes swipeInR { from { transform: translateX(-28px); opacity: 0.4; } to { transform: none; opacity: 1; } }
+
+/* カードが画面からはみ出さないようにする（中身が長くても、枠の幅を超えない） */
+.resources-grid, .practice-grid { grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)); }
+.resources-grid > *, .practice-grid > * { min-width: 0; max-width: 100%; }
+.tc, .tc-art, .tc-body { min-width: 0; max-width: 100%; }
+.tc-body * { min-width: 0; overflow-wrap: anywhere; }
+html, body { overflow-x: clip; max-width: 100%; }
