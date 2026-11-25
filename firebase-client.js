@@ -877,3 +877,46 @@ const heartUpDB = {
         await docRef.delete();
     }
 };
+
+// ============================================================
+// 一覧の読み込みを軽くする（2026-11-25）
+// 児童・アセスメント・支援計画・記録・振り返り・拠点の一覧は、画面を切り替えるたびに
+// 全件を取り直していた。短い時間だけ覚えておき、同時に来た要求は 1 回にまとめる。
+// 何かを保存・更新・削除したら、覚えた分は捨てて次は取り直す。
+// ============================================================
+(function () {
+    const LISTS = ['getChildren', 'getAssessments', 'getSupportPlans', 'getDailyReports', 'getReviews', 'getLocations'];
+    const TTL = 3 * 60 * 1000;
+    let cache = {};
+    // 行ごとに浅く写して返す（日時の型を壊さないため、深い複製はしない）
+    const clone = (v) => (Array.isArray(v) ? v.map(r => (r && typeof r === 'object' ? Object.assign({}, r) : r)) : v);
+    const scope = () => {
+        try { return (heartUpDB.isAdmin() ? 'admin' : 'staff') + '|' + (heartUpDB.getMyLocationId() || ''); } catch (e) { return ''; }
+    };
+    const clear = () => { cache = {}; };
+
+    LISTS.forEach(function (name) {
+        const orig = heartUpDB[name];
+        if (typeof orig !== 'function') return;
+        heartUpDB[name] = function () {
+            if (!this.isReady() || arguments.length) return orig.apply(this, arguments);
+            const key = name + '|' + scope();
+            const hit = cache[key];
+            if (hit && Date.now() - hit.t < TTL) return hit.p.then(clone);
+            const p = orig.apply(this, arguments);
+            cache[key] = { t: Date.now(), p: p };
+            p.catch(function () { if (cache[key] && cache[key].p === p) delete cache[key]; });
+            return p.then(clone);
+        };
+    });
+
+    Object.keys(heartUpDB).forEach(function (name) {
+        if (!/^(create|update|delete|save|signOut)/.test(name) || typeof heartUpDB[name] !== 'function') return;
+        const orig = heartUpDB[name];
+        heartUpDB[name] = async function () {
+            try { return await orig.apply(this, arguments); } finally { clear(); }
+        };
+    });
+
+    heartUpDB.clearListCache = clear;
+})();

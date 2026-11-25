@@ -3053,3 +3053,115 @@ main {
     .progress-step { flex: 1 1 0; padding: 0.6rem 0.2rem !important; font-size: 0.8rem !important; white-space: nowrap; text-align: center; letter-spacing: 0; }
     h1 { font-size: 1.15rem; }
 }
+
+/* ============================================
+   押せるもの／押せないものの見分け（2026-11-25）
+   決まり:
+   - 押せるもの = 色がついて、下にふちの影があり、浮いて見える。押すと沈む
+   - 押せないもの（説明・ラベル・件数・イラスト）= 影も枠線もない、うすい色の平らな面
+   - 入れ物（カード・一覧の枠）= 細い線だけ。影はつけない
+   ============================================ */
+:root { --edge: 0 3px 0 rgba(0, 0, 0, 0.18); --edge-down: 0 1px 0 rgba(0, 0, 0, 0.18); }
+
+/* 押せるもの */
+.am-btn, .submit-btn, .btn-ai-menu, .btn-upload, .btn-video, .btn-add-video, .btn-edit-video,
+.category-btn, .practice-category-btn, .ai-tab-button, .admin-link, .logout-btn,
+.resource-drop-zone, .pm-refine-row button, .modal-content button:not(.close-button), .am-modal-content button:not(.am-close-modal),
+#batchRecordContent button, #csvImportContent button {
+    box-shadow: var(--edge);
+    cursor: pointer;
+    transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+.am-btn:active, .submit-btn:active, .btn-ai-menu:active, .btn-upload:active, .btn-video:active, .btn-add-video:active, .btn-edit-video:active,
+.category-btn:active, .practice-category-btn:active, .ai-tab-button:active, .admin-link:active, .logout-btn:active,
+.resource-drop-zone:active, .modal-content button:not(.close-button):active, .am-modal-content button:not(.am-close-modal):active,
+#batchRecordContent button:active, #csvImportContent button:active {
+    transform: translateY(2px);
+    box-shadow: var(--edge-down);
+}
+button:disabled, .am-btn:disabled { box-shadow: none !important; opacity: 0.5; cursor: not-allowed; transform: none !important; }
+
+/* 分野ボタン・小タブ: 白い「ボタン」。選んでいるものは色つき */
+.category-btn, .practice-category-btn { border: 2px solid #b9c8ba; background: #fff; color: #2f3b30; font-weight: bold; }
+.ai-tabs { box-shadow: none; background: transparent; padding: 0; }
+.ai-tab-button { background: #fff; border: 2px solid #b9c8ba; color: #2f3b30; font-weight: bold; }
+.ai-tab-button.active { background: #2e7d32; border-color: #2e7d32; color: #fff; box-shadow: var(--edge); }
+.ai-tab-button.active::after { display: none; }
+
+/* 資料を追加: 点線の枠ではなくボタンにする */
+.resource-drop-zone { border: 2px solid #2e7d32; border-style: solid; background: #fff; border-radius: 14px; }
+.resource-drop-zone.dragover { background: #e8f5e9; }
+
+/* 押せるカード: 浮かせて、右下に「ひらく」を出す */
+.resource-card, .practice-card {
+    border: 2px solid #b9c8ba;
+    box-shadow: var(--edge);
+    position: relative;
+}
+.resource-card:active, .practice-card:active { transform: translateY(2px); box-shadow: var(--edge-down); }
+.resource-card::after, .practice-card::after {
+    content: 'ひらく  \203A';
+    display: block;
+    width: fit-content;
+    margin: 0.9rem 0 0 auto;
+    padding: 0.35rem 1rem;
+    border-radius: 999px;
+    background: #2e7d32;
+    color: #fff;
+    font-weight: bold;
+    font-size: 0.9rem;
+    letter-spacing: 0.06em;
+}
+
+/* 押せないもの: 平らに */
+.tab-guide { background: #f3f7ee; border-radius: 0; border-left: none; padding-left: 0.4rem; background: transparent; }
+.tab-guide-steps { background: #f3f7ee; border-radius: 12px; }
+.step-card { background: transparent; box-shadow: none; border-radius: 0; }
+.step-card b { background: #6d7f6e; }
+.step-arrow { color: #9aa89b; }
+.ai-tool-description { background: #f3f7ee; border-left: none; border-radius: 12px; box-shadow: none; }
+#amLocationBar { background: transparent !important; padding: 0 !important; }
+.resource-type, .practice-category-label, .practice-difficulty,
+.am-record-count-badge, .am-grade-badge, .location-badge, .version-badge {
+    box-shadow: none !important;
+    border-radius: 4px !important;
+    cursor: default;
+}
+.resource-type, .practice-category-label { background: #e6efe6 !important; color: #2e5d31 !important; font-weight: bold; }
+.am-record-count-badge { background: #eef1ee !important; color: #445046 !important; border: none; }
+.progress-step { border-radius: 0; margin: 0; border-bottom: 4px solid #dfe5df; background: transparent !important; color: #8a958b; }
+.progress-step.active { border-bottom-color: #ff9800; color: #2e7d32 !important; font-weight: bold; }
+.progress-step.completed { border-bottom-color: #4caf50; color: #4caf50 !important; }
+
+/* 入れ物: 細い線だけ */
+.am-children-list { box-shadow: none; border: none; padding: 0; background: transparent; }
+.am-child-item { border: 1px solid #cfd8cf; background: #fff; border-radius: 12px; }
+.am-list-item { box-shadow: none; }
+
+/* 入力欄: 中が白く、へこんで見える（ボタンと見分ける） */
+input[type="text"], input[type="date"], input[type="number"], input[type="email"], input[type="search"], select, textarea {
+    background: #fff;
+    border: 2px solid #9aa89b;
+    box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* 日本語を読みやすく: 大きめ・行間と字間にゆとり */
+body { line-height: 1.8; letter-spacing: 0.04em; }
+.resource-card p, .practice-card p, .ai-tool-description p, .am-child-info, .am-empty-state p { line-height: 1.9; font-size: 1rem; }
+.resource-card h3, .practice-card h3 { line-height: 1.6; letter-spacing: 0.05em; margin: 0.6rem 0; }
+.am-btn { font-size: 0.95rem; letter-spacing: 0.04em; }
+@media (max-width: 768px) {
+    html { font-size: 17px; }
+    .am-child-actions .am-btn { font-size: 0.9rem; min-height: 48px; }
+    .ai-tab-text { font-size: 0.75rem; }
+    .category-btn, .practice-category-btn { font-size: 0.95rem; min-height: 44px; }
+    .category-tabs { padding-bottom: 10px; }
+    .ai-tabs { gap: 8px; margin-bottom: 4px; }
+    .tab-button { font-size: 0.72rem; }
+}
+@media (min-width: 769px) { .ai-tab-button { flex: 0 1 auto; } .ai-tabs { gap: 0.6rem; } }
+@media (max-width: 768px) {
+    .practice-toolbar button { font-size: 0.78rem; letter-spacing: 0.02em; padding: 0.7rem 0.2rem; }
+    .practice-toolbar button:nth-child(3) { font-size: 0.9rem; }
+}

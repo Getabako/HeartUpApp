@@ -110,7 +110,8 @@ function amChangeSortOrder(sortBy) {
 }
 
 // 全データを読み込んで児童一覧を表示
-async function amLoadChildren() {
+let amLoadSeq = 0;
+async function amLoadChildren(stage2) {
     console.log('amLoadChildren: 開始');
     try {
         // Firebase接続時は認証完了を待つ（race condition対策）
@@ -127,13 +128,38 @@ async function amLoadChildren() {
             }
         }
 
-        const [children, assessments, supportPlans, dailyReports, reviews] = await Promise.all([
-            dataAdapter.getChildren(),
-            dataAdapter.getAssessments(),
+        // 2 段階で読む: まず児童とアセスメントだけで一覧を出し、件数（計画・記録・振り返り）はあとから足す。
+        // 記録は件数が多く、全部そろうまで待つと電波の弱い場所で一覧がなかなか出ないため。
+        const loadSeq = ++amLoadSeq;
+        const restPromise = Promise.all([
             dataAdapter.getSupportPlans(),
             dataAdapter.getDailyReports(),
             dataAdapter.getReviews()
         ]);
+        restPromise.catch(() => {});
+        const slowTimer = setTimeout(() => {
+            const c = document.getElementById('amChildrenContainer');
+            const h = c && c.querySelector('.am-empty-state h3');
+            if (h && /読み込み中/.test(h.textContent)) {
+                h.insertAdjacentHTML('afterend', '<p>電波が弱いと時間がかかります。このままお待ちください。</p>');
+            }
+        }, 6000);
+        let children, assessments;
+        try {
+            [children, assessments] = await Promise.all([
+                dataAdapter.getChildren(),
+                dataAdapter.getAssessments()
+            ]);
+        } finally {
+            clearTimeout(slowTimer);
+        }
+        let supportPlans = amCachedSupportPlans, dailyReports = amCachedDailyReports, reviews = amCachedReviews;
+        if (!stage2) {
+            restPromise.then(() => { if (loadSeq === amLoadSeq) amLoadChildren(true); })
+                .catch(e => console.warn('件数の読み込みに失敗（一覧はそのまま表示）:', e));
+        } else {
+            [supportPlans, dailyReports, reviews] = await restPromise;
+        }
 
         // 拠点マップを構築（locationId -> locationName）
         let locationMap = {};
@@ -290,6 +316,11 @@ async function amLoadChildren() {
         
         console.log('amAllChildrenData構築完了:', amAllChildrenData.length, '件');
 
+        if (stage2) {
+            // 件数を足すだけ。絞り込みや入力中の検索はそのまま
+            amFilterChildren();
+            return;
+        }
         amUpdateGradeFilter();
         await amUpdateLocationFilter();
         amRenderChildren(amAllChildrenData);
@@ -305,19 +336,28 @@ async function amLoadChildren() {
         console.error('amLoadChildren エラー:', error);
         console.error('エラー詳細:', error.stack);
         
-        // エラー時にも空の状態を表示
+        // すでに一覧が出ているなら消さない（件数の更新に失敗しただけ）
         const container = document.getElementById('amChildrenContainer');
-        if (container) {
+        if (container && !(stage2 && amAllChildrenData.length)) {
+            const offline = (typeof navigator !== 'undefined' && navigator.onLine === false);
             container.innerHTML = `
                 <div class="am-empty-state">
-                    <h3>データ読み込みエラー</h3>
-                    <p>児童データの読み込みに失敗しました。ページを再読み込みしてください。</p>
-                    <p style="color: #666; font-size: 0.8rem;">エラー: ${error.message}</p>
+                    <h3>${offline ? 'インターネットにつながっていません' : '児童の情報を読み込めませんでした'}</h3>
+                    <p>${offline ? '電波のよい場所で、もう一度お試しください。' : '電波が弱いか、一時的に混み合っている可能性があります。'}</p>
+                    <button class="am-btn am-btn-primary" onclick="amRetryLoadChildren()" data-ic="refresh">${window.hIcon ? hIcon('refresh', 'h-ic-btn') : ''}もう一度読み込む</button>
+                    <p style="color: #888; font-size: 0.8rem; margin-top: 12px;">くわしい内容: ${error.message || error}</p>
                 </div>
             `;
         }
     }
 }
+
+window.amRetryLoadChildren = function () {
+    const container = document.getElementById('amChildrenContainer');
+    if (container) container.innerHTML = '<div class="am-empty-state"><h3>読み込み中...</h3></div>';
+    if (window.heartUpDB && heartUpDB.clearListCache) heartUpDB.clearListCache();
+    amLoadChildren();
+};
 
 // 学年フィルタの選択肢を更新
 function amUpdateGradeFilter() {
