@@ -29,7 +29,7 @@
       }
     }
     </script>
-    <link rel="stylesheet" href="styles.css?v=20261026">
+    <link rel="stylesheet" href="styles.css?v=20261125">
 </head>
 <body>
     <header>
@@ -48,19 +48,23 @@
     <main>
         <div class="tab-container">
             <div class="tabs">
-                <button class="tab-button active" data-tab="resources">
-                    資料閲覧
+                <button class="tab-button active" data-tab="resources" data-icon="book">
+                    <span class="lbl-full">資料閲覧</span><span class="lbl-short">資料</span>
                 </button>
-                <button class="tab-button" data-tab="practice-menu">
-                    練習メニュー
+                <button class="tab-button" data-tab="practice-menu" data-icon="ball">
+                    <span class="lbl-full">練習メニュー</span><span class="lbl-short">練習メニュー</span>
                 </button>
-                <button class="tab-button" data-tab="ai-assessment">
-                    AIアセスメント書類作成
+                <button class="tab-button" data-tab="ai-assessment" data-icon="doc">
+                    <span class="lbl-full">AIアセスメント書類作成</span><span class="lbl-short">AI書類作成</span>
                 </button>
             </div>
 
             <!-- 資料閲覧タブ -->
             <div id="resources" class="tab-content active">
+                <div class="tab-guide">
+                    <img src="images/guide/guide_resources.png" alt="" class="tab-guide-img" loading="lazy">
+                    <div class="tab-guide-text"><strong>勉強会の資料を読む</strong><span>キーワードか分野のボタンで探せます</span></div>
+                </div>
                 <div class="search-section">
                     <h2>勉強会資料を検索</h2>
                     <div class="search-controls">
@@ -76,8 +80,8 @@
                 </div>
 
                 <div id="resourceDropZone" class="resource-drop-zone" onclick="triggerResourceFilePick()">
-                    <span class="drop-zone-icon">＋</span>
-                    <span>PDFをここにドラッグ＆ドロップ、またはクリックして資料を追加</span>
+                    <span class="drop-zone-icon" data-icon="plus"></span>
+                    <span class="lbl-full">PDFをここにドラッグ＆ドロップ、またはクリックして資料を追加</span><span class="lbl-short">PDFの資料を追加する</span>
                 </div>
                 <input type="file" id="resourceFileInput" accept=".pdf,application/pdf" style="display:none">
 
@@ -88,6 +92,10 @@
 
             <!-- 練習メニュータブ -->
             <div id="practice-menu" class="tab-content">
+                <div class="tab-guide">
+                    <img src="images/guide/guide_practice.png" alt="" class="tab-guide-img" loading="lazy">
+                    <div class="tab-guide-text"><strong>練習メニューを探す・作る</strong><span>ねらいで探す。AIに作ってもらうこともできます</span></div>
+                </div>
                 <div class="search-section">
                     <h2>練習メニューを検索</h2>
                     <div class="search-controls">
@@ -125,28 +133,35 @@
 
             <!-- AIアセスメント書類作成タブ -->
             <div id="ai-assessment" class="tab-content">
+                <div class="tab-guide tab-guide-steps">
+                    <div class="step-card"><img src="images/guide/step_memo.png" alt="" loading="lazy"><b>1</b><span>メモを書く</span></div>
+                    <span class="step-arrow" data-icon="next"></span>
+                    <div class="step-card"><img src="images/guide/step_ai.png" alt="" loading="lazy"><b>2</b><span>AIが下書き</span></div>
+                    <span class="step-arrow" data-icon="next"></span>
+                    <div class="step-card"><img src="images/guide/step_check.png" alt="" loading="lazy"><b>3</b><span>確かめて出す</span></div>
+                </div>
                 <div class="ai-tabs-container">
                     <div class="ai-tabs">
                         <button class="ai-tab-button active" data-ai-tab="am-children">
-                            <span class="ai-tab-text">児童一覧</span>
+                            <span class="ai-tab-ic" data-icon="users"></span><span class="ai-tab-text"><span class="lbl-full">児童一覧</span><span class="lbl-short">児童</span></span>
                         </button>
                         <button class="ai-tab-button" data-ai-tab="am-new-assessment">
-                            <span class="ai-tab-text">新規アセスメント作成</span>
+                            <span class="ai-tab-ic" data-icon="userPlus"></span><span class="ai-tab-text"><span class="lbl-full">新規アセスメント作成</span><span class="lbl-short">新規作成</span></span>
                         </button>
                         <button class="ai-tab-button" data-ai-tab="am-assessments">
-                            <span class="ai-tab-text">アセスメント一覧</span>
+                            <span class="ai-tab-ic" data-icon="doc"></span><span class="ai-tab-text"><span class="lbl-full">アセスメント一覧</span><span class="lbl-short">アセスメント</span></span>
                         </button>
                         <button class="ai-tab-button" data-ai-tab="am-plans">
-                            <span class="ai-tab-text">支援計画一覧</span>
+                            <span class="ai-tab-ic" data-icon="target"></span><span class="ai-tab-text"><span class="lbl-full">支援計画一覧</span><span class="lbl-short">支援計画</span></span>
                         </button>
                         <button class="ai-tab-button" data-ai-tab="am-records">
-                            <span class="ai-tab-text">成長記録一覧</span>
+                            <span class="ai-tab-ic" data-icon="chart"></span><span class="ai-tab-text"><span class="lbl-full">成長記録一覧</span><span class="lbl-short">成長記録</span></span>
                         </button>
                         <button class="ai-tab-button" data-ai-tab="batch-record">
-                            <span class="ai-tab-text">一括記録作成</span>
+                            <span class="ai-tab-ic" data-icon="layers"></span><span class="ai-tab-text"><span class="lbl-full">一括記録作成</span><span class="lbl-short">一括記録</span></span>
                         </button>
                         <button class="ai-tab-button" data-ai-tab="csv-import">
-                            <span class="ai-tab-text">CSVインポート</span>
+                            <span class="ai-tab-ic" data-icon="upload"></span><span class="ai-tab-text"><span class="lbl-full">CSVインポート</span><span class="lbl-short">取り込み</span></span>
                         </button>
                     </div>
 
@@ -189,7 +204,8 @@
                             <h3>新規アセスメント作成</h3>
                             <p>新しいお子様のアセスメントシートを作成します。フォームページに移動します。</p>
                         </div>
-                        <div style="text-align:center; padding:40px;">
+                        <div style="text-align:center;"><img src="images/guide/guide_docs.png" alt="" style="width:140px;height:140px;object-fit:contain;" loading="lazy"></div>
+                        <div style="text-align:center; padding:16px;">
                             <button class="submit-btn" onclick="window.location.href='assessment/form-simple.html'" style="padding:16px 48px; font-size:18px; background:linear-gradient(135deg,#4caf50,#66bb6a); color:white; border:none; border-radius:50px; cursor:pointer; font-weight:bold;">アセスメントフォームを開く</button>
                         </div>
                     </div>
@@ -272,18 +288,19 @@
         };
         window.FIREBASE_CONFIG = { apiKey: '', authDomain: '', projectId: '' };
     </script>
+    <script src="icons.js?v=20261125"></script>
     <script src="toast.js?v=20260818"></script>
-    <script src="config.js?v=20261026" onerror="console.log('config.js not found - using default API_CONFIG')"></script>
-    <script src="firebase-client.js?v=20261026"></script>
-    <script src="data-adapter.js?v=20261026"></script>
-    <script src="auth-guard.js?v=20261026"></script>
-    <script src="gemini-api.js?v=20261026"></script>
-    <script src="csv-importer.js?v=20261026"></script>
-    <script src="markdown-renderer.js?v=20261026"></script>
-    <script src="voice-input.js?v=20261026"></script>
-    <script src="assessment-manager.js?v=20261026"></script>
-    <script src="script.js?v=20261026"></script>
-    <script src="practice-menu-generator.js?v=20261026"></script>
+    <script src="config.js?v=20261125" onerror="console.log('config.js not found - using default API_CONFIG')"></script>
+    <script src="firebase-client.js?v=20261125"></script>
+    <script src="data-adapter.js?v=20261125"></script>
+    <script src="auth-guard.js?v=20261125"></script>
+    <script src="gemini-api.js?v=20261125"></script>
+    <script src="csv-importer.js?v=20261125"></script>
+    <script src="markdown-renderer.js?v=20261125"></script>
+    <script src="voice-input.js?v=20261125"></script>
+    <script src="assessment-manager.js?v=20261125"></script>
+    <script src="script.js?v=20261125"></script>
+    <script src="practice-menu-generator.js?v=20261125"></script>
     <script>
         // Firebase初期化 + 認証ガード
         heartUpDB.init();

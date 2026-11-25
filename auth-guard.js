@@ -55,13 +55,14 @@ const authGuard = {
         const userName = profile.name || profile.email;
         const isAdmin = heartUpDB.isAdmin();
 
+        const ic = (n) => (window.hIcon ? window.hIcon(n) : '');
         const authInfo = document.createElement('div');
         authInfo.className = 'auth-info';
         authInfo.innerHTML = `
             <span class="location-badge">${locationName}</span>
             <span class="user-name">${userName}</span>
-            ${isAdmin ? '<a href="/admin.html" class="admin-link">管理</a>' : ''}
-            <button onclick="authGuard.logout()" class="logout-btn">ログアウト</button>
+            ${isAdmin ? `<a href="/admin.html" class="admin-link">${ic('gear')}<span>管理</span></a>` : ''}
+            <button onclick="authGuard.logout()" class="logout-btn">${ic('logout')}<span>ログアウト</span></button>
         `;
         headerRight.appendChild(authInfo);
     },

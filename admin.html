@@ -19,6 +19,23 @@
         .header-right { position: absolute; top: 0; right: 0; display: flex; gap: 8px; align-items: center; }
         .back-link { color: white; text-decoration: none; padding: 8px 16px; border: 1px solid rgba(255,255,255,0.5); border-radius: 8px; font-size: 14px; }
         .back-link:hover { background: rgba(255,255,255,0.1); }
+        .h-ic { width: 1.25em; height: 1.25em; vertical-align: -0.22em; margin-right: 0.35em; }
+        @media (max-width: 768px) {
+            body { padding: 12px !important; line-height: 1.8; letter-spacing: 0.03em; }
+            header { margin-bottom: 16px; text-align: left; }
+            header h1 { font-size: 20px; margin-bottom: 0; }
+            header p { font-size: 13px; }
+            .header-right { position: static; margin-top: 8px; flex-wrap: wrap; }
+            .header-right .auth-info { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; color: white; font-size: 13px; }
+            .header-right .admin-link { display: none; }
+            .header-right .logout-btn, .back-link { min-height: 40px; padding: 6px 12px; font-size: 13px; display: inline-flex; align-items: center; border-radius: 8px; }
+            .header-right .logout-btn { background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.4); }
+            .card, .section { padding: 16px !important; }
+            /* 表は横にすべらせて読む（文字を縦に折らない） */
+            table { display: block; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; }
+            th, td { font-size: 14px; }
+            button, select, input { min-height: 44px; font-size: 16px; }
+        }
 
         .section { background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 24px; margin-bottom: 24px; }
         .section h2 { color: #2e7d32; margin-bottom: 16px; font-size: 20px; }
@@ -58,7 +75,7 @@
             <h1>HeartUp 管理画面</h1>
             <p>拠点・スタッフ管理</p>
             <div class="header-right">
-                <a href="/index.html" class="back-link">トップに戻る</a>
+                <a href="/index.html" class="back-link" data-icon="back">トップに戻る</a>
             </div>
         </header>
 
@@ -158,6 +175,7 @@
         </div>
     </div>
 
+    <script src="icons.js?v=20261125"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>

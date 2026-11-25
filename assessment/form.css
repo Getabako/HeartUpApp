@@ -658,3 +658,12 @@ footer {
         width: 100%;
     }
 }
+
+/* スマホ: 見出しを短く・バージョン表示は隠す（題名と重なるため） */
+@media (max-width: 768px) {
+    .version-badge { display: none; }
+    header h1 { font-size: 1.2rem; line-height: 1.6; letter-spacing: 0.03em; }
+    header .description { font-size: 0.9rem; line-height: 1.8; text-align: left; }
+    header .description br { display: none; }
+    input, select, textarea, button { font-size: 16px; }
+}
