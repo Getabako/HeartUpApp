@@ -3358,3 +3358,5 @@ body { line-height: 1.8; letter-spacing: 0.04em; }
 .cc-info > div:first-child { grid-column: 1 / -1; border-top: none; border-right: none; display: flex; align-items: baseline; gap: 0.8rem; }
 .cc-info > div:nth-child(2) { border-top: 1px solid #edf1ed; }
 .cc-info > div:last-child { border-right: none; }
+.cc-info { grid-template-columns: 0.7fr 1.1fr 1.4fr; }
+.cc-info > div:last-child b { white-space: nowrap; overflow-wrap: normal; }
