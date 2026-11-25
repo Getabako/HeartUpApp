@@ -53,7 +53,7 @@ const sampleResources = [
     {
         id: 6,
         title: "AI講座",
-        category: "aba",
+        category: "ai",
         description: "AIを活用した療育支援について学びます。最新のAI技術と療育現場での活用方法を解説。",
         date: "2024-12-22",
         tags: ["AI", "テクノロジー", "療育支援", "最新技術"],
@@ -98,6 +98,36 @@ const sampleResources = [
         date: "2026-07-06",
         tags: ["実行機能", "見立て", "ワーキングメモリ", "特性理解", "サッカー療育"],
         filename: "サッカー療育で可能性を伸ばす.pdf",
+        hasFile: true
+    },
+    {
+        id: 11,
+        title: "アプリとAIで、書類をもっとラクに",
+        category: "ai",
+        description: "このアプリで、記録・連絡帳・計画書をAIと一緒に作る方法を、実演とワークで学びます。メモを書く、AIが下書きする、人が確かめて出す、の流れと、AIに名前などを入れないための注意も紹介。",
+        date: "2026-11-25",
+        tags: ["AI", "アプリの使い方", "記録", "連絡帳", "個別支援計画"],
+        filename: "アプリとAIで書類をもっとラクに.pdf",
+        hasFile: true
+    },
+    {
+        id: 12,
+        title: "行き渋り・不安の強い子への対応",
+        category: "psychology",
+        description: "行きたがらない子、泣いたあとに固まってしまう子への関わり方を学びます。朝の受け入れの3つの型、安心できる環境づくり、固まった子への声かけ3ステップを、事例とワークで紹介。",
+        date: "2026-09-16",
+        tags: ["行き渋り", "不安", "声かけ", "環境づくり", "朝の受け入れ"],
+        filename: "行き渋り・不安の強い子への対応.pdf",
+        hasFile: true
+    },
+    {
+        id: 13,
+        title: "子ども支援者のためのセルフケアと認知行動療法入門",
+        category: "psychology",
+        description: "抱え込みすぎないために、自分の考え方のクセに気づき、回復の方法を身につける90分。小さな回復行動、白黒思考や「すべき」思考などのクセ、考えを確かめる3つの質問を、ワークで学びます。",
+        date: "2026-05-21",
+        tags: ["セルフケア", "認知行動療法", "考え方のクセ", "支援者支援"],
+        filename: "セルフケアと認知行動療法入門.pdf",
         hasFile: true
     }
 ];
@@ -750,6 +780,7 @@ function showResourceUploadModal(file) {
                     <option value="aba">応用行動分析</option>
                     <option value="case">事例研究</option>
                     <option value="psychology">心理・支援スキル</option>
+                    <option value="ai">AI・アプリ</option>
                     <option value="other">その他</option>
                 </select>
             </div>
@@ -1166,7 +1197,8 @@ function getCategoryLabel(category) {
         'soccer': 'サッカー療育',
         'aba': '応用行動分析',
         'case': '事例研究',
-        'psychology': '心理・支援スキル'
+        'psychology': '心理・支援スキル',
+        'ai': 'AI・アプリ'
     };
     return labels[category] || 'その他';
 }

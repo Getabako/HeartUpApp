@@ -33,10 +33,10 @@ const PracticeMenuGen = {
     async fetchAiStatus() {
         try {
             const r = await fetch('/api/ai-status', { cache: 'no-store' });
-            if (!r.ok) return { imageGeneration: false, transcription: false };
+            if (!r.ok) return null;
             return await r.json();
         } catch (e) {
-            return { imageGeneration: false, transcription: false };
+            return null;   // 電波が弱いだけのことがある。使えないとは決めない
         }
     },
 
@@ -265,7 +265,8 @@ const PracticeMenuGen = {
         m.sections = m.sections.map((s, i) => {
             const type = s.type || ['warmup', 'training1', 'training2', 'game'][i] || 'other';
             const label = s.label || ({ warmup: 'W-up', training1: 'Tr.1', training2: 'Tr.2', game: '試合' }[type] || '');
-            const arr = v => Array.isArray(v) ? v.filter(Boolean) : (v ? [String(v)] : []);
+            // 頭の ①② や 1. などは外す（画面側で番号を振るので二重になる）
+            const arr = v => (Array.isArray(v) ? v.filter(Boolean) : (v ? [String(v)] : [])).map(x => String(x).replace(/^\s*(?:[①-⑳]|[(（]?\d{1,2}[)）.．、]|[・\-●])\s*/, ''));
             const diff = (s.difficulty && typeof s.difficulty === 'object') ? s.difficulty : {};
             return {
                 type, label,
@@ -298,7 +299,7 @@ const PracticeMenuGen = {
         const menu = this.current;
         const body = document.getElementById('modalBody');
         const saved = !!menu.id;
-        const canImage = !!(this.aiStatus && this.aiStatus.imageGeneration);
+        const canImage = !this.aiStatus || this.aiStatus.imageGeneration !== false;
         const ic = (n) => (window.hIcon ? window.hIcon(n) : '');
         const busy = this.imageBusy === menu;
         // いちばん上はイラスト。作っている間は待ち表示、まだなければ作るボタン
@@ -312,7 +313,7 @@ const PracticeMenuGen = {
         } else if (busy) {
             imageHtml = `<div class="pm-hero pm-hero-wait"><img src="soccerball.png" alt="" class="ai-loading-ball"><b>イラストを作っています</b><span>20秒ほどかかります。下の内容は先に読めます</span></div>`;
         } else if (canImage) {
-            imageHtml = `<div class="pm-hero pm-hero-empty"><button type="button" class="pm-hero-make" data-ic="0" id="pmImageBtn" onclick="PracticeMenuGen.generateImage()">${ic('spark')}<span>イラストを作る</span></button></div>`;
+            imageHtml = `<div class="pm-hero pm-hero-empty">${menu.imageError ? `<p class="pm-hero-error">イラストを作れませんでした。電波のよい所でもう一度お試しください。<small>${this.esc(menu.imageError)}</small></p>` : ''}<button type="button" class="pm-hero-make" data-ic="0" id="pmImageBtn" onclick="PracticeMenuGen.generateImage()">${ic('spark')}<span>${menu.imageError ? 'もう一度イラストを作る' : 'イラストを作る'}</span></button></div>`;
         }
         body.innerHTML = `
             <div class="pm-result-toolbar">
@@ -332,14 +333,6 @@ const PracticeMenuGen = {
                 </div>
             </div>
             ${menu.sourcePhoto ? `<details class="pm-details"><summary>元のホワイトボード写真</summary><img src="${menu.sourcePhoto}" alt="ホワイトボード写真" style="max-width:100%; border-radius:8px; margin-top:8px;"></details>` : ''}
-            <details class="pm-details" id="pmPromptDetails">
-                <summary>イラストの指示文（中身を見る・コピーする）</summary>
-                <textarea id="pmPromptText" rows="8" readonly>${this.esc(menu.illustrationPrompt || '')}</textarea>
-                <div class="pm-inline-actions">
-                    <button type="button" class="btn-small" onclick="PracticeMenuGen.copyPrompt()">指示文をコピー</button>
-                </div>
-                ${canImage ? `<p class="pm-note">イラストは1枚ごとに料金がかかります（1日の目安 ${(this.aiStatus.dailyImageLimit || 20)}枚）</p>` : ''}
-            </details>
             <div class="pm-actions">
                 <button type="button" class="btn-secondary" onclick="closeModal()">閉じる</button>
             </div>`;
@@ -347,10 +340,12 @@ const PracticeMenuGen = {
     },
 
     // メニューができたら、聞かずにイラストも作る（1日の目安を超えているときは作らない）
-    autoImage() {
+    async autoImage() {
         const menu = this.current;
-        if (!menu || menu.imageData || !(this.aiStatus && this.aiStatus.imageGeneration)) return;
-        const limit = this.aiStatus.dailyImageLimit || 20;
+        if (!menu || menu.imageData) return;
+        if (!this.aiStatus) this.aiStatus = await this.fetchAiStatus();
+        if (this.current !== menu || (this.aiStatus && this.aiStatus.imageGeneration === false)) return;
+        const limit = (this.aiStatus && this.aiStatus.dailyImageLimit) || 20;
         const used = parseInt(localStorage.getItem(this.dailyCountKey()) || '0', 10);
         if (used >= limit) return;
         this.generateImage(true);
@@ -382,7 +377,7 @@ const PracticeMenuGen = {
                         ${blk('mic', '声かけ', list(s.coaching), 'pm-blk-voice')}
                         ${blk('layers', 'むずかしさを変える', diffHtml)}
                         ${s.domains && s.domains.length ? `<div class="pm-domains">${s.domains.map(d => `<span>${this.esc(d)}</span>`).join('')}</div>` : ''}
-                        ${s.notes ? `<p class="pm-sec-notes">${this.esc(s.notes)}</p>` : ''}
+                        ${s.notes && !/[A-Za-z]{4,}/.test(s.notes) ? `<p class="pm-sec-notes">${this.esc(s.notes)}</p>` : ''}
                     </div>
                 </details>`;
         }).join('');
@@ -472,6 +467,7 @@ ${GeminiAPI.PRACTICE_MENU_STYLE}`;
         }
         const hadImage = menu.imageData;
         this.imageBusy = menu;
+        menu.imageError = '';
         menu.imageData = null;
         if (this.current === menu) this.renderResult();
         try {
@@ -491,7 +487,8 @@ ${GeminiAPI.PRACTICE_MENU_STYLE}`;
         } catch (e) {
             console.error(e);
             menu.imageData = hadImage || null;
-            showToast(e.message || '画像生成に失敗しました');
+            menu.imageError = e.message || '画像生成に失敗しました';
+            showToast('イラストを作れませんでした');
         } finally {
             if (this.imageBusy === menu) this.imageBusy = null;
             // 待っている間に別のメニューを開いていたら、そちらの画面は触らない
@@ -511,6 +508,7 @@ ${GeminiAPI.PRACTICE_MENU_STYLE}`;
         if (!menu) return;
         const payload = Object.assign({}, menu);
         delete payload.imageDataFull;
+        delete payload.imageError;
         delete payload.created_at;
         try {
             if (menu.id) {

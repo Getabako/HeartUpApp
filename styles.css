@@ -3464,3 +3464,7 @@ details.pm-sec[open] .pm-sec-toggle { transform: rotate(180deg); }
 }
 .pm-hero-wait .ai-loading-ball { width: 56px; height: 56px; }
 .pm-unsaved { margin-left: 0.6rem; font-size: 0.75rem; background: #fff0dc; color: #c75300; border-radius: 4px; padding: 0.1rem 0.5rem; vertical-align: 0.15em; }
+.tc-ai { --tc: #0f8fa8; --tc2: #9fe3f0; --tc3: #07505f; }
+.pm-diff b { display: block; min-width: 0; }
+.pm-hero-error { margin: 0 0 0.6rem; padding: 0.6rem 0.8rem; background: #fff3e0; color: #b84a00; border-radius: 8px; font-size: 0.92rem; line-height: 1.7; }
+.pm-hero-error small { display: block; color: #8a6d55; font-size: 0.78rem; }
