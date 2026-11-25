@@ -123,3 +123,47 @@
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
     else start();
 })();
+
+// ============================================================
+// 横スワイプで 資料 / 練習メニュー / AI書類作成 を切りかえる（2026-11-25）
+// ウィンドウが開いている間、入力中、横に動かせる表の上では反応しない
+// ============================================================
+(function () {
+    const OPEN = '#modal:not(.hidden), .am-modal.active, .am-busy-overlay, #locationChangeModal, #amEditChildModal, #amIntentModal';
+    let sx = 0, sy = 0, st = 0, ok = false;
+    function scrollsSideways(el) {
+        for (; el && el !== document.body; el = el.parentElement) {
+            if (el.scrollWidth > el.clientWidth + 8) {
+                const o = getComputedStyle(el).overflowX;
+                if (o === 'auto' || o === 'scroll') return true;
+            }
+        }
+        return false;
+    }
+    document.addEventListener('touchstart', function (e) {
+        ok = false;
+        if (e.touches.length !== 1 || document.querySelector(OPEN)) return;
+        const t = e.target;
+        // 入力中の欄（カーソルを動かす操作と重なる）と、つまみを横に動かす部品の上では反応しない
+        if (t.closest && t.closest('[contenteditable="true"], input[type="range"], canvas, .am-modal, .modal, #amEditChildModal, #amIntentModal')) return;
+        if (t === document.activeElement && /^(INPUT|TEXTAREA)$/.test(t.tagName)) return;
+        if (scrollsSideways(t)) return;
+        sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now(); ok = true;
+    }, { passive: true });
+    document.addEventListener('touchend', function (e) {
+        if (!ok) return;
+        ok = false;
+        const p = e.changedTouches[0];
+        const dx = p.clientX - sx, dy = p.clientY - sy;
+        if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 2 || Date.now() - st > 700) return;
+        if (document.querySelector(OPEN) || (window.getSelection && String(window.getSelection()))) return;
+        const tabs = Array.prototype.slice.call(document.querySelectorAll('.tab-button'));
+        const cur = tabs.findIndex(function (b) { return b.classList.contains('active'); });
+        const next = cur + (dx < 0 ? 1 : -1);   // 左へはらうと右のタブへ
+        if (cur < 0 || next < 0 || next >= tabs.length) return;
+        document.documentElement.dataset.swipe = dx < 0 ? 'left' : 'right';
+        tabs[next].click();
+        window.scrollTo(0, 0);
+        setTimeout(function () { delete document.documentElement.dataset.swipe; }, 300);
+    }, { passive: true });
+})();

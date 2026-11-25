@@ -3552,3 +3552,16 @@ h1, h2, h3, h4, button, label, summary, .ai-loading-text, .tab-guide-title, .tc-
 .cc-info { grid-template-columns: max-content 1fr max-content; }
 .cc-info > div:nth-child(2) b { white-space: nowrap; overflow-wrap: normal; }
 .cc-info b { text-wrap: balance; word-break: auto-phrase; }
+
+/* ウィンドウが開いている間は、うしろの画面を動かさない。ウィンドウの中だけが動く */
+html:has(#modal:not(.hidden)), html:has(.am-modal.active), html:has(.am-busy-overlay),
+body:has(#modal:not(.hidden)), body:has(.am-modal.active), body:has(.am-busy-overlay),
+html:has(#locationChangeModal), html:has(#amEditChildModal), html:has(#amIntentModal),
+body:has(#locationChangeModal), body:has(#amEditChildModal), body:has(#amIntentModal) { overflow: hidden; }
+.modal, .am-modal, .am-busy-overlay { overscroll-behavior: contain; touch-action: none; }
+.modal-content, .am-modal-content { overscroll-behavior: contain; touch-action: pan-y; -webkit-overflow-scrolling: touch; max-height: 86dvh; }
+/* 横スワイプで切りかえたとき、入ってくる向きに少し動かす */
+html[data-swipe="left"] .tab-content.active { animation: swipeInL 0.22s ease-out; }
+html[data-swipe="right"] .tab-content.active { animation: swipeInR 0.22s ease-out; }
+@keyframes swipeInL { from { transform: translateX(28px); opacity: 0.4; } to { transform: none; opacity: 1; } }
+@keyframes swipeInR { from { transform: translateX(-28px); opacity: 0.4; } to { transform: none; opacity: 1; } }
