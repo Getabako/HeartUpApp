@@ -243,6 +243,7 @@ const PracticeMenuGen = {
             menu.illustrationPrompt = geminiAPI.buildIllustrationPrompt(menu);
             this.current = menu;
             this.renderResult();
+            this.autoImage();
         } catch (e) {
             console.error('練習メニュー生成エラー:', e);
             body.innerHTML = `
@@ -298,82 +299,109 @@ const PracticeMenuGen = {
         const body = document.getElementById('modalBody');
         const saved = !!menu.id;
         const canImage = !!(this.aiStatus && this.aiStatus.imageGeneration);
+        const ic = (n) => (window.hIcon ? window.hIcon(n) : '');
+        const busy = this.imageBusy === menu;
+        // いちばん上はイラスト。作っている間は待ち表示、まだなければ作るボタン
+        let imageHtml = '';
+        if (menu.imageData) {
+            imageHtml = `<div class="pm-hero"><img src="${menu.imageData}" alt="練習メニューのイラスト">
+                <div class="pm-hero-actions">
+                    <a class="pm-mini-btn" href="${menu.imageDataFull || menu.imageData}" download="${this.esc(menu.title)}.${menu.imageDataFull ? 'png' : 'jpg'}">${ic('download')}画像を保存</a>
+                    ${canImage ? `<button type="button" class="pm-mini-btn" data-ic="0" id="pmImageBtn" onclick="PracticeMenuGen.generateImage()">${ic('refresh')}絵を作り直す</button>` : ''}
+                </div></div>`;
+        } else if (busy) {
+            imageHtml = `<div class="pm-hero pm-hero-wait"><img src="soccerball.png" alt="" class="ai-loading-ball"><b>イラストを作っています</b><span>20秒ほどかかります。下の内容は先に読めます</span></div>`;
+        } else if (canImage) {
+            imageHtml = `<div class="pm-hero pm-hero-empty"><button type="button" class="pm-hero-make" data-ic="0" id="pmImageBtn" onclick="PracticeMenuGen.generateImage()">${ic('spark')}<span>イラストを作る</span></button></div>`;
+        }
         body.innerHTML = `
             <div class="pm-result-toolbar">
-                <h2 style="color:#2e7d32; margin:0;">${saved ? '練習メニュー' : '生成結果（未保存）'}</h2>
-                <span class="pm-source-badge">${menu.sourceType === 'photo' ? '写真から作成' : 'テーマから作成'}</span>
+                <h2>${saved ? '練習メニュー' : 'できました'}${saved ? '' : '<span class="pm-unsaved">保存はまだです</span>'}</h2>
             </div>
+            ${imageHtml}
             <div class="pm-poster" id="pmPoster">${this.posterHtml(menu)}</div>
-            ${menu.imageData ? `<div class="pm-image-wrap"><h4>生成したイラスト</h4><img src="${menu.imageData}" alt="練習メニューのイラスト"><div class="pm-inline-actions"><a class="btn-small" href="${menu.imageData}" download="${this.esc(menu.title)}.jpg">画像を保存</a></div></div>` : ''}
+            <div class="pm-actions pm-actions-main">
+                <button type="button" class="btn-primary" onclick="PracticeMenuGen.save()">${saved ? '上書き保存' : '保存する'}</button>
+                <button type="button" class="btn-secondary" onclick="PracticeMenuGen.print()">印刷する</button>
+            </div>
+            <div class="pm-refine">
+                <label>${ic('pen')}直したいところを伝える</label>
+                <div class="pm-refine-row">
+                    <input type="text" id="pmRefineText" placeholder="例: Tr.2をシュート練習に。全体を10分短く">
+                    <button type="button" class="btn-small" onclick="PracticeMenuGen.refine()">AIに修正を依頼</button>
+                </div>
+            </div>
             ${menu.sourcePhoto ? `<details class="pm-details"><summary>元のホワイトボード写真</summary><img src="${menu.sourcePhoto}" alt="ホワイトボード写真" style="max-width:100%; border-radius:8px; margin-top:8px;"></details>` : ''}
             <details class="pm-details" id="pmPromptDetails">
                 <summary>イラストの指示文（中身を見る・コピーする）</summary>
                 <textarea id="pmPromptText" rows="8" readonly>${this.esc(menu.illustrationPrompt || '')}</textarea>
                 <div class="pm-inline-actions">
-                    <button type="button" class="btn-small" onclick="PracticeMenuGen.copyPrompt()">プロンプトをコピー</button>
+                    <button type="button" class="btn-small" onclick="PracticeMenuGen.copyPrompt()">指示文をコピー</button>
                 </div>
+                ${canImage ? `<p class="pm-note">イラストは1枚ごとに料金がかかります（1日の目安 ${(this.aiStatus.dailyImageLimit || 20)}枚）</p>` : ''}
             </details>
-            <div class="pm-image-status ${canImage ? 'ok' : 'off'}">
-                ${canImage
-                    ? 'アプリ内でのイラスト生成が使えます（1枚あたり料金が発生します。1日の目安: ' + (this.aiStatus.dailyImageLimit || 20) + '枚）'
-                    : 'いまはアプリ内でイラストを作れません。時間をおいてもう一度お試しください。'}
-            </div>
-            <div class="pm-refine">
-                <label>修正依頼（任意）</label>
-                <div class="pm-refine-row">
-                    <input type="text" id="pmRefineText" placeholder="例: Tr.2をシュート練習に変えて。全体を10分短く。">
-                    <button type="button" class="btn-small" onclick="PracticeMenuGen.refine()">修正して再生成</button>
-                </div>
-            </div>
             <div class="pm-actions">
                 <button type="button" class="btn-secondary" onclick="closeModal()">閉じる</button>
-                ${canImage ? `<button type="button" class="btn-secondary" id="pmImageBtn" onclick="PracticeMenuGen.generateImage()">イラストを生成${menu.imageData ? '（作り直す）' : ''}</button>` : ''}
-                <button type="button" class="btn-secondary" onclick="PracticeMenuGen.print()">印刷 / PDF</button>
-                <button type="button" class="btn-primary" onclick="PracticeMenuGen.save()">${saved ? '上書き保存' : '保存する'}</button>
             </div>`;
         body.scrollTop = 0;
     },
 
-    posterHtml(menu) {
-        const secHtml = (menu.sections || []).map(s => {
+    // メニューができたら、聞かずにイラストも作る（1日の目安を超えているときは作らない）
+    autoImage() {
+        const menu = this.current;
+        if (!menu || menu.imageData || !(this.aiStatus && this.aiStatus.imageGeneration)) return;
+        const limit = this.aiStatus.dailyImageLimit || 20;
+        const used = parseInt(localStorage.getItem(this.dailyCountKey()) || '0', 10);
+        if (used >= limit) return;
+        this.generateImage(true);
+    },
+
+    // 一目で分かる形: 題名の帯 → 時間・人数・用具の札 → ねらい・合言葉 → 練習ごとの折りたたみ
+    // openAll=true（印刷用）は全部ひらいた状態で出す
+    posterHtml(menu, openAll) {
+        const ic = (n) => (window.hIcon ? window.hIcon(n) : '');
+        const secHtml = (menu.sections || []).map((s, idx) => {
             const color = this.SECTION_COLORS[s.type] || this.SECTION_COLORS.other;
-            const list = (title, items) => items && items.length ? `<div class="pm-sec-block"><span class="pm-sec-block-title">${title}</span><ul>${items.map(i => `<li>${this.esc(i)}</li>`).join('')}</ul></div>` : '';
+            const blk = (icon, title, inner, cls) => inner ? `<div class="pm-blk ${cls || ''}"><div class="pm-blk-title">${ic(icon)}${title}</div>${inner}</div>` : '';
+            const list = (items, ordered) => items && items.length ? `<${ordered ? 'ol' : 'ul'}>${items.map(i => `<li>${this.esc(i)}</li>`).join('')}</${ordered ? 'ol' : 'ul'}>` : '';
             const diff = s.difficulty || {};
-            const diffHtml = (diff.easy || diff.hard) ? `<div class="pm-sec-block"><span class="pm-sec-block-title">難易度調整</span><ul>${diff.easy ? `<li><strong>かんたん:</strong> ${this.esc(diff.easy)}</li>` : ''}${diff.normal ? `<li><strong>ふつう:</strong> ${this.esc(diff.normal)}</li>` : ''}${diff.hard ? `<li><strong>むずかしい:</strong> ${this.esc(diff.hard)}</li>` : ''}</ul></div>` : '';
+            const diffHtml = (diff.easy || diff.hard) ? `<div class="pm-diff">${diff.easy ? `<div class="pm-diff-easy"><b>かんたん</b>${this.esc(diff.easy)}</div>` : ''}${diff.normal ? `<div class="pm-diff-normal"><b>ふつう</b>${this.esc(diff.normal)}</div>` : ''}${diff.hard ? `<div class="pm-diff-hard"><b>むずかしい</b>${this.esc(diff.hard)}</div>` : ''}</div>` : '';
             return `
-                <div class="pm-sec" style="border-color:${color};">
-                    <div class="pm-sec-head" style="background:${color};">
+                <details class="pm-sec" style="--sec:${color};" ${openAll || idx === 0 ? 'open' : ''}>
+                    <summary class="pm-sec-head">
                         <span class="pm-sec-label">${this.esc(s.label)}</span>
                         <span class="pm-sec-name">${this.esc(s.name)}</span>
-                        ${s.minutes ? `<span class="pm-sec-min">${this.esc(s.minutes)}分</span>` : ''}
-                    </div>
+                        ${s.minutes ? `<span class="pm-sec-min">${ic('calendar')}${this.esc(s.minutes)}分</span>` : ''}
+                        <span class="pm-sec-toggle">${ic('next')}</span>
+                    </summary>
                     <div class="pm-sec-body">
-                        ${s.setup ? `<div class="pm-sec-block"><span class="pm-sec-block-title">配置・準備</span><p>${this.esc(s.setup)}</p></div>` : ''}
-                        ${list('やり方', s.steps)}
-                        ${list('ルール', s.rules)}
-                        ${list('ポイント', s.points)}
-                        ${list('声かけ例', s.coaching)}
-                        ${diffHtml}
+                        ${blk('target', '準備', s.setup ? `<p>${this.esc(s.setup)}</p>` : '')}
+                        ${blk('next', 'やり方', list(s.steps, true))}
+                        ${blk('clipboard', 'ルール', list(s.rules))}
+                        ${blk('spark', 'ポイント', list(s.points), 'pm-blk-point')}
+                        ${blk('mic', '声かけ', list(s.coaching), 'pm-blk-voice')}
+                        ${blk('layers', 'むずかしさを変える', diffHtml)}
                         ${s.domains && s.domains.length ? `<div class="pm-domains">${s.domains.map(d => `<span>${this.esc(d)}</span>`).join('')}</div>` : ''}
                         ${s.notes ? `<p class="pm-sec-notes">${this.esc(s.notes)}</p>` : ''}
                     </div>
-                </div>`;
+                </details>`;
         }).join('');
+        const chip = (icon, text) => text ? `<span class="pm-chip">${ic(icon)}${this.esc(text)}</span>` : '';
         return `
             <div class="pm-head">
-                <div class="pm-date">${this.esc(menu.date)}</div>
-                <h3 class="pm-title">「${this.esc(menu.title)}」${menu.level ? `<span class="pm-level">〈${this.esc(menu.level)}〉</span>` : ''}</h3>
-                ${menu.purpose ? `<p class="pm-purpose"><strong>ねらい:</strong> ${this.esc(menu.purpose)}</p>` : ''}
-                ${menu.keyword ? `<p class="pm-keyword">合言葉「${this.esc(menu.keyword)}」</p>` : ''}
+                <div class="pm-head-top"><span class="pm-date">${this.esc(menu.date)}</span>${menu.level ? `<span class="pm-level">${this.esc(menu.level)}</span>` : ''}</div>
+                <h3 class="pm-title">${this.esc(menu.title)}</h3>
                 <div class="pm-meta">
-                    ${menu.duration ? `<span>時間: ${this.esc(menu.duration)}</span>` : ''}
-                    ${menu.participants ? `<span>人数: ${this.esc(menu.participants)}</span>` : ''}
-                    ${menu.equipment && menu.equipment.length ? `<span>用具: ${this.esc(menu.equipment.join('、'))}</span>` : ''}
+                    ${chip('calendar', menu.duration)}
+                    ${chip('users', menu.participants)}
+                    ${chip('ball', menu.equipment && menu.equipment.length ? menu.equipment.join('・') : '')}
                 </div>
+                ${menu.purpose ? `<div class="pm-purpose"><b>${ic('target')}ねらい</b><p>${this.esc(menu.purpose)}</p></div>` : ''}
+                ${menu.keyword ? `<div class="pm-keyword"><b>合言葉</b>${this.esc(menu.keyword)}</div>` : ''}
             </div>
             ${secHtml}
-            ${menu.summary ? `<div class="pm-summary"><strong>まとめ・大切なこと</strong><p>${this.esc(menu.summary)}</p></div>` : ''}
-            ${menu.therapeuticNotes ? `<div class="pm-therapy"><strong>療育的配慮</strong><p>${this.esc(menu.therapeuticNotes)}</p></div>` : ''}`;
+            ${menu.summary ? `<div class="pm-summary"><b>${ic('check')}大切なこと</b><p>${this.esc(menu.summary)}</p></div>` : ''}
+            ${menu.therapeuticNotes ? `<div class="pm-therapy"><b>${ic('info')}療育的な配慮</b><p>${this.esc(menu.therapeuticNotes)}</p></div>` : ''}`;
     },
 
     copyPrompt() {
@@ -419,6 +447,7 @@ ${GeminiAPI.PRACTICE_MENU_STYLE}`;
             this.current.illustrationPrompt = geminiAPI.buildIllustrationPrompt(this.current);
             this.renderResult();
             showToast('メニューを修正しました。内容を確認して保存してください。');
+            this.autoImage();
         } catch (e) {
             console.error(e);
             showToast('修正に失敗しました: ' + (e.message || ''));
@@ -433,16 +462,18 @@ ${GeminiAPI.PRACTICE_MENU_STYLE}`;
         return 'heartup_imageGenCount_' + new Date().toISOString().split('T')[0];
     },
 
-    async generateImage() {
+    async generateImage(auto) {
         const menu = this.current;
-        if (!menu) return;
+        if (!menu || this.imageBusy === menu) return;
         const limit = (this.aiStatus && this.aiStatus.dailyImageLimit) || 20;
         const used = parseInt(localStorage.getItem(this.dailyCountKey()) || '0', 10);
-        if (used >= limit) {
+        if (!auto && used >= limit) {
             if (!confirm(`本日この端末で ${used} 枚生成しています（目安 ${limit} 枚）。続けますか？`)) return;
         }
-        const btn = document.getElementById('pmImageBtn');
-        if (btn) { btn.disabled = true; btn.textContent = 'イラスト生成中（1分ほどかかります）...'; }
+        const hadImage = menu.imageData;
+        this.imageBusy = menu;
+        menu.imageData = null;
+        if (this.current === menu) this.renderResult();
         try {
             const r = await fetch('/api/generate-image', {
                 method: 'POST',
@@ -451,22 +482,24 @@ ${GeminiAPI.PRACTICE_MENU_STYLE}`;
             });
             const data = await r.json().catch(() => ({}));
             if (!r.ok) throw new Error(data.error || '画像生成に失敗しました');
-            // 保存用に縮小（Firestore 1ドキュメント1MB制限のため）。元画像は即ダウンロードできるようにする
+            // 保存用に縮小（Firestore 1ドキュメント1MB制限のため）。元画像は生成直後だけ保存できる
             menu.imageDataFull = data.image;
             menu.imageData = await this.resizeImage(data.image, 1200, 0.82);
             if (menu.imageData.length > 900 * 1024) menu.imageData = await this.resizeImage(data.image, 900, 0.75);
             localStorage.setItem(this.dailyCountKey(), String(used + 1));
-            showToast('イラストを生成しました。「保存する」でメニューと一緒に保存できます。');
-            this.renderResult();
-            // フル解像度のダウンロードリンクを追加
-            const wrap = document.querySelector('.pm-image-wrap .pm-inline-actions');
-            if (wrap && menu.imageDataFull) {
-                wrap.insertAdjacentHTML('beforeend', `<a class="btn-small" href="${menu.imageDataFull}" download="${this.esc(menu.title)}_full.png">高解像度で保存</a>`);
-            }
+            showToast('イラストができました。「保存する」で一緒に保存されます。');
         } catch (e) {
             console.error(e);
+            menu.imageData = hadImage || null;
             showToast(e.message || '画像生成に失敗しました');
-            if (btn) { btn.disabled = false; btn.textContent = 'イラストを生成'; }
+        } finally {
+            if (this.imageBusy === menu) this.imageBusy = null;
+            // 待っている間に別のメニューを開いていたら、そちらの画面は触らない
+            if (this.current === menu && !document.getElementById('modal').classList.contains('hidden') && document.getElementById('pmPoster')) {
+                const y = document.getElementById('modalBody').scrollTop;
+                this.renderResult();
+                document.getElementById('modalBody').scrollTop = y;
+            }
         }
     },
 
@@ -576,9 +609,19 @@ ${GeminiAPI.PRACTICE_MENU_STYLE}`;
             .pm-sec-block ul { margin: 2px 0 6px 18px; padding: 0; }
             .pm-domains span { display:inline-block; background:#e8f5e9; color:#2e7d32; border-radius: 10px; padding: 1px 8px; font-size: 12px; margin-right: 4px; }
             .pm-summary, .pm-therapy { border: 2px dashed #ff9800; border-radius: 10px; padding: 8px 12px; margin-top: 10px; }
+            .pm-head { text-align:left; }
+            .pm-head-top span, .pm-chip { display:inline-block; margin-right: 10px; color:#555; font-size: 13px; }
+            .pm-purpose b, .pm-keyword b, .pm-summary b, .pm-therapy b { margin-right: 8px; color:#2e7d32; }
+            .pm-purpose p, .pm-summary p, .pm-therapy p { display:inline; margin:0; }
+            details.pm-sec > summary { list-style:none; background: var(--sec); }
+            details.pm-sec { border-color: var(--sec); }
+            .pm-sec-toggle, svg { display:none; }
+            .pm-blk { margin: 4px 0; } .pm-blk-title { font-weight:bold; color:#2e7d32; }
+            .pm-blk ul, .pm-blk ol { margin: 2px 0 6px 20px; padding:0; } .pm-blk p { margin:2px 0; }
+            .pm-diff b { margin-right: 8px; }
             img.poster { max-width: 100%; page-break-before: always; }
             @media print { body { margin: 8mm; } }`;
-        w.document.write(`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>${this.esc(menu.title)}</title><style>${css}</style></head><body>${this.posterHtml(menu)}${menu.imageData ? `<img class="poster" src="${menu.imageData}" alt="">` : ''}</body></html>`);
+        w.document.write(`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>${this.esc(menu.title)}</title><style>${css}</style></head><body>${this.posterHtml(menu, true)}${menu.imageData ? `<img class="poster" src="${menu.imageData}" alt="">` : ''}</body></html>`);
         w.document.close();
         setTimeout(() => { w.focus(); w.print(); }, 400);
     }

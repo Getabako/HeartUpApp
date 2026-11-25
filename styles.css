@@ -3374,3 +3374,93 @@ body { line-height: 1.8; letter-spacing: 0.04em; }
 .pm-photo-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,0.3) !important; }
 .pm-photo-drop { cursor: default; border: none; background: #f1f4f1; color: #6b756c; font-size: 0.9rem; }
 .pm-photo-drop.dragover { background: #e3f2fd; outline: 2px dashed #1e88e5; }
+
+/* ============================================
+   AI で作った練習メニューの表示（2026-11-25 作り直し）
+   絵が主役 → 題名 → 時間・人数・用具の札 → ねらい → 練習ごとの折りたたみ。文字は左そろえ
+   ============================================ */
+.pm-result-toolbar { display: block; margin: 0 2.2rem 0.6rem 0; }
+.pm-result-toolbar h2 { color: #2e7d32; margin: 0; font-size: 1.15rem; line-height: 1.5; letter-spacing: 0.04em; }
+.pm-hero { margin: 0 0 0.9rem; border-radius: 14px; overflow: hidden; background: #f1f4f1; }
+.pm-hero > img { display: block; width: 100%; height: auto; }
+.pm-hero-actions { display: flex; gap: 8px; padding: 8px; background: #f1f4f1; }
+.pm-mini-btn {
+    flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 0.3rem;
+    min-height: 44px; padding: 0.3rem 0.5rem; border-radius: 10px; text-decoration: none;
+    background: #fff; color: #2e7d32; border: 2px solid #2e7d32; font-weight: bold; font-size: 0.85rem;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.18); cursor: pointer;
+}
+.pm-mini-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,0.18); }
+.pm-hero-wait { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; padding: 1.6rem 1rem; text-align: center; color: #2e7d32; }
+.pm-hero-wait b { font-size: 1.05rem; letter-spacing: 0.05em; }
+.pm-hero-wait span { font-size: 0.85rem; color: #6b756c; line-height: 1.7; }
+.pm-hero-empty { padding: 0.8rem; background: transparent; }
+.pm-hero-make {
+    width: 100%; min-height: 64px; display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+    border: none; border-radius: 14px; background: linear-gradient(135deg, #ff9800, #ffc107); color: #fff;
+    font-weight: bold; font-size: 1.1rem; letter-spacing: 0.06em; cursor: pointer; box-shadow: 0 4px 0 #b86a00 !important;
+}
+.pm-hero-make .h-ic { width: 26px; height: 26px; }
+
+.pm-poster { border: none; padding: 0; background: transparent; text-align: left; }
+.pm-head { text-align: left; margin: 0 0 0.9rem; }
+.pm-head-top { display: flex; align-items: center; gap: 0.5rem; }
+.pm-date { color: #6b756c; font-size: 0.85rem; }
+.pm-level { margin: 0; font-size: 0.8rem; font-weight: bold; color: #c75300; background: #fff0dc; border-radius: 4px; padding: 0.05rem 0.5rem; }
+.pm-title {
+    margin: 0.3rem 0 0.6rem; padding: 0.55rem 0.9rem; font-size: 1.3rem; line-height: 1.5; letter-spacing: 0.05em;
+    color: #fff; background: linear-gradient(135deg, #2e7d32, #4caf50); border-radius: 12px;
+}
+.pm-meta { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 6px; margin: 0 0 0.7rem; }
+.pm-chip { display: inline-flex; align-items: center; gap: 0.3rem; background: #eef3ee; color: #2f3b30; border-radius: 4px; padding: 0.2rem 0.6rem; font-size: 0.88rem; line-height: 1.6; }
+.pm-chip .h-ic { width: 16px; height: 16px; color: #2e7d32; }
+.pm-purpose { margin: 0 0 0.5rem; padding: 0.6rem 0.8rem; background: #f3f7ee; border-left: 5px solid #4caf50; border-radius: 0 8px 8px 0; color: #2f3b30; }
+.pm-purpose b, .pm-summary b, .pm-therapy b { display: flex; align-items: center; gap: 0.3rem; color: #2e7d32; font-size: 0.85rem; letter-spacing: 0.08em; }
+.pm-purpose p, .pm-summary p, .pm-therapy p { margin: 0.15rem 0 0; line-height: 1.8; font-size: 0.95rem; }
+.pm-keyword { margin: 0; padding: 0.45rem 0.8rem; background: #fff3d6; border-radius: 8px; color: #b85a00; font-weight: bold; font-size: 1.05rem; letter-spacing: 0.05em; }
+.pm-keyword b { font-size: 0.75rem; background: #ff9800; color: #fff; border-radius: 4px; padding: 0.1rem 0.5rem; margin-right: 0.6rem; vertical-align: 0.1em; }
+
+details.pm-sec { --sec: #607d8b; border: 2px solid var(--sec); border-radius: 14px; margin: 0.7rem 0; overflow: hidden; background: #fff; }
+details.pm-sec > summary {
+    list-style: none; cursor: pointer; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 0.2rem 0.6rem;
+    background: var(--sec); color: #fff; padding: 0.6rem 0.8rem; min-height: 56px;
+}
+details.pm-sec > summary::-webkit-details-marker { display: none; }
+.pm-sec-label { grid-row: 1 / span 2; align-self: center; background: #fff; color: var(--sec); font-weight: bold; padding: 0.2rem 0.6rem; border-radius: 8px; font-size: 0.95rem; white-space: nowrap; }
+.pm-sec-name { font-weight: bold; font-size: 1.05rem; line-height: 1.5; letter-spacing: 0.04em; }
+.pm-sec-min { grid-column: 2; margin: 0; font-size: 0.8rem; opacity: 0.95; display: inline-flex; align-items: center; gap: 0.25rem; }
+.pm-sec-min .h-ic { width: 14px; height: 14px; }
+.pm-sec-toggle { grid-column: 3; grid-row: 1 / span 2; width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,0.25); display: flex; align-items: center; justify-content: center; transition: transform 0.15s ease; }
+.pm-sec-toggle .h-ic { transform: rotate(90deg); }
+details.pm-sec[open] .pm-sec-toggle { transform: rotate(180deg); }
+.pm-sec-body { padding: 0.5rem 0.8rem 0.8rem; }
+.pm-blk { padding: 0.5rem 0; border-top: 1px dashed #d5dcd5; }
+.pm-blk:first-child { border-top: none; }
+.pm-blk-title { display: inline-flex; align-items: center; gap: 0.3rem; color: var(--sec); font-weight: bold; font-size: 0.85rem; letter-spacing: 0.08em; margin-bottom: 0.15rem; }
+.pm-blk-title .h-ic { width: 16px; height: 16px; }
+.pm-blk p { margin: 0; line-height: 1.8; font-size: 0.95rem; color: #2f3b30; }
+.pm-blk ul, .pm-blk ol { margin: 0; padding-left: 1.3rem; }
+.pm-blk li { margin: 0.1rem 0; line-height: 1.75; font-size: 0.95rem; color: #2f3b30; }
+.pm-blk-point { background: #fffbe6; margin: 0.3rem -0.3rem; padding: 0.5rem 0.6rem; border-radius: 8px; border-top: none; }
+.pm-blk-point + .pm-blk { border-top: none; }
+.pm-blk-voice li { list-style: none; margin-left: -1.3rem; padding: 0.25rem 0.7rem; background: #eef6ff; border-radius: 10px 10px 10px 2px; margin-bottom: 4px; width: fit-content; }
+.pm-diff { display: grid; gap: 4px; }
+.pm-diff > div { font-size: 0.92rem; line-height: 1.7; padding: 0.3rem 0.6rem; border-radius: 6px; background: #f4f6f4; }
+.pm-diff b { display: inline-block; min-width: 5.2em; font-size: 0.8rem; }
+.pm-diff-easy b { color: #2e7d32; } .pm-diff-normal b { color: #1565c0; } .pm-diff-hard b { color: #c62828; }
+.pm-domains span { border-radius: 4px; }
+.pm-summary, .pm-therapy { border: none; border-left: 5px solid #ff9800; border-radius: 0 8px 8px 0; background: #fff8ec; padding: 0.6rem 0.8rem; margin-top: 0.7rem; }
+.pm-therapy { border-left-color: #1e88e5; background: #f1f7fd; }
+.pm-therapy b { color: #1565c0; } .pm-summary b { color: #c75300; }
+
+.pm-actions-main { display: grid; grid-template-columns: 1.4fr 1fr; gap: 10px; margin-top: 1rem; }
+.pm-actions-main button { min-height: 52px; font-size: 1rem; }
+.pm-refine { background: #f4f6f4; border-radius: 12px; padding: 0.7rem 0.8rem; }
+.pm-refine label { display: flex; align-items: center; gap: 0.3rem; }
+.pm-note { font-size: 0.8rem; color: #7b857c; margin: 0.5rem 0 0; }
+.pm-details { border: none; background: #f4f6f4; }
+@media (max-width: 768px) {
+    .pm-mode-tab { white-space: nowrap; }
+}
+.pm-hero-wait .ai-loading-ball { width: 56px; height: 56px; }
+.pm-unsaved { margin-left: 0.6rem; font-size: 0.75rem; background: #fff0dc; color: #c75300; border-radius: 4px; padding: 0.1rem 0.5rem; vertical-align: 0.15em; }
