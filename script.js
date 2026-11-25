@@ -942,9 +942,50 @@ function displayResources() {
                 ${resource.date}
             </div>
         `;
-        
+        tcDecorate(card, { key: resource.isUploaded || typeof resource.id !== 'number' ? '' : 'r_' + resource.id, category: resource.category });
+
         grid.appendChild(card);
     });
+}
+
+// カードをトレーディングカード風に組む: 上に絵、題名の帯、説明、右下に「ひらく」
+// key の絵（images/cards/<key>.jpg）がなければ分野の絵（cat_<分野>.jpg）、それもなければ色の面だけにする
+function tcDecorate(card, o) {
+    const cat = (o.category || 'other').replace(/[^a-z]/g, '') || 'other';
+    card.classList.add('tc', 'tc-' + cat);
+    const body = document.createElement('div');
+    body.className = 'tc-body';
+    while (card.firstChild) body.appendChild(card.firstChild);
+    const art = document.createElement('div');
+    art.className = 'tc-art';
+    const oldThumb = body.querySelector('.pm-card-thumb');
+    if (oldThumb) oldThumb.remove();
+    const catSrc = 'images/cards/cat_' + cat + '.jpg';
+    const img = document.createElement('img');
+    img.alt = '';
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    img.onerror = function () {
+        if (img.dataset.fb) { art.classList.add('tc-noart'); img.remove(); return; }
+        img.dataset.fb = '1';
+        img.src = catSrc;
+    };
+    img.src = o.image || (o.key ? 'images/cards/' + o.key + '.jpg' : catSrc);
+    if (!o.image && !o.key) img.dataset.fb = '1';
+    art.appendChild(img);
+    const head = body.querySelector('.practice-header, .resource-type');
+    if (head) {
+        const tags = document.createElement('div');
+        tags.className = 'tc-tags';
+        tags.appendChild(head);
+        art.appendChild(tags);
+    }
+    const open = document.createElement('span');
+    open.className = 'tc-open';
+    open.textContent = 'ひらく \u203A';
+    body.appendChild(open);
+    card.appendChild(art);
+    card.appendChild(body);
 }
 
 // 練習メニューの表示
@@ -991,6 +1032,7 @@ function displayPracticeMenus() {
         card.className = 'practice-card practice-card-generated';
         card.onclick = () => PracticeMenuGen.openSaved(menu.id);
         card.innerHTML = PracticeMenuGen.cardHtml(menu);
+        tcDecorate(card, { category: menu.category, image: menu.imageData || '' });
         grid.appendChild(card);
     });
 
@@ -1060,6 +1102,7 @@ function displayPracticeMenus() {
                 </div>
             `;
         }
+        tcDecorate(card, { key: menu.isUploaded ? '' : 'p_' + menu.id, category: menu.category || (menu.categories && menu.categories[0]) });
 
         grid.appendChild(card);
     });

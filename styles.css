@@ -3165,3 +3165,196 @@ body { line-height: 1.8; letter-spacing: 0.04em; }
     .practice-toolbar button { font-size: 0.78rem; letter-spacing: 0.02em; padding: 0.7rem 0.2rem; }
     .practice-toolbar button:nth-child(3) { font-size: 0.9rem; }
 }
+
+/* ============================================
+   資料・練習メニューのカード: トレーディングカード風（2026-11-25）
+   外側の色つきのふち = 分野の色。上に絵、題名の帯、説明、右下に「ひらく」
+   ============================================ */
+.resource-card.tc, .practice-card.tc {
+    --tc: #2e7d32; --tc2: #8fd18f; --tc3: #184d1c;
+    padding: 7px;
+    border: none;
+    border-left: none;
+    border-radius: 20px;
+    background: linear-gradient(150deg, var(--tc2) 0%, var(--tc) 38%, var(--tc3) 100%);
+    box-shadow: 0 4px 0 rgba(0, 0, 0, 0.28), 0 8px 18px rgba(0, 0, 0, 0.12);
+    display: flex;
+    flex-direction: column;
+}
+.resource-card.tc:active, .practice-card.tc:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.28); }
+.resource-card.tc::after, .practice-card.tc::after { content: none; display: none; }
+.tc-aba, .tc-dribble, .tc-concentration { --tc: #1976d2; --tc2: #8cc4f5; --tc3: #0d3f73; }
+.tc-case, .tc-match, .tc-competition { --tc: #6a3fb0; --tc2: #c2a6ee; --tc3: #3a1f69; }
+.tc-psychology, .tc-tactile, .tc-flexibility { --tc: #d2567f; --tc2: #f6b3c8; --tc3: #7c2646; }
+.tc-warmup, .tc-switching, .tc-balance { --tc: #ef8a00; --tc2: #ffd27a; --tc3: #9a5200; }
+.tc-shoot, .tc-proprioceptive { --tc: #d64431; --tc2: #f7a99c; --tc3: #7d1f13; }
+.tc-game, .tc-vestibular, .tc-bodyimage { --tc: #0f9a8c; --tc2: #8fe0d6; --tc3: #075a52; }
+
+.tc-art {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+    border-radius: 14px 14px 0 0;
+    border: 2px solid rgba(255, 255, 255, 0.85);
+    border-bottom: none;
+    background: radial-gradient(circle at 30% 20%, var(--tc2), var(--tc) 70%);
+}
+.tc-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tc-art::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(115deg, rgba(255,255,255,0) 35%, rgba(255,255,255,0.28) 47%, rgba(255,255,255,0) 58%);
+    pointer-events: none;
+}
+.tc-art.tc-noart { aspect-ratio: 16 / 5; }
+.tc-tags { position: absolute; top: 8px; left: 8px; right: 8px; z-index: 1; }
+.tc-tags .practice-header { margin: 0; gap: 6px; justify-content: flex-start; flex-wrap: wrap; }
+.tc-tags .resource-type, .tc-tags .practice-category-label, .tc-tags .practice-difficulty, .tc-tags .uploaded-badge {
+    display: inline-block; margin: 0;
+    background: rgba(255, 255, 255, 0.93) !important; color: var(--tc3) !important;
+    border-radius: 4px !important; padding: 0.15rem 0.6rem; font-size: 0.8rem; font-weight: bold; letter-spacing: 0.05em;
+}
+.tc-tags .practice-header > button, .tc-tags .practice-header > .favorite-btn { margin-left: auto; }
+
+.tc-body {
+    flex: 1 1 auto;
+    display: flex; flex-direction: column;
+    background: #fffdf4;
+    border: 2px solid rgba(255, 255, 255, 0.85);
+    border-top: none;
+    border-radius: 0 0 14px 14px;
+    padding: 0 0.9rem 0.9rem;
+}
+.tc .tc-body h3 {
+    position: relative; z-index: 2;
+    margin: -1.1rem 0 0.7rem;
+    padding: 0.5rem 0.9rem;
+    background: linear-gradient(180deg, var(--tc), var(--tc3));
+    color: #fff;
+    border: 2px solid #f6d77a;
+    border-radius: 10px;
+    font-size: 1.1rem; line-height: 1.5; letter-spacing: 0.05em;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+.tc .tc-body > p {
+    color: #3d463e; font-size: 0.95rem; line-height: 1.85; margin: 0 0 0.6rem;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
+}
+.tc .tc-body > p.pm-card-sub, .tc .tc-body > div[style*="color: #999"] { font-size: 0.8rem; color: #7b857c !important; margin-top: 0 !important; -webkit-line-clamp: 1; }
+.tc .practice-footer { justify-content: flex-start; margin-top: auto; padding-top: 0.3rem; }
+.tc-open {
+    align-self: flex-end;
+    margin-top: 0.6rem;
+    padding: 0.4rem 1.2rem;
+    border-radius: 999px;
+    background: var(--tc); color: #fff;
+    font-weight: bold; font-size: 0.95rem; letter-spacing: 0.08em;
+    box-shadow: 0 3px 0 var(--tc3);
+}
+.resources-grid, .practice-grid { gap: 1.2rem; }
+
+/* ============================================
+   児童カード（2026-11-25 作り直し）
+   上から: 名前の帯 → 基本情報（2 列）→ 拠点 → 件数 → 書類のボタン → 管理（編集・削除）
+   ============================================ */
+.ai-tab-content { min-width: 0; }
+.am-child-item.cc {
+    display: block;
+    padding: 0;
+    overflow: hidden;
+    border: 2px solid #2e7d32;
+    border-radius: 16px;
+    background: #fff;
+    margin-bottom: 1.4rem;
+    box-shadow: none;
+}
+.cc-head {
+    display: flex; align-items: center; gap: 0.7rem;
+    padding: 0.7rem 0.9rem;
+    background: linear-gradient(135deg, #2e7d32, #4caf50);
+    color: #fff;
+}
+.cc-avatar {
+    flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%;
+    background: rgba(255, 255, 255, 0.22); border: 2px solid rgba(255, 255, 255, 0.7);
+    display: flex; align-items: center; justify-content: center;
+}
+.cc-avatar .h-ic { width: 24px; height: 24px; }
+.cc-name { flex: 1 1 auto; min-width: 0; }
+.cc-kana { display: block; font-size: 0.75rem; opacity: 0.9; letter-spacing: 0.08em; line-height: 1.4; }
+.cc-name h3 { margin: 0; color: #fff; font-size: 1.25rem; line-height: 1.4; letter-spacing: 0.05em; overflow-wrap: anywhere; }
+.cc-grade {
+    flex: 0 0 auto; background: #fff; color: #2e7d32; font-weight: bold;
+    padding: 0.15rem 0.6rem; border-radius: 4px; font-size: 0.9rem;
+}
+.cc-info {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+    border-bottom: 1px solid #dfe6df;
+}
+.cc-info > div { padding: 0.5rem 0.9rem; border-top: 1px solid #edf1ed; min-width: 0; }
+.cc-info > div:nth-child(odd) { border-right: 1px solid #edf1ed; }
+.cc-info > div:nth-child(-n+2) { border-top: none; }
+.cc-info span { display: block; font-size: 0.72rem; color: #7b857c; letter-spacing: 0.06em; line-height: 1.5; }
+.cc-info b { display: block; font-size: 0.95rem; color: #2f3b30; font-weight: 600; line-height: 1.6; overflow-wrap: anywhere; }
+.cc-loc {
+    display: flex; align-items: center; gap: 0.5rem; width: calc(100% - 1.8rem); margin: 0.7rem 0.9rem 0;
+    padding: 0.5rem 0.8rem; min-height: 44px;
+    background: #fff; color: #1565c0; border: 2px solid #90caf9; border-radius: 10px;
+    font-size: 0.95rem; font-weight: bold; text-align: left; cursor: pointer;
+    box-shadow: 0 3px 0 rgba(21, 101, 192, 0.25);
+}
+.cc-loc:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(21, 101, 192, 0.25); }
+.cc-loc.is-unset { color: #c75300; border-color: #ffcc80; box-shadow: 0 3px 0 rgba(199, 83, 0, 0.25); }
+.cc-loc-name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; line-height: 1.5; }
+.cc-loc-act { flex: 0 0 auto; font-size: 0.8rem; background: currentColor; border-radius: 999px; padding: 0.1rem 0.7rem; }
+.cc-loc-act { color: inherit; }
+.cc-loc .cc-loc-act { background: #1565c0; color: #fff; }
+.cc-loc.is-unset .cc-loc-act { background: #c75300; }
+.cc-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 0.8rem 0.9rem 0; }
+.cc-stat {
+    display: flex; flex-direction: column; align-items: center; gap: 0;
+    background: #f1f6f1; border-radius: 8px; padding: 0.4rem 0.1rem; color: #2e5d31; min-width: 0;
+}
+.cc-stat .h-ic { width: 18px; height: 18px; opacity: 0.8; }
+.cc-stat b { font-size: 1.2rem; line-height: 1.3; }
+.cc-stat span { font-size: 0.65rem; letter-spacing: 0; white-space: nowrap; }
+.cc-stat.is-zero { color: #a3ada4; background: #f6f7f6; }
+.cc-label {
+    margin: 0.9rem 0.9rem 0.5rem; padding-top: 0.7rem; border-top: 2px dashed #cfd8cf;
+    font-size: 0.8rem; font-weight: bold; color: #5b675c; letter-spacing: 0.08em;
+}
+.am-child-actions.cc-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 0.9rem; }
+.cc-actions .am-btn {
+    min-width: 0; width: 100%; white-space: normal; padding: 0.6rem 0.3rem; min-height: 50px;
+    font-size: 0.92rem; line-height: 1.4; border-radius: 10px;
+}
+.cc-actions .cc-wide { grid-column: 1 / -1; }
+.cc-manage {
+    display: flex; justify-content: space-between; gap: 8px;
+    margin-top: 0.9rem; padding: 0.6rem 0.9rem; background: #f4f5f4; border-top: 1px solid #dfe6df;
+}
+.cc-sub {
+    min-height: 40px; padding: 0.3rem 0.9rem; border-radius: 8px; font-size: 0.85rem; font-weight: bold;
+    background: #fff; color: #1976d2; border: 2px solid #1976d2; cursor: pointer;
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.15); display: inline-flex; align-items: center;
+}
+.cc-sub.cc-danger { color: #c62828; border-color: #e3a5a5; }
+.cc-sub:active { transform: translateY(2px); box-shadow: none; }
+@media (min-width: 769px) {
+    #amChildrenContainer { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1.2rem; align-items: start; }
+    #amChildrenContainer > .am-empty-state { grid-column: 1 / -1; }
+    .am-child-item.cc { margin-bottom: 0; }
+}
+@media (max-width: 768px) {
+    /* 入れ物の余白を重ねない（カードを画面の幅いっぱいに使う） */
+    .tab-content { padding: 0.9rem 0.7rem; }
+    .ai-tab-content { padding: 0.9rem 0 0; }
+    .am-children-list { padding: 0; }
+}
+/* 基本情報: 生年月日は 1 行まるごと、その下に 性別・診断名・登録日 を 3 つ並べる */
+.cc-info { grid-template-columns: 0.8fr 1.2fr 1.2fr; }
+.cc-info > div { border-right: 1px solid #edf1ed; border-top: 1px solid #edf1ed; }
+.cc-info > div:nth-child(odd) { border-right: 1px solid #edf1ed; }
+.cc-info > div:first-child { grid-column: 1 / -1; border-top: none; border-right: none; display: flex; align-items: baseline; gap: 0.8rem; }
+.cc-info > div:nth-child(2) { border-top: 1px solid #edf1ed; }
+.cc-info > div:last-child { border-right: none; }

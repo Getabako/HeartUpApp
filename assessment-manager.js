@@ -492,34 +492,49 @@ function amRenderChildren(childrenList) {
             birthDisplay = formatBirthDateJa(child.birthDate) + (age !== null ? `（${age}歳）` : '');
         }
 
+        const ic = (n) => (window.hIcon ? window.hIcon(n) : '');
+        const locOk = child.locationName && child.locationName !== '未設定';
+        const stat = (label, n, icon) => `<div class="cc-stat${n ? '' : ' is-zero'}">${ic(icon)}<b>${n || 0}</b><span>${label}</span></div>`;
+        childItem.className = 'am-child-item cc';
         childItem.innerHTML = `
-            <div class="am-child-info">
-                <h3>${child.name}${child.childNameKana ? `（${child.childNameKana}）` : ''}
-                    ${child.grade ? `<span class="am-grade-badge">${child.grade}</span>` : ''}
-                    <span class="am-location-badge" style="${locBadgeStyle} padding: 2px 10px; border-radius: 12px; font-size: 0.75rem; margin-left: 6px; font-weight: normal; cursor: pointer;" onclick="amShowChangeLocationModal('${escapedName}', '${child.locationId || ''}', '${child.locationName || ''}')" title="クリックで拠点変更">${child.locationName || '拠点未設定'}</span>
-                </h3>
-                <p>生年月日: ${birthDisplay} | 性別: ${child.gender || '未回答'}</p>
-                <p>診断名: ${child.diagnosis || 'なし'}</p>
-                <p>登録日: ${child.createdAt ? new Date(child.createdAt).toLocaleDateString('ja-JP') : '不明'}</p>
-                <div class="am-child-records-summary">
-                    ${child.assessmentCount ? `<span class="am-record-count-badge assessment">アセスメント ${child.assessmentCount}件</span>` : ''}
-                    ${child.planCount ? `<span class="am-record-count-badge plan">支援計画 ${child.planCount}件</span>` : ''}
-                    ${child.reportCount ? `<span class="am-record-count-badge daily">記録 ${child.reportCount}件</span>` : ''}
-                    ${child.reviewCount ? `<span class="am-record-count-badge review">振り返り ${child.reviewCount}件</span>` : ''}
+            <div class="cc-head">
+                <div class="cc-avatar">${ic('users')}</div>
+                <div class="cc-name">
+                    ${child.childNameKana ? `<span class="cc-kana">${child.childNameKana}</span>` : ''}
+                    <h3>${child.name}</h3>
                 </div>
+                ${child.grade ? `<span class="cc-grade">${child.grade}</span>` : ''}
             </div>
-            <div class="am-child-actions">
+            <div class="cc-info">
+                <div><span>生年月日</span><b>${birthDisplay}</b></div>
+                <div><span>性別</span><b>${child.gender || '未回答'}</b></div>
+                <div><span>診断名</span><b>${child.diagnosis || 'なし'}</b></div>
+                <div><span>登録日</span><b>${child.createdAt ? new Date(child.createdAt).toLocaleDateString('ja-JP') : '不明'}</b></div>
+            </div>
+            <button class="cc-loc${locOk ? '' : ' is-unset'}" data-ic="0" onclick="amShowChangeLocationModal('${escapedName}', '${child.locationId || ''}', '${child.locationName || ''}')">
+                ${ic('home')}<span class="cc-loc-name">${locOk ? child.locationName : '拠点が決まっていません'}</span><span class="cc-loc-act">変える</span>
+            </button>
+            <div class="cc-stats">
+                ${stat('アセスメント', child.assessmentCount, 'doc')}
+                ${stat('支援計画', child.planCount, 'target')}
+                ${stat('記録', child.reportCount, 'clipboard')}
+                ${stat('振り返り', child.reviewCount, 'chart')}
+            </div>
+            <div class="cc-label">書類を見る・作る</div>
+            <div class="am-child-actions cc-actions">
                 ${hasAssessment ? `
-                    <button class="am-btn am-btn-primary" onclick="amShowChildAssessments('${escapedName}')">アセスメント表示</button>
+                    <button class="am-btn am-btn-primary" onclick="amShowChildAssessments('${escapedName}')">アセスメント</button>
                     <button class="am-btn am-btn-secondary" onclick="amShowChildSupportPlans('${escapedName}', '${latestFN}')">支援計画</button>
                     <button class="am-btn am-btn-tertiary" onclick="amShowChildDailyRecords('${escapedName}', '${latestFN}')">日々の記録</button>
                     <button class="am-btn am-btn-quaternary" onclick="amShowChildReviews('${escapedName}', '${latestFN}')">成長振り返り</button>
-                    <button class="am-btn" style="background:#7b1fa2; color:white;" onclick="amStartPlanRenewal('${escapedName}', '${latestFN}')">計画書更新</button>
+                    <button class="am-btn cc-wide" style="background:#7b1fa2; color:white;" onclick="amStartPlanRenewal('${escapedName}', '${latestFN}')">計画書を更新する</button>
                 ` : `
-                    <button class="am-btn am-btn-primary" onclick="window.location.href='assessment/form-simple.html'">アセスメント作成</button>
+                    <button class="am-btn am-btn-primary cc-wide" onclick="window.location.href='assessment/form-simple.html'">アセスメントを作成する</button>
                 `}
-                <button class="am-btn" onclick="amShowEditChildModal('${escapedName}')" style="background:#1976d2; color:white;">基本情報編集</button>
-                <button class="am-btn am-btn-danger" onclick="amDeleteChild('${escapedName}')" style="background:#d32f2f; color:white;">削除</button>
+            </div>
+            <div class="cc-manage">
+                <button class="cc-sub" onclick="amShowEditChildModal('${escapedName}')">基本情報を編集</button>
+                <button class="cc-sub cc-danger" onclick="amDeleteChild('${escapedName}')">削除</button>
             </div>
         `;
         container.appendChild(childItem);
