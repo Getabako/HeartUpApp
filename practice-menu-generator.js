@@ -361,6 +361,14 @@ const PracticeMenuGen = {
             const list = (items, ordered) => items && items.length ? `<${ordered ? 'ol' : 'ul'}>${items.map(i => `<li>${this.esc(i)}</li>`).join('')}</${ordered ? 'ol' : 'ul'}>` : '';
             const diff = s.difficulty || {};
             const diffHtml = (diff.easy || diff.hard) ? `<div class="pm-diff">${diff.easy ? `<div class="pm-diff-easy"><b>かんたん</b>${this.esc(diff.easy)}</div>` : ''}${diff.normal ? `<div class="pm-diff-normal"><b>ふつう</b>${this.esc(diff.normal)}</div>` : ''}${diff.hard ? `<div class="pm-diff-hard"><b>むずかしい</b>${this.esc(diff.hard)}</div>` : ''}</div>` : '';
+            // まず見るのは「準備・やり方・ポイント」だけ。ほかは「くわしく」の中にしまう
+            const more = [
+                blk('clipboard', 'ルール', list(s.rules)),
+                blk('mic', '声かけ', list(s.coaching), 'pm-blk-voice'),
+                blk('layers', 'むずかしさを変える', diffHtml),
+                (s.domains && s.domains.length ? `<div class="pm-domains">${s.domains.map(d => `<span>${this.esc(d)}</span>`).join('')}</div>` : ''),
+                (s.notes && !/[A-Za-z]{4,}/.test(s.notes) ? `<p class="pm-sec-notes">${this.esc(s.notes)}</p>` : '')
+            ].join('');
             return `
                 <details class="pm-sec" style="--sec:${color};" ${openAll || idx === 0 ? 'open' : ''}>
                     <summary class="pm-sec-head">
@@ -372,12 +380,8 @@ const PracticeMenuGen = {
                     <div class="pm-sec-body">
                         ${blk('target', '準備', s.setup ? `<p>${this.esc(s.setup)}</p>` : '')}
                         ${blk('next', 'やり方', list(s.steps, true))}
-                        ${blk('clipboard', 'ルール', list(s.rules))}
                         ${blk('spark', 'ポイント', list(s.points), 'pm-blk-point')}
-                        ${blk('mic', '声かけ', list(s.coaching), 'pm-blk-voice')}
-                        ${blk('layers', 'むずかしさを変える', diffHtml)}
-                        ${s.domains && s.domains.length ? `<div class="pm-domains">${s.domains.map(d => `<span>${this.esc(d)}</span>`).join('')}</div>` : ''}
-                        ${s.notes && !/[A-Za-z]{4,}/.test(s.notes) ? `<p class="pm-sec-notes">${this.esc(s.notes)}</p>` : ''}
+                        ${more ? `<details class="pm-more" ${openAll ? 'open' : ''}><summary>くわしく（ルール・声かけ・むずかしさ）</summary>${more}</details>` : ''}
                     </div>
                 </details>`;
         }).join('');
@@ -470,6 +474,8 @@ ${GeminiAPI.PRACTICE_MENU_STYLE}`;
         menu.imageError = '';
         menu.imageData = null;
         if (this.current === menu) this.renderResult();
+        // 指示文は毎回いまの内容から組み直す（前に保存した古い指示文は使わない）
+        menu.illustrationPrompt = geminiAPI.buildIllustrationPrompt(menu);
         try {
             const r = await fetch('/api/generate-image', {
                 method: 'POST',

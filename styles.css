@@ -3572,3 +3572,14 @@ html[data-swipe="right"] .tab-content.active { animation: swipeInR 0.22s ease-ou
 .tc, .tc-art, .tc-body { min-width: 0; max-width: 100%; }
 .tc-body * { min-width: 0; overflow-wrap: anywhere; }
 html, body { overflow-x: clip; max-width: 100%; }
+/* 練習ごとの「くわしく」: ルール・声かけ・むずかしさは、押したときだけ出す */
+.pm-more { margin-top: 0.5rem; border-top: 1px dashed #d5dcd5; }
+.pm-more > summary {
+    list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+    margin-top: 0.6rem; min-height: 44px; border: 2px solid var(--sec); border-radius: 10px; background: #fff; color: var(--sec);
+    font-weight: bold; font-size: 0.9rem; box-shadow: 0 3px 0 rgba(0,0,0,0.15);
+}
+.pm-more > summary::-webkit-details-marker { display: none; }
+.pm-more > summary::after { content: ''; width: 8px; height: 8px; border-right: 2px solid; border-bottom: 2px solid; transform: rotate(45deg) translateY(-2px); }
+.pm-more[open] > summary::after { transform: rotate(-135deg) translateY(-2px); }
+.pm-more[open] > summary { margin-bottom: 0.3rem; }
