@@ -71,8 +71,8 @@ const PracticeMenuGen = {
             <h2 style="color:#2e7d32; margin-bottom:0.5rem;">AIで練習メニューを作成</h2>
             <p class="pm-lead">ホワイトボードに書いていた練習を、テーマから自動で組み立てたり、写真から読み取って整えたりできます。生成後にイラストも作れます。</p>
             <div class="pm-mode-tabs">
-                <button type="button" class="pm-mode-tab ${!isPhoto ? 'active' : ''}" onclick="PracticeMenuGen.switchMode('theme')">テーマから作成</button>
-                <button type="button" class="pm-mode-tab ${isPhoto ? 'active' : ''}" onclick="PracticeMenuGen.switchMode('photo')">ホワイトボード写真から</button>
+                <button type="button" class="pm-mode-tab ${!isPhoto ? 'active' : ''}" onclick="PracticeMenuGen.switchMode('theme')">テーマから</button>
+                <button type="button" class="pm-mode-tab ${isPhoto ? 'active' : ''}" onclick="PracticeMenuGen.switchMode('photo')">写真から</button>
             </div>
             <form id="pmForm" onsubmit="PracticeMenuGen.submit(event)">
                 ${isPhoto ? `
