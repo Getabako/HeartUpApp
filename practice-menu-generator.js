@@ -69,7 +69,7 @@ const PracticeMenuGen = {
         const levelOpts = this.LEVELS.map(l => `<option value="${l}" ${l === '中級' ? 'selected' : ''}>${l}</option>`).join('');
         return `
             <h2 style="color:#2e7d32; margin-bottom:0.5rem;">AIで練習メニューを作成</h2>
-            <p class="pm-lead">ホワイトボードに書いていた練習を、テーマから自動で組み立てたり、写真から読み取って整えたりできます。生成後にイラスト用のプロンプトを出力します。</p>
+            <p class="pm-lead">ホワイトボードに書いていた練習を、テーマから自動で組み立てたり、写真から読み取って整えたりできます。生成後にイラストも作れます。</p>
             <div class="pm-mode-tabs">
                 <button type="button" class="pm-mode-tab ${!isPhoto ? 'active' : ''}" onclick="PracticeMenuGen.switchMode('theme')">テーマから作成</button>
                 <button type="button" class="pm-mode-tab ${isPhoto ? 'active' : ''}" onclick="PracticeMenuGen.switchMode('photo')">ホワイトボード写真から</button>
@@ -78,10 +78,15 @@ const PracticeMenuGen = {
                 ${isPhoto ? `
                 <div class="form-group">
                     <label>ホワイトボードの写真 <span style="color:#e74c3c;">*</span></label>
-                    <div class="pm-photo-drop" id="pmPhotoDrop" onclick="document.getElementById('pmPhotoInput').click()">
-                        <span id="pmPhotoDropText">写真をドラッグ＆ドロップ、またはクリックして選択（スマホはカメラ撮影も可）</span>
+                    <div class="pm-photo-pick">
+                        <button type="button" class="pm-photo-btn" data-ic="0" onclick="document.getElementById('pmPhotoPick').click()">${window.hIcon ? hIcon('upload') : ''}<span>保存してある写真から選ぶ</span></button>
+                        <button type="button" class="pm-photo-btn pm-photo-btn-camera" data-ic="0" onclick="document.getElementById('pmPhotoInput').click()">${window.hIcon ? hIcon('camera') : ''}<span>いま写真を撮る</span></button>
+                    </div>
+                    <div class="pm-photo-drop" id="pmPhotoDrop">
+                        <span id="pmPhotoDropText">選んだ写真がここに出ます（パソコンは、ここに写真を置いても選べます）</span>
                         <img id="pmPhotoPreview" alt="" style="display:none;">
                     </div>
+                    <input type="file" id="pmPhotoPick" accept="image/*" style="display:none;">
                     <input type="file" id="pmPhotoInput" accept="image/*" capture="environment" style="display:none;">
                 </div>
                 <div class="form-group">
@@ -140,7 +145,11 @@ const PracticeMenuGen = {
         const input = document.getElementById('pmPhotoInput');
         const drop = document.getElementById('pmPhotoDrop');
         if (!input || !drop) return;
-        input.addEventListener('change', () => { if (input.files[0]) this.loadPhoto(input.files[0]); });
+        // 「撮る」と「保存してある写真から選ぶ」の両方。同じ写真を選び直せるよう、読み込んだら値を空に戻す
+        [input, document.getElementById('pmPhotoPick')].forEach(el => {
+            if (!el) return;
+            el.addEventListener('change', () => { const f = el.files[0]; el.value = ''; if (f) this.loadPhoto(f); });
+        });
         ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('dragover'); }));
         ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('dragover'); }));
         drop.addEventListener('drop', e => {
@@ -158,7 +167,7 @@ const PracticeMenuGen = {
             const img = document.getElementById('pmPhotoPreview');
             const txt = document.getElementById('pmPhotoDropText');
             if (img) { img.src = dataUrl; img.style.display = 'block'; }
-            if (txt) txt.textContent = '別の写真に変える場合はクリック';
+            if (txt) txt.textContent = 'この写真を読み取ります。変えるときは上のボタンから選び直してください';
         } catch (e) {
             console.error(e);
             showToast('写真の読み込みに失敗しました');

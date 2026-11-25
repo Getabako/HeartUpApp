@@ -3360,3 +3360,17 @@ body { line-height: 1.8; letter-spacing: 0.04em; }
 .cc-info > div:last-child { border-right: none; }
 .cc-info { grid-template-columns: 0.7fr 1.1fr 1.4fr; }
 .cc-info > div:last-child b { white-space: nowrap; overflow-wrap: normal; }
+
+/* ホワイトボード写真: 「選ぶ」「撮る」は押せるボタン、下の枠は選んだ写真が出る場所（押せない） */
+.pm-photo-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.pm-photo-btn {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    min-height: 76px; padding: 0.6rem 0.4rem; border: none; border-radius: 12px;
+    background: #1e88e5; color: #fff; font-weight: bold; font-size: 0.95rem; line-height: 1.5; letter-spacing: 0.04em;
+    cursor: pointer; box-shadow: 0 3px 0 #0d4f8f !important;
+}
+.pm-photo-btn-camera { background: #2e7d32; box-shadow: 0 3px 0 #184d1c !important; }
+.pm-photo-btn .h-ic { width: 28px; height: 28px; }
+.pm-photo-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,0.3) !important; }
+.pm-photo-drop { cursor: default; border: none; background: #f1f4f1; color: #6b756c; font-size: 0.9rem; }
+.pm-photo-drop.dragover { background: #e3f2fd; outline: 2px dashed #1e88e5; }
