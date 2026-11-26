@@ -39,7 +39,7 @@ module.exports = async (req, res) => {
             return json(res, 502, { error: '画像データが返されませんでした' + (reason ? `（${reason}）` : '') });
         }
         const mime = img.mimeType || img.mime_type || 'image/png';
-        return json(res, 200, { image: `data:${mime};base64,${img.data}`, size: body.size || '1024x1536', model: result.model });
+        return json(res, 200, { image: `data:${mime};base64,${img.data}`, size: body.size || '1024x1536', model: result.model, route: result.route });
     } catch (error) {
         console.error('generate-image error:', error);
         return json(res, 500, { error: error.message || 'サーバーエラー' });

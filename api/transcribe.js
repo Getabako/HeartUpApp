@@ -36,7 +36,7 @@ module.exports = async (req, res) => {
         if (!result.ok) return json(res, result.status || 500, { error: result.message || '音声認識に失敗しました' });
         const parts = result.data.candidates?.[0]?.content?.parts || [];
         const text = parts.filter(p => !p.thought).map(p => p.text || '').join('').trim();
-        return json(res, 200, { text, model: result.model });
+        return json(res, 200, { text, model: result.model, route: result.route });
     } catch (error) {
         console.error('transcribe error:', error);
         return json(res, 500, { error: error.message || 'サーバーエラー' });

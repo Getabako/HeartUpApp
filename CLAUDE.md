@@ -115,7 +115,7 @@ subagent_type: "media"    → メディア・サブエージェント
 | 環境変数 | 用途 | 備考 |
 |---------|------|------|
 | `GEMINI_API_KEY` | Gemini API | AI書類生成・練習メニュー生成・ホワイトボード写真の読み取り・練習メニューのイラスト生成・音声入力の文字起こしで使用 |
-| `GOOGLE_VERTEX_SA` | Google Cloud（Vertex AI）経由で Gemini を呼ぶためのサービスアカウント（JSON を base64 にしたもの） | 2026-11-27 追加。これがあると文章・画像・文字起こしはすべて Google Cloud 経由（プロジェクト heartupapp の請求）で動き、`GEMINI_API_KEY` は使わない。元の JSON は `~/.secrets/heartup-vertex-sa.json` |
+| `GOOGLE_VERTEX_SA` | 予備の経路。Google Cloud（Vertex AI）経由で Gemini を呼ぶためのサービスアカウント（JSON を base64 にしたもの） | 2026-11-27 追加。本線は `GEMINI_API_KEY`（ハートアップ発行の鍵・料金はハートアップ側）。その鍵が Google に断られたときだけこちらに回る（料金は高崎の Google Cloud に付くので常用しない。本人は自分の請求でほかの事業の分を払うのを望まない）。応答の `route` が `key` なら本線、`vertex` なら予備。元の JSON は `~/.secrets/heartup-vertex-sa.json` |
 | `GEMINI_TEXT_MODEL` | 文章生成のモデル名（任意） | 未設定なら `gemini-3.5-flash` → `gemini-3.8-flash`（`gemini-2.5-flash` は Google Cloud 側で提供終了） |
 | `GEMINI_IMAGE_MODEL` / `GEMINI_TRANSCRIBE_MODEL` | 画像生成・文字起こしのモデル名（任意） | 未設定なら `gemini-3-pro-image`（いちばん高品質。1枚 約0.134ドル）/ `gemini-3.5-transcribe`。使えないときは `gemini-3.1-flash-image` → `gemini-2.5-flash-image` / `gemini-2.5-flash` に自動で切り替え |
 | `IMAGE_DAILY_LIMIT` | 画像生成の1日の目安枚数（任意） | 未設定なら20。端末ごとの目安表示に使う |

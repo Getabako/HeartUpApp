@@ -3,9 +3,9 @@
 // モデル名は環境変数で差し替えられる。先頭のモデルが使えないとき（廃止・未対応）は次の候補を順に試す。
 //
 // 呼び出し先は 2 通り（2026-11-27）:
-// - GOOGLE_VERTEX_SA（サービスアカウントの JSON を base64 にしたもの）があれば Google Cloud（Vertex AI）経由。
-//   ふつうの Google Cloud の請求で動き、Gemini API の前払い残高に左右されない。こちらを優先する
-// - なければ GEMINI_API_KEY で Gemini API を直接呼ぶ
+// - 本線: GEMINI_API_KEY（ハートアップが発行した鍵）で Gemini API を呼ぶ。料金はハートアップ側
+// - 予備: GOOGLE_VERTEX_SA（サービスアカウントの JSON を base64 にしたもの）で Google Cloud（Vertex AI）経由。
+//   本線の鍵が Google に断られたときだけ使う。料金は高崎の Google Cloud（heartupapp）に付くので、常用しない
 
 const crypto = require('crypto');
 
@@ -48,9 +48,9 @@ async function vertexToken() {
     return cachedToken.value;
 }
 
-// 呼び出し先の URL とヘッダーを組み立てる
-async function endpoint(model) {
-    if (VERTEX_SA) {
+// 呼び出し先の URL とヘッダーを組み立てる。route は 'key'（ハートアップの Gemini の鍵）か 'vertex'（予備の Google Cloud 経由）
+async function endpoint(route, model) {
+    if (route === 'vertex') {
         const host = VERTEX_LOCATION === 'global' ? 'aiplatform.googleapis.com' : `${VERTEX_LOCATION}-aiplatform.googleapis.com`;
         return {
             url: `https://${host}/v1/projects/${VERTEX_SA.project_id}/locations/${VERTEX_LOCATION}/publishers/google/models/${model}:generateContent`,
@@ -62,15 +62,34 @@ async function endpoint(model) {
 
 // Google Cloud 経由は contents に role が要る
 function withRole(body) {
-    if (!VERTEX_SA || !Array.isArray(body.contents)) return body;
+    if (!Array.isArray(body.contents)) return body;
     return { ...body, contents: body.contents.map(c => (c.role ? c : { role: 'user', ...c })) };
+}
+
+function keyConfigured() {
+    return !!GEMINI_API_KEY && !GEMINI_API_KEY.includes('YOUR_');
+}
+
+// 使う順番: まずハートアップの Gemini の鍵。鍵そのものが断られたとき（無効・権限なし・残高なし）だけ、予備の Google Cloud 経由に回す。
+// 断られた鍵を毎回試すと遅くなるので、10 分間は予備を先に使う。鍵が直れば自動で鍵に戻る。
+let keyRefusedUntil = 0;
+function routes() {
+    const list = [];
+    const keyOk = keyConfigured() && Date.now() >= keyRefusedUntil;
+    if (keyOk) list.push('key');
+    if (VERTEX_SA) list.push('vertex');
+    if (!keyOk && keyConfigured() && !VERTEX_SA) list.push('key');
+    return list;
+}
+function keyRefused(status, message) {
+    return status === 401 || status === 402 || status === 403 || (status === 400 && /API key/i.test(message || ''));
 }
 
 const IMAGE_MODELS = [process.env.GEMINI_IMAGE_MODEL, 'gemini-3-pro-image', 'gemini-3.1-flash-image', 'gemini-2.5-flash-image'].filter(Boolean);
 const TRANSCRIBE_MODELS = [process.env.GEMINI_TRANSCRIBE_MODEL, 'gemini-3.5-transcribe', 'gemini-2.5-flash'].filter(Boolean);
 
 function isConfigured() {
-    return !!VERTEX_SA || (!!GEMINI_API_KEY && !GEMINI_API_KEY.includes('YOUR_'));
+    return !!VERTEX_SA || keyConfigured();
 }
 
 function setCors(res) {
@@ -104,23 +123,40 @@ async function readJson(req) {
 // 400（その書き方を受け付けない）・404（モデルがない）のときだけ次を試す。それ以外の失敗はそのまま返す。
 async function generate(models, bodies) {
     let last = { status: 500, message: 'Gemini の呼び出しに失敗しました' };
+    for (const route of routes()) {
+        const result = await generateVia(route, models, bodies);
+        if (result.ok) return result;
+        last = result;
+        if (route === 'key' && keyRefused(result.status, result.message)) {
+            keyRefusedUntil = Date.now() + 10 * 60 * 1000;
+            console.error('Gemini の鍵が断られたため、予備の経路に回します:', result.status, result.message);
+            continue;
+        }
+        break;
+    }
+    return { ok: false, status: last.status, message: last.message };
+}
+
+async function generateVia(route, models, bodies) {
+    let last = { status: 500, message: 'Gemini の呼び出しに失敗しました' };
     for (const model of models) {
         for (const body of bodies) {
-            const target = await endpoint(model);
+            const target = await endpoint(route, model);
             const response = await fetch(target.url, {
                 method: 'POST',
                 headers: target.headers,
-                body: JSON.stringify(withRole(body))
+                body: JSON.stringify(route === 'vertex' ? withRole(body) : body)
             });
             const text = await response.text();
             if (response.ok) {
-                try { return { ok: true, model, data: JSON.parse(text) }; } catch (e) { last = { status: 502, message: '応答を読み取れませんでした' }; continue; }
+                try { return { ok: true, model, route, data: JSON.parse(text) }; } catch (e) { last = { status: 502, message: '応答を読み取れませんでした' }; continue; }
             }
             let message = `Gemini エラー (${response.status})`;
             try { message = JSON.parse(text).error?.message || message; } catch (e) { /* ignore */ }
-            console.error('Gemini error:', model, response.status, message);
+            console.error('Gemini error:', route, model, response.status, message);
             last = { status: response.status, message };
             if (response.status !== 400 && response.status !== 404) return { ok: false, ...last };
+            if (keyRefused(response.status, message)) return { ok: false, ...last };
         }
     }
     return { ok: false, ...last };

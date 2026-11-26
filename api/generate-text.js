@@ -39,7 +39,7 @@ module.exports = async (req, res) => {
         const out = result.data.candidates?.[0]?.content?.parts || [];
         const text = out.filter(p => !p.thought).map(p => p.text || '').join('');
         if (!text.trim()) return json(res, 502, { error: 'AI から文章が返りませんでした。もう一度お試しください' });
-        return json(res, 200, { text, model: result.model });
+        return json(res, 200, { text, model: result.model, route: result.route });
     } catch (error) {
         console.error('generate-text error:', error);
         return json(res, 500, { error: error.message || 'サーバーエラー' });
