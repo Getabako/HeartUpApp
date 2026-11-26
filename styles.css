@@ -3617,3 +3617,64 @@ html, body { overflow-x: clip; max-width: 100%; }
     flex: 1;
     min-width: 0;
 }
+
+/* ============================================
+   一括記録「参加児童を選択」: 1 人 1 行にまとめる・行（あ・か・さ…）でしぼる（2026-11-27）
+   ============================================ */
+.batch-row-filter { margin: 0.6rem 0 0.8rem; }
+
+.children-selection {
+    display: block;
+    max-height: 60vh;
+    padding: 0.5rem;
+}
+
+.children-selection .child-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-height: 48px;
+    margin: 0 0 6px;
+    padding: 0.4rem 0.7rem;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-weight: normal;
+}
+.children-selection .child-checkbox-label[hidden] { display: none; }
+.children-selection .child-checkbox-label:last-child { margin-bottom: 0; }
+.children-selection .child-checkbox-label:has(input:checked) { border-color: #4CAF50; background: #e8f5e9; }
+.children-selection .child-checkbox-label input[type="checkbox"] { margin: 0; }
+
+.children-selection .student-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 2px 0.6rem;
+}
+.children-selection .student-name {
+    display: inline-flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0 0.5rem;
+    margin: 0;
+    font-size: 1rem;
+    line-height: 1.6;
+    letter-spacing: 0.03em;
+}
+.children-selection .student-kana { display: inline; font-size: 0.75rem; }
+.children-selection .student-metadata { gap: 4px; flex-wrap: wrap; min-width: 0; margin: 0; }
+/* 学年・特性・拠点は押せない表示なので、丸いボタンの形にしない */
+.children-selection .student-badge {
+    padding: 1px 6px;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    line-height: 1.6;
+    white-space: nowrap;
+}
+
+.batch-selected-count { margin-top: 0.6rem; font-size: 0.9rem; color: #555; }
+.batch-selected-count strong { font-size: 1.1rem; color: #2e7d32; }

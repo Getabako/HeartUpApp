@@ -3750,6 +3750,7 @@ async function renderBatchRecordStep2(container) {
     const selectedActivityLabels = batchRecordState.activities.map(a => activityLabels[a]).join('、');
 
     let childrenCheckboxes = '';
+    const rowHas = {};   // その行（あ・か・さ…）に児童がいるか
     if (sortedStudents.length === 0) {
         childrenCheckboxes = '<p style="color: #666; padding: 1rem;">登録されている児童がいません。先にアセスメントを作成してください。</p>';
     } else {
@@ -3766,9 +3767,11 @@ async function renderBatchRecordStep2(container) {
             const locationBadge = student.locationName !== '未設定' ? 
                 `<span class="student-badge location-badge" title="拠点">${student.locationName}</span>` : '';
             
+            const row = batchRowOf(student);
+            rowHas[row] = true;
             childrenCheckboxes += `
-                <label class="child-checkbox-label">
-                    <input type="checkbox" name="batchChild" value="${student.name}" ${checked}>
+                <label class="child-checkbox-label" data-row="${row}"${batchRecordState.rowFilter && batchRecordState.rowFilter !== row ? ' hidden' : ''}>
+                    <input type="checkbox" name="batchChild" value="${student.name}" ${checked} onchange="updateBatchSelectedCount()">
                     <div class="student-info">
                         <span class="student-name">${student.name}${student.kana ? `<span class="student-kana">${student.kana}</span>` : ''}</span>
                         <div class="student-metadata">
@@ -3836,10 +3839,16 @@ async function renderBatchRecordStep2(container) {
                         </div>
                     </div>
                     
+                    <div class="am-row-filter batch-row-filter" id="batchRowFilter" role="group" aria-label="名前の行でしぼる">
+                        ${[['', '全部'], ['あ', 'あ'], ['か', 'か'], ['さ', 'さ'], ['た', 'た'], ['な', 'な'], ['は', 'は'], ['ま', 'ま'], ['や', 'や'], ['ら', 'ら'], ['わ', 'わ'], ['他', 'ほか']].map(([row, label]) =>
+                            `<button type="button" class="am-row-btn${(batchRecordState.rowFilter || '') === row ? ' active' : ''}" data-row="${row}" onclick="batchSetRow('${row}')"${row && !rowHas[row] ? ' disabled' : ''}>${label}</button>`
+                        ).join('')}
+                    </div>
+
                     <div class="children-selection" id="batchChildrenList">
                         ${childrenCheckboxes}
                     </div>
-                    <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">※1名以上選択してください</p>
+                    <p class="batch-selected-count">えらんだ児童: <strong id="batchSelectedCount">${batchRecordState.selectedChildren.length}</strong> 名</p>
                 </div>
 
                 <div class="wizard-buttons">
@@ -3852,21 +3861,52 @@ async function renderBatchRecordStep2(container) {
 }
 
 /**
- * 全選択
+ * 名前の行（あ行・か行…）を求める。ふりがながあればふりがな、なければ名前の最初の文字で見る
  */
-function selectAllBatchChildren() {
-    document.querySelectorAll('#batchChildrenList input[type="checkbox"]').forEach(cb => {
-        cb.checked = true;
-    });
+function batchRowOf(student) {
+    if (typeof amRowOf === 'function') return amRowOf({ childNameKana: student.kana, name: student.name });
+    return '他';
 }
 
 /**
- * 選択解除
+ * 行でしぼる（表示を切りかえるだけ。ほかの行でえらんだ児童はそのまま残る）
+ */
+function batchSetRow(row) {
+    batchRecordState.rowFilter = row;
+    document.querySelectorAll('#batchRowFilter .am-row-btn').forEach(b => b.classList.toggle('active', b.dataset.row === row));
+    document.querySelectorAll('#batchChildrenList .child-checkbox-label').forEach(label => {
+        label.hidden = !!row && label.dataset.row !== row;
+    });
+    const list = document.getElementById('batchChildrenList');
+    if (list) list.scrollTop = 0;
+}
+
+/**
+ * えらんだ人数の表示を更新
+ */
+function updateBatchSelectedCount() {
+    const el = document.getElementById('batchSelectedCount');
+    if (el) el.textContent = document.querySelectorAll('#batchChildrenList input[type="checkbox"]:checked').length;
+}
+
+/**
+ * 全選択（いま表示している児童だけ）
+ */
+function selectAllBatchChildren() {
+    document.querySelectorAll('#batchChildrenList .child-checkbox-label:not([hidden]) input[type="checkbox"]').forEach(cb => {
+        cb.checked = true;
+    });
+    updateBatchSelectedCount();
+}
+
+/**
+ * 選択解除（いま表示している児童だけ）
  */
 function deselectAllBatchChildren() {
-    document.querySelectorAll('#batchChildrenList input[type="checkbox"]').forEach(cb => {
+    document.querySelectorAll('#batchChildrenList .child-checkbox-label:not([hidden]) input[type="checkbox"]').forEach(cb => {
         cb.checked = false;
     });
+    updateBatchSelectedCount();
 }
 
 /**
@@ -3883,6 +3923,7 @@ async function changeBatchLocationFilter(locationName) {
     }
 
     batchRecordState.locationFilter = locationName;
+    batchRecordState.rowFilter = '';   // 拠点を変えたら行のしぼりこみは解く（その行に児童がいないことがあるため）
 
     const container = document.getElementById('batchRecordContent');
     await renderBatchRecordStep2(container);
