@@ -26,9 +26,12 @@ module.exports = async (req, res) => {
 
     const temperature = typeof body.temperature === 'number' ? body.temperature : 0.7;
     const contents = [{ role: 'user', parts }];
+    // 記録や連絡帳にそのまま貼られるので、前置きや結びを書かせない
+    const systemInstruction = { parts: [{ text: '求められた本文だけを出力する。「以下の通り作成しました」「ご提案します」のような前置き、あいさつ、結びの言葉、区切り線（---）は書かない。' }] };
 
     try {
         const result = await generate(TEXT_MODELS, [
+            { contents, systemInstruction, generationConfig: { temperature, maxOutputTokens: 16384 }, safetySettings: SAFETY },
             { contents, generationConfig: { temperature, maxOutputTokens: 16384 }, safetySettings: SAFETY },
             { contents }
         ]);
