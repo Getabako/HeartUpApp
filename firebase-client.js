@@ -23,6 +23,9 @@ const heartUpDB = {
         }
         this.db = firebase.firestore();
         this.auth = firebase.auth();
+        // 認証状態をブラウザに永続化（ページ遷移後もログインを維持）。
+        // ログインボタンを押した後にこれを待つと、iPhone ではログインの小窓が止められるので、ここで先に済ませる
+        this.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(e => console.warn('setPersistence失敗:', e));
         this.initialized = true;
         console.log('Firebase client initialized');
     },
@@ -73,13 +76,11 @@ const heartUpDB = {
     // 認証
     // ============================================================
 
-    async signInWithGoogle() {
-        if (!this.isReady()) throw new Error('Firebase未初期化');
-        // 認証状態をブラウザに永続化（ページ遷移後もログインを維持）
-        try {
-            await this.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-        } catch (e) { console.warn('setPersistence失敗:', e); }
+    // ボタンを押したその場で小窓を開く（前に await を挟まない。挟むと iPhone で小窓が止められる）
+    signInWithGoogle() {
+        if (!this.isReady()) return Promise.reject(new Error('Firebase未初期化'));
         const provider = new firebase.auth.GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: 'select_account' });
         return this.auth.signInWithPopup(provider);
     },
 

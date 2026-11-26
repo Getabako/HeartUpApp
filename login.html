@@ -35,7 +35,7 @@
         }
         .google-btn:hover { background: #f7f8f8; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
         .google-btn svg { width: 20px; height: 20px; }
-        .error-msg { color: #d32f2f; margin-top: 16px; font-size: 14px; display: none; }
+        .error-msg { color: #d32f2f; margin-top: 16px; font-size: 16px; line-height: 1.8; letter-spacing: 0.03em; text-align: left; display: none; }
         .loading { display: none; margin-top: 16px; color: #666; }
     </style>
 </head>
@@ -62,7 +62,7 @@
         window.FIREBASE_CONFIG = { apiKey: '', authDomain: '', projectId: '' };
     </script>
     <script src="config.js?v=20260518" onerror="console.log('config.js not found')"></script>
-    <script src="firebase-client.js?v=20260518"></script>
+    <script src="firebase-client.js?v=20261126"></script>
     <script>
         heartUpDB.init();
 
@@ -90,8 +90,14 @@
                 window.location.href = '/index.html';
             } catch (e) {
                 loadingEl.style.display = 'none';
-                if (e.code === 'auth/popup-closed-by-user') return;
-                errorEl.textContent = e.message;
+                if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
+                const guide = {
+                    'auth/popup-blocked': 'ログインの小窓がブラウザに止められました。画面に「ポップアップをブロックしました」と出ていたら「常に表示」または「許可」を押して、もう一度「Googleでログイン」を押してください。',
+                    'auth/network-request-failed': '通信できませんでした。電波のよい所で、もう一度お試しください。',
+                    'auth/web-storage-unsupported': 'このブラウザの設定ではログインを覚えておけません。プライベートモードを切って、もう一度お試しください。',
+                    'auth/operation-not-supported-in-this-environment': 'この画面ではログインできません。Chrome か Safari で開き直してください。'
+                }[e.code];
+                errorEl.textContent = (guide || 'ログインできませんでした。もう一度お試しください。') + (e.code ? '（' + e.code + '）' : '（' + (e.message || '') + '）');
                 errorEl.style.display = 'block';
             }
         }
