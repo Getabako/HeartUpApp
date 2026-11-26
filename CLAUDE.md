@@ -87,6 +87,12 @@ subagent_type: "media"    → メディア・サブエージェント
 - 最初のユーザーは自動的にadminとして登録される（bootstrapFirstAdmin）
 - スタッフ招待: admin が `staff_invitations` に登録 → スタッフがログイン時に自動プロフィール作成
 
+### LINE などアプリの中の画面で開かれたとき（`inapp-browser.js`、2026-11-26 追加）
+
+- LINE のトークから開くと LINE の中の画面になり、Google のログインができない（Google 側の決まり。白い画面のままになる）
+- 各ページの `<head>` の先頭で `inapp-browser.js` を読み込み、LINE なら `?openExternalBrowser=1` を付けてふつうのブラウザで開き直す。開き直せないとき・ほかのアプリの中の画面のときは「ブラウザで開く」「アドレスをコピー」の案内を出す
+- ログインが要るページを足すときは、同じ 1 行を `<head>` に入れる
+
 ### データ分離
 
 - クエリレベルで `locationId` フィルタリング
