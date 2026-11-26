@@ -115,6 +115,8 @@ subagent_type: "media"    → メディア・サブエージェント
 | 環境変数 | 用途 | 備考 |
 |---------|------|------|
 | `GEMINI_API_KEY` | Gemini API | AI書類生成・練習メニュー生成・ホワイトボード写真の読み取り・練習メニューのイラスト生成・音声入力の文字起こしで使用 |
+| `GOOGLE_VERTEX_SA` | Google Cloud（Vertex AI）経由で Gemini を呼ぶためのサービスアカウント（JSON を base64 にしたもの） | 2026-11-27 追加。これがあると文章・画像・文字起こしはすべて Google Cloud 経由（プロジェクト heartupapp の請求）で動き、`GEMINI_API_KEY` は使わない。元の JSON は `~/.secrets/heartup-vertex-sa.json` |
+| `GEMINI_TEXT_MODEL` | 文章生成のモデル名（任意） | 未設定なら `gemini-3.5-flash` → `gemini-3.8-flash`（`gemini-2.5-flash` は Google Cloud 側で提供終了） |
 | `GEMINI_IMAGE_MODEL` / `GEMINI_TRANSCRIBE_MODEL` | 画像生成・文字起こしのモデル名（任意） | 未設定なら `gemini-3-pro-image`（いちばん高品質。1枚 約0.134ドル）/ `gemini-3.5-transcribe`。使えないときは `gemini-3.1-flash-image` → `gemini-2.5-flash-image` / `gemini-2.5-flash` に自動で切り替え |
 | `IMAGE_DAILY_LIMIT` | 画像生成の1日の目安枚数（任意） | 未設定なら20。端末ごとの目安表示に使う |
 | `FIREBASE_API_KEY` | Firebase APIキー | Firebase Consoleから取得 |
@@ -145,6 +147,7 @@ subagent_type: "media"    → メディア・サブエージェント
 |---------|------|
 | `GET /api/ai-status` | 画像生成・音声認識（どちらも Gemini）が有効かを返す。クライアントはこれを見てUIを切り替える |
 | `POST /api/generate-image` | 練習メニューのイラスト生成。`{ prompt, size, quality }` → `{ image: dataURL }`。キー未設定時は 501 |
+| `POST /api/generate-text` | 文章生成（記録・連絡帳・支援計画・練習メニュー・写真の読み取り）。`{ prompt, images?, temperature? }` → `{ text }`。ブラウザの `gemini-api.js` はここだけを呼ぶ。鍵はブラウザに置かない（2026-11-27。それまでは `config.js` に鍵を書き出してブラウザから直接呼んでいた） |
 | `POST /api/transcribe` | 音声メモの文字起こし。`{ audio: dataURL }` → `{ text }`。キー未設定時は 501 |
 
 - 画像生成も音声の文字起こしも `GEMINI_API_KEY` だけで動く（2026-11-25 本人指示で OpenAI は使わない形に変更。共通部品は `api/_gemini.js`）

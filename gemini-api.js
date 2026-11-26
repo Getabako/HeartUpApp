@@ -59,91 +59,47 @@ class GeminiAPI {
         return false;
     }
 
-    // APIキーが設定されているか確認
+    // AI が使えるか。鍵はサーバー側（/api/generate-text）に置いているので、ブラウザ側では常に使える扱いにする
     isInitialized() {
-        const isInit = this.initialized && this.apiKey && this.apiKey !== 'YOUR_API_KEY_HERE';
-        if (!isInit) {
-            console.log('API not initialized:', {
-                initialized: this.initialized,
-                hasApiKey: !!this.apiKey,
-                apiKeyLength: this.apiKey ? this.apiKey.length : 0
-            });
-        }
-        return isInit;
+        return true;
     }
 
-    // プロンプトを送信して結果を取得
+    // プロンプトを送信して結果を取得（サーバーの /api/generate-text を通す。鍵はブラウザに置かない）
     // options.images: [{ mimeType, data(base64) }] を渡すと画像付き（マルチモーダル）で問い合わせる
     async generateContent(prompt, options = {}) {
-        if (!this.isInitialized()) {
-            throw new Error('APIキーが設定されていません');
-        }
-
-        const parts = [];
-        (options.images || []).forEach(img => {
-            if (img && img.data) {
-                parts.push({ inline_data: { mime_type: img.mimeType || 'image/jpeg', data: img.data } });
-            }
-        });
-        parts.push({ text: prompt });
-
+        const images = (options.images || []).filter(img => img && img.data);
+        let response;
         try {
-            const response = await fetch(`${this.baseURL}?key=${this.apiKey}`, {
+            response = await fetch('/api/generate-text', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    contents: [{
-                        parts
-                    }],
-                    generationConfig: {
-                        temperature: options.temperature !== undefined ? options.temperature : 0.7,
-                        topK: 1,
-                        topP: 1,
-                        maxOutputTokens: 8192,
-                    },
-                    safetySettings: [
-                        {
-                            category: "HARM_CATEGORY_HARASSMENT",
-                            threshold: "BLOCK_NONE"
-                        },
-                        {
-                            category: "HARM_CATEGORY_HATE_SPEECH",
-                            threshold: "BLOCK_NONE"
-                        },
-                        {
-                            category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-                            threshold: "BLOCK_NONE"
-                        },
-                        {
-                            category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-                            threshold: "BLOCK_NONE"
-                        }
-                    ]
+                    prompt,
+                    images,
+                    temperature: options.temperature !== undefined ? options.temperature : 0.7
                 })
             });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('API Response Error:', errorText);
-                try {
-                    const error = JSON.parse(errorText);
-                    if (error.error?.message?.includes('API key not valid')) {
-                        throw new Error('API key not valid. Please pass a valid API key.');
-                    }
-                    throw new Error(error.error?.message || 'API呼び出しに失敗しました');
-                } catch (parseError) {
-                    throw new Error(`API呼び出しに失敗しました: ${errorText}`);
-                }
-            }
-
-            const data = await response.json();
-            return data.candidates[0].content.parts[0].text;
         } catch (error) {
             console.error('Gemini API Error:', error);
-            throw error;
+            throw new Error('通信できませんでした。電波の状態を確かめて、もう一度お試しください');
         }
+
+        let data = {};
+        try { data = await response.json(); } catch (e) { /* 本文なし */ }
+        if (!response.ok) {
+            console.error('API Response Error:', response.status, data);
+            if (response.status === 402 || response.status === 403 || response.status === 501) {
+                throw new Error('AI が一時的に使えなくなっています。管理者（高崎）へお知らせください');
+            }
+            if (response.status === 429) {
+                throw new Error('AI が混み合っています。少し待ってから、もう一度お試しください');
+            }
+            if (response.status === 413) {
+                throw new Error('写真が大きすぎます。小さめの写真でお試しください');
+            }
+            throw new Error(data.error || 'AI の呼び出しに失敗しました。もう一度お試しください');
+        }
+        return data.text;
     }
 
     // 記録を生成

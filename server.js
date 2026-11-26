@@ -121,6 +121,7 @@ app.get('/api/assessment/:fileName', async (req, res) => {
 // 環境変数 GEMINI_API_KEY を設定して `npm run dev` で確認できる
 app.all('/api/ai-status', (req, res) => require('./api/ai-status')(req, res));
 app.all('/api/generate-image', (req, res) => require('./api/generate-image')(req, res));
+app.all('/api/generate-text', (req, res) => require('./api/generate-text')(req, res));
 app.all('/api/transcribe', (req, res) => require('./api/transcribe')(req, res));
 
 // Initialize and start server
