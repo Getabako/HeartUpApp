@@ -80,6 +80,12 @@ subagent_type: "media"    → メディア・サブエージェント
 - Firebase未設定の場合はlocalStorageのみで動作（後方互換性維持）
 - Google Drive連携は廃止済み（`google-drive-api.js`は削除済み）
 
+### Firebase のプロジェクトは 2 つある（取り違えない・2026-11-27）
+
+- **本番は `heartup-app`**（ハイフンあり）。先方（ハートアップ）側の Google アカウントの持ち物で、高崎のアカウント（gcloud）からは見えない。Vercel の `FIREBASE_PROJECT_ID` はこちら
+- `heartupapp`（ハイフンなし）は高崎名義の旧プロジェクト。2026-05-23 までの古いデータが残っているだけで、本番はつないでいない。いまは AI の予備経路（Vertex AI）にだけ使う
+- gcloud で見えるのは旧プロジェクトのほう。本番のデータやスタッフを調べるつもりで旧プロジェクトを見ない
+
 ### 認証（Firebase Auth + Google OAuth）
 
 - `login.html` でGoogleログイン → `staff_profiles` 照合 → 未招待は「承認待ち」
