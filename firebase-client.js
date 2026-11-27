@@ -779,7 +779,8 @@ const heartUpDB = {
 
     async getGeneratedMenus() {
         if (!this.isReady()) return [];
-        const snapshot = await this._locationQuery('generated_menus').get();
+        // 練習メニューは全拠点で共有する（どの拠点が作ったものも見られる）
+        const snapshot = await this._locationQuery('generated_menus', true).get();
         return this._sortByCreatedDesc(snapshot.docs).map(doc => ({ id: doc.id, ...doc.data(), created_at: this._ts(doc.data().createdAt) }));
     },
 

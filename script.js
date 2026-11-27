@@ -4393,7 +4393,7 @@ async function generateBatchRecords() {
     container.innerHTML = `
         <div class="ai-loading">
             <img src="soccerball.png" alt="読み込み中" class="ai-loading-ball">
-            <span class="ai-loading-text">記録を一括生成中... (${batchRecordState.selectedChildren.length}名分)</span>
+            <span class="ai-loading-text" id="batchProgressText">記録と連絡帳を作成中... (${batchRecordState.selectedChildren.length}名分)</span>
         </div>
     `;
 
@@ -4453,9 +4453,22 @@ async function generateBatchRecords() {
             };
 
             let generatedText = '';
+            let parentNote = '';
+
+            const progress = document.getElementById('batchProgressText');
+            if (progress) progress.textContent = `記録と連絡帳を作成中... (${results.length + 1} / ${batchRecordState.selectedChildren.length} 名)`;
 
             if (geminiAPI.isInitialized()) {
-                generatedText = await geminiAPI.generateRecord(recordData);
+                // 記録と連絡帳を同時に作る（連絡帳だけ失敗しても、記録は残す。あとで作り直せる）
+                const noteJob = geminiAPI.generateParentNote({
+                    staffNote: observation,
+                    childName,
+                    activities: selectedActivityLabels,
+                    date: batchRecordState.date,
+                    nonSoccer: recordData.nonSoccer || batchRecordState.activities.every(a => GeminiAPI.NON_SOCCER_ACTIVITIES.includes(a)),
+                    styleRules: recordData.parentNoteStyle
+                }).catch(e => { console.error(`連絡帳生成エラー (${childName}):`, e); return ''; });
+                [generatedText, parentNote] = await Promise.all([geminiAPI.generateRecord(recordData), noteJob]);
             } else {
                 generatedText = `【活動記録】\n\n日付: ${batchRecordState.date}\n対象児童: ${childName}\n活動内容: ${selectedActivityLabels}\n\n◆ 活動の様子\n${observation}\n\n※ Gemini APIを設定すると、より詳細な記録が自動生成されます`;
             }
@@ -4463,19 +4476,22 @@ async function generateBatchRecords() {
             // マークダウンをHTMLに変換して保存（読みやすい形式で永続化）
             const renderedHtml = `<div class="record-rendered" style="line-height:1.8;color:#333;">${convertMarkdownToHTML(generatedText)}</div>`;
 
-            // dataAdapterに保存
+            // dataAdapterに保存（連絡帳も同じ記録に入れる）
             const reportKey = `${childName}_記録_${batchRecordState.date}_batch.html`;
-            const saveResult = await dataAdapter.saveDailyReport(reportKey, renderedHtml, childName, batchRecordState.date, {
+            const reportData = {
                 activity: recordData.activityType,
                 observation: recordData.observation,
                 rawMarkdown: generatedText,
                 practiceMenuTitle: batchRecordState.menuTitle || ''
-            });
+            };
+            if (parentNote) reportData.parentNote = parentNote;
+            const saveResult = await dataAdapter.saveDailyReport(reportKey, renderedHtml + (parentNote ? parentNoteBlockHtml(parentNote) : ''), childName, batchRecordState.date, reportData);
 
             results.push({
                 childName,
                 recordData,
                 generatedText,
+                parentNote,
                 renderedHtml,
                 reportKey,
                 reportId: saveResult?.id || null
@@ -4495,6 +4511,12 @@ async function generateBatchRecords() {
             <button class="btn-secondary" onclick="showBatchRecordForm()">最初からやり直す</button>
         `;
     }
+}
+
+// 保存する記録の下に付ける、連絡帳のかたまり
+function parentNoteBlockHtml(note) {
+    const escaped = String(note).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return `\n<div class="saved-parent-note" style="background:#fff8e1;border:2px solid #ffb300;padding:16px 18px;margin-top:24px;border-radius:8px;">\n<div style="color:#f57c00;font-weight:bold;font-size:1.05rem;margin-bottom:10px;border-left:4px solid #f57c00;padding-left:10px;">保護者向け連絡帳</div>\n<div style="white-space:pre-wrap;line-height:1.8;color:#333;">${escaped}</div>\n</div>`;
 }
 
 /**
@@ -4518,11 +4540,11 @@ function renderBatchRecordResults(container, results) {
                 <div class="batch-result-content" id="batchResult_${index}">
                     ${convertMarkdownToHTML(result.generatedText)}
                 </div>
-                <div class="parent-note-section" id="parentNote_${index}" style="display: none;">
+                <div class="parent-note-section" id="parentNote_${index}" style="display: ${result.parentNote ? 'block' : 'none'};">
                     <div class="parent-note-header">
                         <strong>保護者向け連絡帳</strong>
                     </div>
-                    <div class="parent-note-content"></div>
+                    <div class="parent-note-content">${result.parentNote ? String(result.parentNote).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : ''}</div>
                     <button class="btn-small" onclick="copyParentNote(${index})">コピー</button>
                 </div>
             </div>
@@ -4539,7 +4561,7 @@ function renderBatchRecordResults(container, results) {
 
             <div class="batch-summary" style="background: #e8f5e9; border-color: #4CAF50;">
                 <h3 style="color: #2e7d32; margin-bottom: 0.5rem;">一括生成完了</h3>
-                <p>${results.length}名分の記録を保存しました。</p>
+                <p>${results.length}名分の記録と連絡帳を保存しました。${results.some(r => !r.parentNote) ? '連絡帳を作れなかった児童がいます。下の「連絡帳を作り直す」を押してください。' : ''}</p>
             </div>
 
             <div class="batch-tabs-container">
@@ -4554,7 +4576,7 @@ function renderBatchRecordResults(container, results) {
 
             <div class="wizard-buttons">
                 <button type="button" class="btn-secondary" onclick="generateAllParentNotes()">
-                    連絡帳文章を一括生成
+                    連絡帳を作り直す
                 </button>
                 <button type="button" class="btn-primary" onclick="showBatchRecordForm()">新しい一括記録を作成</button>
             </div>
@@ -4630,11 +4652,7 @@ async function generateAllParentNotes() {
                     try {
                         const targetKey = result.reportId || result.reportKey;
                         if (targetKey) {
-                            const escaped = note.parentNote
-                                .replace(/&/g, '&amp;')
-                                .replace(/</g, '&lt;')
-                                .replace(/>/g, '&gt;');
-                            const parentNoteHtml = `\n<div class="saved-parent-note" style="background:#fff8e1;border:2px solid #ffb300;padding:16px 18px;margin-top:24px;border-radius:8px;">\n<div style="color:#f57c00;font-weight:bold;font-size:1.05rem;margin-bottom:10px;border-left:4px solid #f57c00;padding-left:10px;">保護者向け連絡帳</div>\n<div style="white-space:pre-wrap;line-height:1.8;color:#333;">${escaped}</div>\n</div>`;
+                            const parentNoteHtml = parentNoteBlockHtml(note.parentNote);
                             const baseHtml = result.renderedHtml || `<div class="record-rendered" style="line-height:1.8;color:#333;">${convertMarkdownToHTML(result.generatedText)}</div>`;
                             const newHtml = baseHtml + parentNoteHtml;
                             await dataAdapter.updateDailyReport(targetKey, {
@@ -4643,6 +4661,7 @@ async function generateAllParentNotes() {
                                     activity: result.recordData.activityType,
                                     observation: result.recordData.observation,
                                     rawMarkdown: result.generatedText,
+                                    practiceMenuTitle: batchRecordState.menuTitle || '',
                                     parentNote: note.parentNote
                                 }
                             });
