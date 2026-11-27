@@ -3449,7 +3449,7 @@ function sortStudents(students, sortBy) {
 // ============================================================
 // メモをためる（気づいたときに児童ごとのメモをためておき、一括記録でまとめて使う）
 // ============================================================
-let memoStockState = { date: '', row: '', child: '', students: [], stock: [] };
+let memoStockState = { date: '', row: '', picked: [], draft: '', students: [], stock: [] };
 
 const memoEsc = t => String(t || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -3490,19 +3490,19 @@ function renderMemoStock() {
 
     const childButtons = shown.length === 0
         ? '<p style="color:#666; padding:0.5rem;">児童がいません。</p>'
-        : shown.map(s => `<button type="button" class="memo-child-btn${st.child === s.name ? ' active' : ''}" data-name="${memoEsc(s.name)}" onclick="memoStockPick(this.dataset.name)">
+        : shown.map(s => `<button type="button" class="memo-child-btn${st.picked.includes(s.name) ? ' active' : ''}" aria-pressed="${st.picked.includes(s.name)}" data-name="${memoEsc(s.name)}" onclick="memoStockPick(this.dataset.name)">
                 <span class="memo-child-name">${memoEsc(s.name)}</span>${s.kana ? `<span class="memo-child-kana">${memoEsc(s.kana)}</span>` : ''}${countBy[s.name] ? `<span class="memo-child-count">${countBy[s.name]}件</span>` : ''}
             </button>`).join('');
 
-    const inputArea = st.child ? `
+    const inputArea = st.picked.length ? `
         <div class="memo-input-box">
-            <p class="memo-input-title"><strong>${memoEsc(st.child)}</strong> さんのメモ</p>
-            <textarea id="memoStockText" placeholder="気づいたことを書く、または「音声入力」を押して話す"></textarea>
+            <p class="memo-input-title"><strong>${st.picked.map(memoEsc).join('、')}</strong> さんのメモ${st.picked.length > 1 ? `（${st.picked.length} 名に同じメモが入ります）` : ''}</p>
+            <textarea id="memoStockText" oninput="memoStockState.draft = this.value" placeholder="気づいたことを書く、または「音声入力」を押して話す">${memoEsc(st.draft)}</textarea>
             <div class="memo-tools">
                 ${typeof VoiceInput !== 'undefined' ? VoiceInput.button('memoStockText') : ''}
                 <button type="button" class="btn-primary" id="memoStockSaveBtn" onclick="memoStockSave()">このメモをためる</button>
             </div>
-        </div>` : '<p class="memo-input-hint">上の一覧から、メモを書く児童を押してください。</p>';
+        </div>` : '<p class="memo-input-hint">上の一覧から、メモを書く児童を押してください。何人でも選べます。</p>';
 
     const list = st.stock.length === 0
         ? '<p style="color:#666;">この日のメモは、まだありません。</p>'
@@ -3522,7 +3522,7 @@ function renderMemoStock() {
                 <input type="date" id="memoStockDate" value="${st.date}" onchange="memoStockSetDate(this.value)">
             </div>
             <div class="form-group">
-                <label>児童を選ぶ</label>
+                <label>児童を選ぶ（何人でも選べます。もう一度押すと外れます）</label>
                 <div class="am-row-filter batch-row-filter" role="group" aria-label="名前の行でしぼる">
                     ${rows.map(([row, label]) => `<button type="button" class="am-row-btn${st.row === row ? ' active' : ''}" onclick="memoStockSetRow('${row}')"${row && !rowHas[row] ? ' disabled' : ''}>${label}</button>`).join('')}
                 </div>
@@ -3534,11 +3534,27 @@ function renderMemoStock() {
         </div>`;
 }
 
-function memoStockSetRow(row) { memoStockState.row = row; renderMemoStock(); }
+// 書きかけのメモを覚えてから描き直す（児童を足したり行を変えたりしても消えないように）
+function memoStockKeepDraft() {
+    const ta = document.getElementById('memoStockText');
+    if (ta) memoStockState.draft = ta.value;
+}
+// 録音している間に描き直すと、話した内容の入れ先が無くなる。先に録音を止めてもらう
+function memoStockRecording() {
+    if (typeof VoiceInput !== 'undefined' && VoiceInput._active) { showToast('録音を止めてから、児童を選び直してください'); return true; }
+    return false;
+}
+function memoStockSetRow(row) { if (memoStockRecording()) return; memoStockKeepDraft(); memoStockState.row = row; renderMemoStock(); }
 function memoStockPick(name) {
-    memoStockState.child = name;
+    if (memoStockRecording()) return;
+    memoStockKeepDraft();
+    const st = memoStockState;
+    st.picked = st.picked.includes(name) ? st.picked.filter(n => n !== name) : [...st.picked, name];
+    const list = document.querySelector('.memo-child-list');
+    const y = list ? list.scrollTop : 0;
     renderMemoStock();
-    document.getElementById('memoStockText')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    const list2 = document.querySelector('.memo-child-list');
+    if (list2) list2.scrollTop = y;
 }
 async function memoStockSetDate(date) {
     if (!date) return;
@@ -3548,20 +3564,28 @@ async function memoStockSetDate(date) {
 async function memoStockSave() {
     const ta = document.getElementById('memoStockText');
     const text = (ta?.value || '').trim();
-    if (!memoStockState.child) { showToast('児童を選んでください'); return; }
+    const picked = memoStockState.picked.slice();
+    if (picked.length === 0) { showToast('児童を選んでください'); return; }
     if (!text) { showToast('メモを入力してください'); return; }
     const btn = document.getElementById('memoStockSaveBtn');
     if (btn) { btn.disabled = true; btn.textContent = '保存中...'; }
     try {
-        await dataAdapter.addMemoStock({ childName: memoStockState.child, date: memoStockState.date, text });
+        // 1 人ずつ保存する。途中で失敗したら、保存できた児童は選択から外し、残りだけやり直せるようにする
+        for (const name of picked) {
+            await dataAdapter.addMemoStock({ childName: name, date: memoStockState.date, text });
+            memoStockState.picked = memoStockState.picked.filter(n => n !== name);
+        }
         memoStockState.stock = await dataAdapter.getMemoStock(memoStockState.date);
-        showToast(`${memoStockState.child} さんのメモをためました`);
-        memoStockState.child = '';
+        showToast(picked.length > 1 ? `${picked.length} 名のメモをためました` : `${picked[0]} さんのメモをためました`);
+        memoStockState.draft = '';
         renderMemoStock();
     } catch (e) {
         console.error('メモの保存エラー:', e);
-        showToast('メモを保存できませんでした。もう一度お試しください');
-        if (btn) { btn.disabled = false; btn.textContent = 'このメモをためる'; }
+        const left = memoStockState.picked.length;
+        showToast(left < picked.length ? `${left} 名分を保存できませんでした。もう一度「このメモをためる」を押してください` : 'メモを保存できませんでした。もう一度お試しください');
+        try { memoStockState.stock = await dataAdapter.getMemoStock(memoStockState.date); } catch (e2) { /* ignore */ }
+        memoStockState.draft = text;
+        renderMemoStock();
     }
 }
 async function memoStockDelete(id) {
