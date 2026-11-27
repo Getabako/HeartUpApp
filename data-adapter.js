@@ -2,6 +2,33 @@
 // localStorage互換のインターフェースを提供し、Supabase接続時はSupabaseを使う
 // 旧コードの JSON.parse(localStorage.getItem('xxx')) を await dataAdapter.getXxx() に置換するだけで移行可能
 
+// 端末内の保存（localStorage）は 5MB ほどで一杯になる。一杯になっても、記録の作成そのものは止めない。
+// Firebase につながっているときの端末内の保存は「控え」でしかないので、DB に入っている分を捨てて入れ直す。
+// それでも入らなければ控えをあきらめる（本体は DB にある）。
+// Firebase なし（端末内だけで使う）のときは、ほかに保存先が無いので分かる言葉でエラーにする。
+function lsSet(key, value) {
+    try {
+        localStorage.setItem(key, value);
+        return;
+    } catch (e) {
+        const dbReady = typeof heartUpDB !== 'undefined' && heartUpDB.isReady();
+        if (!dbReady) {
+            throw new Error('この端末の保存場所がいっぱいで、保存できませんでした。古い記録を消してから、もう一度お試しください。');
+        }
+        try {
+            const obj = JSON.parse(value);
+            if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+                const kept = {};
+                Object.entries(obj).forEach(([k, v]) => { if (!(v && v._supabaseId)) kept[k] = v; });
+                localStorage.setItem(key, JSON.stringify(kept));
+                return;
+            }
+        } catch (e2) { /* 下で控えをあきらめる */ }
+        try { localStorage.removeItem(key); } catch (e3) { /* ignore */ }
+        console.warn('端末内の控えを保存できませんでした（DB には保存済み）:', key);
+    }
+}
+
 const dataAdapter = {
 
     // ============================================================
@@ -53,7 +80,7 @@ const dataAdapter = {
         const children = JSON.parse(localStorage.getItem('children') || '{}');
         if (!children[name]) {
             children[name] = { createdAt: new Date().toISOString(), ...(metadata || {}) };
-            localStorage.setItem('children', JSON.stringify(children));
+            lsSet('children', JSON.stringify(children));
         }
     },
 
@@ -70,7 +97,7 @@ const dataAdapter = {
         const children = JSON.parse(localStorage.getItem('children') || '{}');
         if (children[childName]) {
             children[childName].locationId = newLocationId || '';
-            localStorage.setItem('children', JSON.stringify(children));
+            lsSet('children', JSON.stringify(children));
         }
     },
 
@@ -89,7 +116,7 @@ const dataAdapter = {
             ['childNameKana', 'birthDate', 'gender', 'diagnosis', 'staffNotes'].forEach(k => {
                 if (info[k] !== undefined) children[childName][k] = info[k];
             });
-            localStorage.setItem('children', JSON.stringify(children));
+            lsSet('children', JSON.stringify(children));
         }
     },
 
@@ -112,7 +139,7 @@ const dataAdapter = {
         // localStorageキャッシュも削除
         const children = JSON.parse(localStorage.getItem('children') || '{}');
         delete children[childName];
-        localStorage.setItem('children', JSON.stringify(children));
+        lsSet('children', JSON.stringify(children));
 
         // 関連データも削除
         ['assessments', 'supportPlans', 'dailyReports', 'reviews'].forEach(key => {
@@ -122,7 +149,7 @@ const dataAdapter = {
                 const shouldDelete = v.childName === childName || v.data?.childName === childName || k.startsWith(childName + '_');
                 if (!shouldDelete) updated[k] = v;
             });
-            localStorage.setItem(key, JSON.stringify(updated));
+            lsSet(key, JSON.stringify(updated));
         });
 
         console.log('dataAdapter.deleteChildAndRelatedData 完了:', childName);
@@ -195,7 +222,7 @@ const dataAdapter = {
             createdAt: new Date().toISOString(),
             filePath: `temp/assessmentSheet/${fileName}`
         };
-        localStorage.setItem('assessments', JSON.stringify(assessments));
+        lsSet('assessments', JSON.stringify(assessments));
     },
 
     async deleteAssessment(fileNameOrId) {
@@ -217,7 +244,7 @@ const dataAdapter = {
         }
         const assessments = JSON.parse(localStorage.getItem('assessments') || '{}');
         delete assessments[fileNameOrId];
-        localStorage.setItem('assessments', JSON.stringify(assessments));
+        lsSet('assessments', JSON.stringify(assessments));
     },
 
     // ============================================================
@@ -285,7 +312,7 @@ const dataAdapter = {
             createdAt: new Date().toISOString(),
             type: planType || 'support'
         };
-        localStorage.setItem('supportPlans', JSON.stringify(plans));
+        lsSet('supportPlans', JSON.stringify(plans));
     },
 
     async updateSupportPlan(fileNameOrId, updates) {
@@ -309,7 +336,7 @@ const dataAdapter = {
         if (plans[fileNameOrId]) {
             if (updates.html !== undefined) plans[fileNameOrId].html = updates.html;
             if (updates.planData !== undefined) plans[fileNameOrId].planData = updates.planData;
-            localStorage.setItem('supportPlans', JSON.stringify(plans));
+            lsSet('supportPlans', JSON.stringify(plans));
         }
     },
 
@@ -330,7 +357,7 @@ const dataAdapter = {
         }
         const plans = JSON.parse(localStorage.getItem('supportPlans') || '{}');
         delete plans[fileNameOrId];
-        localStorage.setItem('supportPlans', JSON.stringify(plans));
+        lsSet('supportPlans', JSON.stringify(plans));
     },
 
     // ============================================================
@@ -385,10 +412,13 @@ const dataAdapter = {
         if (heartUpDB.isReady()) {
             try {
                 const result = await heartUpDB.createDailyReport(childName, reportDate, html, reportData);
-                this._cacheDailyReportLocally(fileName, childName, reportDate, reportData, result.id);
+                // 控えの保存に失敗しても、DB に入っていれば成功として返す（もう一度押して二重に作られるのを防ぐ）
+                try { this._cacheDailyReportLocally(fileName, childName, reportDate, reportData, result.id); } catch (e) { console.warn(e); }
                 return result;
             } catch (e) {
-                console.error('Supabase saveDailyReport error:', e);
+                // DB に保存できなかったのに端末内だけへ保存すると、ほかの人から見えない記録になる。保存できなかったと伝える
+                console.error('saveDailyReport error:', e);
+                throw new Error('記録を保存できませんでした（' + (e && e.message ? e.message : '通信エラー') + '）。電波のよい場所で、もう一度お試しください。');
             }
         }
         const reports = JSON.parse(localStorage.getItem('dailyReports') || '{}');
@@ -399,7 +429,7 @@ const dataAdapter = {
             data: reportData,
             createdAt: new Date().toISOString()
         };
-        localStorage.setItem('dailyReports', JSON.stringify(reports));
+        lsSet('dailyReports', JSON.stringify(reports));
     },
 
     async updateDailyReport(fileNameOrId, updates) {
@@ -423,7 +453,7 @@ const dataAdapter = {
         if (reports[fileNameOrId]) {
             if (updates.html !== undefined) reports[fileNameOrId].html = updates.html;
             if (updates.reportData !== undefined) reports[fileNameOrId].data = updates.reportData;
-            localStorage.setItem('dailyReports', JSON.stringify(reports));
+            lsSet('dailyReports', JSON.stringify(reports));
         }
     },
 
@@ -444,7 +474,7 @@ const dataAdapter = {
         }
         const reports = JSON.parse(localStorage.getItem('dailyReports') || '{}');
         delete reports[fileNameOrId];
-        localStorage.setItem('dailyReports', JSON.stringify(reports));
+        lsSet('dailyReports', JSON.stringify(reports));
     },
 
     // ============================================================
@@ -510,7 +540,7 @@ const dataAdapter = {
             data: reviewData,
             createdAt: new Date().toISOString()
         };
-        localStorage.setItem('reviews', JSON.stringify(reviews));
+        lsSet('reviews', JSON.stringify(reviews));
     },
 
     async deleteReview(fileNameOrId) {
@@ -530,7 +560,7 @@ const dataAdapter = {
         }
         const reviews = JSON.parse(localStorage.getItem('reviews') || '{}');
         delete reviews[fileNameOrId];
-        localStorage.setItem('reviews', JSON.stringify(reviews));
+        lsSet('reviews', JSON.stringify(reviews));
     },
 
     // ============================================================
@@ -578,7 +608,7 @@ const dataAdapter = {
             createdAt: new Date().toISOString(),
             filePath: `temp/assessmentSheet/${fileName}`
         };
-        localStorage.setItem('assessments', JSON.stringify(assessments));
+        lsSet('assessments', JSON.stringify(assessments));
     },
 
     _cacheSupportPlanLocally(fileName, childName, planData, planType, supabaseId) {
@@ -590,7 +620,7 @@ const dataAdapter = {
             createdAt: new Date().toISOString(),
             type: planType || 'support'
         };
-        localStorage.setItem('supportPlans', JSON.stringify(plans));
+        lsSet('supportPlans', JSON.stringify(plans));
     },
 
     _cacheDailyReportLocally(fileName, childName, reportDate, reportData, supabaseId) {
@@ -602,7 +632,7 @@ const dataAdapter = {
             data: reportData,
             createdAt: new Date().toISOString()
         };
-        localStorage.setItem('dailyReports', JSON.stringify(reports));
+        lsSet('dailyReports', JSON.stringify(reports));
     },
 
     _cacheReviewLocally(fileName, childName, reviewData, supabaseId) {
@@ -613,7 +643,7 @@ const dataAdapter = {
             data: reviewData,
             createdAt: new Date().toISOString()
         };
-        localStorage.setItem('reviews', JSON.stringify(reviews));
+        lsSet('reviews', JSON.stringify(reviews));
     },
 
     // ============================================================
@@ -700,7 +730,7 @@ const dataAdapter = {
         const list = JSON.parse(localStorage.getItem('generatedPracticeMenus') || '[]');
         const saved = { ...menu, id: 'gen_' + Date.now(), createdAt: new Date().toISOString() };
         list.unshift(saved);
-        localStorage.setItem('generatedPracticeMenus', JSON.stringify(list));
+        lsSet('generatedPracticeMenus', JSON.stringify(list));
         return saved;
     },
 
@@ -717,7 +747,7 @@ const dataAdapter = {
         const idx = list.findIndex(m => m.id === id);
         if (idx !== -1) {
             list[idx] = { ...list[idx], ...updates };
-            localStorage.setItem('generatedPracticeMenus', JSON.stringify(list));
+            lsSet('generatedPracticeMenus', JSON.stringify(list));
         }
     },
 
@@ -731,7 +761,7 @@ const dataAdapter = {
             }
         }
         const list = JSON.parse(localStorage.getItem('generatedPracticeMenus') || '[]');
-        localStorage.setItem('generatedPracticeMenus', JSON.stringify(list.filter(m => m.id !== id)));
+        lsSet('generatedPracticeMenus', JSON.stringify(list.filter(m => m.id !== id)));
     },
 
     async getStudyResources() {
@@ -755,7 +785,7 @@ const dataAdapter = {
         const id = 'local_' + Date.now();
         local.push({ id, ...meta, data: base64Data, createdAt: new Date().toISOString() });
         try {
-            localStorage.setItem('uploadedStudyResources', JSON.stringify(local));
+            lsSet('uploadedStudyResources', JSON.stringify(local));
         } catch (e) {
             throw new Error('ブラウザの保存容量を超えました。Firebase接続時はより大きなファイルを保存できます。');
         }
@@ -776,7 +806,7 @@ const dataAdapter = {
             return await heartUpDB.deleteStudyResource(id);
         }
         const local = JSON.parse(localStorage.getItem('uploadedStudyResources') || '[]');
-        localStorage.setItem('uploadedStudyResources', JSON.stringify(local.filter(r => r.id !== id)));
+        lsSet('uploadedStudyResources', JSON.stringify(local.filter(r => r.id !== id)));
     }
 };
 

@@ -1892,7 +1892,12 @@ async function saveRecordManually() {
     const statusDiv = document.getElementById('recordSaveStatus');
 
     const fileName = `${childName}_記録_${date}.html`;
-    await dataAdapter.saveDailyReport(fileName, lastGeneratedRecord, childName, date, { activity: lastRecordData.activityType });
+    try {
+        await dataAdapter.saveDailyReport(fileName, lastGeneratedRecord, childName, date, { activity: lastRecordData.activityType });
+    } catch (e) {
+        statusDiv.innerHTML = `<div style="padding: 0.75rem; background: #ffebee; border-radius: 8px; color: #c62828;">${e.message}</div>`;
+        return;
+    }
     statusDiv.innerHTML = '<div style="padding: 0.75rem; background: #e8f5e9; border-radius: 8px; color: #2e7d32;">保存しました</div>';
 }
 
@@ -3038,10 +3043,11 @@ async function refreshStudentSelects() {
     const childrenNames = Object.keys(children);
 
     // 両方をマージして重複排除し、50音順でソート
-    const studentNames = [...new Set([...assessmentNames, ...childrenNames])].sort((a, b) => {
-        // 日本語50音順ソート
-        return a.localeCompare(b, 'ja');
-    });
+    // ふりがなは児童マスタ、無ければアセスメントから引く
+    const kanaByName = {};
+    Object.values(assessments).forEach(a => { const n = a.data?.childName; if (n && a.data?.childNameKana) kanaByName[n] = a.data.childNameKana; });
+    Object.entries(children).forEach(([n, c]) => { const k = c.childNameKana || c.metadata?.childNameKana; if (k) kanaByName[n] = k; });
+    const studentNames = [...new Set([...assessmentNames, ...childrenNames])].sort((a, b) => compareByKana(a, kanaByName[a], b, kanaByName[b]));
 
     // 記録作成フォームの選択肢を更新
     const recordSelect = document.getElementById('childNameSelect');
@@ -3372,18 +3378,31 @@ const characteristicOrder = {
 /**
  * 生徒データを並び替え
  */
+// あいうえお順の比較。ふりがな（無ければ名前がかなのときは名前）で比べる。
+// 漢字だけでふりがなが無い児童は読みが分からないので、いちばん後ろにまとめる
+function kanaKeyOf(name, kana) {
+    const src = String(kana || '').trim() || String(name || '').trim();
+    const k = src.replace(/[\s　]+/g, '').replace(/[ァ-ヶ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60));
+    return /^[ぁ-ゖー]/.test(k) ? k : '';
+}
+function compareByKana(nameA, kanaA, nameB, kanaB) {
+    const ka = kanaKeyOf(nameA, kanaA);
+    const kb = kanaKeyOf(nameB, kanaB);
+    if (ka && !kb) return -1;
+    if (!ka && kb) return 1;
+    if (ka && kb) {
+        const c = ka.localeCompare(kb, 'ja');
+        if (c !== 0) return c;
+    }
+    return String(nameA || '').localeCompare(String(nameB || ''), 'ja');
+}
+
 function sortStudents(students, sortBy) {
     console.log('sortStudents: 生徒数', students.length, 'sortBy:', sortBy);
     const studentsCopy = [...students];
 
     // 50音順: ふりがながあればふりがな、無ければ漢字名で比較（漢字だけでは50音順にならないため）
-    const byKana = (a, b) => {
-        const ka = (a.kana || a.name || '').replace(/\s+/g, '');
-        const kb = (b.kana || b.name || '').replace(/\s+/g, '');
-        // カタカナはひらがなに正規化
-        const norm = s => s.replace(/[ァ-ヶ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60));
-        return norm(ka).localeCompare(norm(kb), 'ja');
-    };
+    const byKana = (a, b) => compareByKana(a.name, a.kana, b.name, b.kana);
 
     switch(sortBy) {
         case 'name':

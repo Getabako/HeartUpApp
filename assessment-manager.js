@@ -59,7 +59,7 @@ function amSortChildren(children, sortBy) {
         case 'name':
             // 名前順（50音）
             console.log('名前順でソート');
-            return childrenCopy.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+            return childrenCopy.sort((a, b) => amByKana(a, b));
             
         case 'grade':
             // 学年順（amCalculateGradeの出力ラベルに合わせる）
@@ -74,7 +74,7 @@ function amSortChildren(children, sortBy) {
                 const gradeA = gradeOrder[a.grade] || 99;
                 const gradeB = gradeOrder[b.grade] || 99;
                 if (gradeA !== gradeB) return gradeA - gradeB;
-                return a.name.localeCompare(b.name, 'ja');
+                return amByKana(a, b);
             });
             
         case 'recent':
@@ -92,12 +92,18 @@ function amSortChildren(children, sortBy) {
                     return locationA.localeCompare(locationB, 'ja');
                 }
                 // 同じ拠点なら名前順
-                return a.name.localeCompare(b.name, 'ja');
+                return amByKana(a, b);
             });
             
         default:
-            return childrenCopy.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+            return childrenCopy.sort((a, b) => amByKana(a, b));
     }
+}
+
+// あいうえお順（ふりがなで比べる。ふりがなの無い漢字だけの児童は後ろ）
+function amByKana(a, b) {
+    if (typeof compareByKana === 'function') return compareByKana(a.name, a.childNameKana, b.name, b.childNameKana);
+    return String(a.name || '').localeCompare(String(b.name || ''), 'ja');
 }
 
 // 並び替え順序を変更
