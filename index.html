@@ -30,7 +30,7 @@
       }
     }
     </script>
-    <link rel="stylesheet" href="styles.css?v=20261127b">
+    <link rel="stylesheet" href="styles.css?v=20261127d">
 </head>
 <body>
     <header>
@@ -159,6 +159,9 @@
                         <button class="ai-tab-button" data-ai-tab="am-records">
                             <span class="ai-tab-ic" data-icon="chart"></span><span class="ai-tab-text"><span class="lbl-full">成長記録一覧</span><span class="lbl-short">成長記録</span></span>
                         </button>
+                        <button class="ai-tab-button" data-ai-tab="memo-stock">
+                            <span class="ai-tab-ic" data-icon="mic"></span><span class="ai-tab-text"><span class="lbl-full">メモをためる</span><span class="lbl-short">メモ</span></span>
+                        </button>
                         <button class="ai-tab-button" data-ai-tab="batch-record">
                             <span class="ai-tab-ic" data-icon="layers"></span><span class="ai-tab-text"><span class="lbl-full">一括記録作成</span><span class="lbl-short">一括記録</span></span>
                         </button>
@@ -247,6 +250,15 @@
                         </div>
                     </div>
 
+                    <!-- メモをためる -->
+                    <div id="ai-memo-stock" class="ai-tab-content">
+                        <div class="ai-tool-description">
+                            <h3>メモをためる</h3>
+                            <p>気づいたときに、児童ごとのメモを声や文字でためておけます。ためたメモは、一括記録作成の「記録入力」に自動で入ります。ほかのスタッフがためたメモも一緒に使えます。</p>
+                        </div>
+                        <div id="memoStockContent"></div>
+                    </div>
+
                     <!-- 一括記録作成 (from current AI tools) -->
                     <div id="ai-batch-record" class="ai-tab-content">
                         <div class="ai-tool-description">
@@ -307,15 +319,15 @@
     <script src="icons.js?v=20261125p"></script>
     <script src="toast.js?v=20260818"></script>
     <script src="config.js?v=20261125p" onerror="console.log('config.js not found - using default API_CONFIG')"></script>
-    <script src="firebase-client.js?v=20261126"></script>
-    <script src="data-adapter.js?v=20261127c"></script>
+    <script src="firebase-client.js?v=20261127d"></script>
+    <script src="data-adapter.js?v=20261127d"></script>
     <script src="auth-guard.js?v=20261125p"></script>
-    <script src="gemini-api.js?v=20261127a"></script>
+    <script src="gemini-api.js?v=20261127d"></script>
     <script src="csv-importer.js?v=20261125p"></script>
     <script src="markdown-renderer.js?v=20261125p"></script>
     <script src="voice-input.js?v=20261125p"></script>
-    <script src="assessment-manager.js?v=20261127c"></script>
-    <script src="script.js?v=20261127c"></script>
+    <script src="assessment-manager.js?v=20261127d"></script>
+    <script src="script.js?v=20261127d"></script>
     <script src="practice-menu-generator.js?v=20261125p"></script>
     <script>
         // Firebase初期化 + 認証ガード

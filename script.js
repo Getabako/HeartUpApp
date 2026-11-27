@@ -589,6 +589,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         amShowAllSupportPlans();
                     } else if (targetAITab === 'am-records') {
                         amShowAllReports();
+                    } else if (targetAITab === 'memo-stock') {
+                        showMemoStock();
                     } else if (targetAITab === 'batch-record') {
                         showBatchRecordForm();
                     } else if (targetAITab === 'csv-import') {
@@ -673,7 +675,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     targetContent.classList.add('active');
 
                     // Initialize the appropriate subtab
-                    if (subtab === 'batch-record') {
+                    if (subtab === 'memo-stock') {
+                        showMemoStock();
+                    } else if (subtab === 'batch-record') {
                         showBatchRecordForm();
                     } else if (subtab === 'csv-import') {
                         showCsvImportForm();
@@ -3442,6 +3446,135 @@ function sortStudents(students, sortBy) {
     }
 }
 
+// ============================================================
+// メモをためる（気づいたときに児童ごとのメモをためておき、一括記録でまとめて使う）
+// ============================================================
+let memoStockState = { date: '', row: '', child: '', students: [], stock: [] };
+
+const memoEsc = t => String(t || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+async function showMemoStock() {
+    const container = document.getElementById('memoStockContent');
+    if (!container) return;
+    if (!memoStockState.date) memoStockState.date = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0];
+    container.innerHTML = '<div class="ai-loading"><img src="soccerball.png" alt="読み込み中" class="ai-loading-ball"><span class="ai-loading-text">読み込み中...</span></div>';
+    try {
+        const [children, assessments] = await Promise.all([dataAdapter.getChildren(), dataAdapter.getAssessments()]);
+        const kana = {};
+        Object.values(assessments).forEach(a => { const n = a.data?.childName; if (n) kana[n] = kana[n] || a.data.childNameKana || ''; });
+        const myLoc = heartUpDB.isReady() ? (heartUpDB.getMyLocationId() || '') : '';
+        const names = [...new Set([...Object.keys(children), ...Object.keys(kana)])];
+        let students = names.map(name => ({ name, kana: children[name]?.childNameKana || kana[name] || '', locationId: children[name]?.locationId || '' }));
+        // 自分の拠点の児童がいれば、その拠点だけにする
+        if (myLoc && students.some(st => st.locationId === myLoc)) students = students.filter(st => st.locationId === myLoc);
+        memoStockState.students = students.sort((a, b) => compareByKana(a.name, a.kana, b.name, b.kana));
+        memoStockState.stock = await dataAdapter.getMemoStock(memoStockState.date);
+    } catch (e) {
+        console.error('メモの読み込みエラー:', e);
+        container.innerHTML = `<div style="color:#d32f2f; padding:1rem;">読み込めませんでした: ${memoEsc(e.message)}</div><button class="btn-secondary" onclick="showMemoStock()">もう一度読み込む</button>`;
+        return;
+    }
+    renderMemoStock();
+}
+
+function renderMemoStock() {
+    const container = document.getElementById('memoStockContent');
+    if (!container) return;
+    const st = memoStockState;
+    const countBy = {};
+    st.stock.forEach(m => { countBy[m.childName] = (countBy[m.childName] || 0) + 1; });
+    const rowHas = {};
+    st.students.forEach(s => { rowHas[batchRowOf(s)] = true; });
+    const rows = [['', '全部'], ['あ', 'あ'], ['か', 'か'], ['さ', 'さ'], ['た', 'た'], ['な', 'な'], ['は', 'は'], ['ま', 'ま'], ['や', 'や'], ['ら', 'ら'], ['わ', 'わ'], ['他', 'ほか']];
+    const shown = st.students.filter(s => !st.row || batchRowOf(s) === st.row);
+
+    const childButtons = shown.length === 0
+        ? '<p style="color:#666; padding:0.5rem;">児童がいません。</p>'
+        : shown.map(s => `<button type="button" class="memo-child-btn${st.child === s.name ? ' active' : ''}" data-name="${memoEsc(s.name)}" onclick="memoStockPick(this.dataset.name)">
+                <span class="memo-child-name">${memoEsc(s.name)}</span>${s.kana ? `<span class="memo-child-kana">${memoEsc(s.kana)}</span>` : ''}${countBy[s.name] ? `<span class="memo-child-count">${countBy[s.name]}件</span>` : ''}
+            </button>`).join('');
+
+    const inputArea = st.child ? `
+        <div class="memo-input-box">
+            <p class="memo-input-title"><strong>${memoEsc(st.child)}</strong> さんのメモ</p>
+            <textarea id="memoStockText" placeholder="気づいたことを書く、または「音声入力」を押して話す"></textarea>
+            <div class="memo-tools">
+                ${typeof VoiceInput !== 'undefined' ? VoiceInput.button('memoStockText') : ''}
+                <button type="button" class="btn-primary" id="memoStockSaveBtn" onclick="memoStockSave()">このメモをためる</button>
+            </div>
+        </div>` : '<p class="memo-input-hint">上の一覧から、メモを書く児童を押してください。</p>';
+
+    const list = st.stock.length === 0
+        ? '<p style="color:#666;">この日のメモは、まだありません。</p>'
+        : st.stock.slice().reverse().map(m => {
+            const t = m.createdAt ? new Date(m.createdAt).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : '';
+            return `<div class="memo-item">
+                <div class="memo-item-head"><strong>${memoEsc(m.childName)}</strong><span>${t}${m.staffName ? ` ${memoEsc(m.staffName)}` : ''}</span></div>
+                <div class="memo-item-text">${memoEsc(m.text)}</div>
+                <button type="button" class="btn-small" data-id="${memoEsc(m.id)}" onclick="memoStockDelete(this.dataset.id)">消す</button>
+            </div>`;
+        }).join('');
+
+    container.innerHTML = `
+        <div class="memo-stock">
+            <div class="form-group">
+                <label for="memoStockDate">日付</label>
+                <input type="date" id="memoStockDate" value="${st.date}" onchange="memoStockSetDate(this.value)">
+            </div>
+            <div class="form-group">
+                <label>児童を選ぶ</label>
+                <div class="am-row-filter batch-row-filter" role="group" aria-label="名前の行でしぼる">
+                    ${rows.map(([row, label]) => `<button type="button" class="am-row-btn${st.row === row ? ' active' : ''}" onclick="memoStockSetRow('${row}')"${row && !rowHas[row] ? ' disabled' : ''}>${label}</button>`).join('')}
+                </div>
+                <div class="memo-child-list">${childButtons}</div>
+            </div>
+            ${inputArea}
+            <h4 class="memo-list-title">この日にためたメモ（${st.stock.length} 件）</h4>
+            <div class="memo-list">${list}</div>
+        </div>`;
+}
+
+function memoStockSetRow(row) { memoStockState.row = row; renderMemoStock(); }
+function memoStockPick(name) {
+    memoStockState.child = name;
+    renderMemoStock();
+    document.getElementById('memoStockText')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+async function memoStockSetDate(date) {
+    if (!date) return;
+    memoStockState.date = date;
+    await showMemoStock();
+}
+async function memoStockSave() {
+    const ta = document.getElementById('memoStockText');
+    const text = (ta?.value || '').trim();
+    if (!memoStockState.child) { showToast('児童を選んでください'); return; }
+    if (!text) { showToast('メモを入力してください'); return; }
+    const btn = document.getElementById('memoStockSaveBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '保存中...'; }
+    try {
+        await dataAdapter.addMemoStock({ childName: memoStockState.child, date: memoStockState.date, text });
+        memoStockState.stock = await dataAdapter.getMemoStock(memoStockState.date);
+        showToast(`${memoStockState.child} さんのメモをためました`);
+        memoStockState.child = '';
+        renderMemoStock();
+    } catch (e) {
+        console.error('メモの保存エラー:', e);
+        showToast('メモを保存できませんでした。もう一度お試しください');
+        if (btn) { btn.disabled = false; btn.textContent = 'このメモをためる'; }
+    }
+}
+async function memoStockDelete(id) {
+    if (!confirm('このメモを消します。よろしいですか？')) return;
+    try {
+        await dataAdapter.deleteMemoStock(id);
+        memoStockState.stock = memoStockState.stock.filter(m => String(m.id) !== String(id));
+        renderMemoStock();
+    } catch (e) {
+        showToast('消せませんでした。もう一度お試しください');
+    }
+}
+
 /**
  * 一括記録作成フォームを表示
  */
@@ -3497,6 +3630,14 @@ function renderBatchRecordStep1(container) {
                     <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">※記録と連絡帳に「お出かけ（〇〇）」として反映されます</p>
                 </div>
 
+                <div class="form-group">
+                    <label for="batchMenuSelect">今日の練習メニュー（作ってあるメニューから選ぶ・選ばなくてもよい）</label>
+                    <select id="batchMenuSelect" style="width:100%;">
+                        <option value="">選ばない</option>
+                    </select>
+                    <p id="batchMenuHint" style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">※選ぶと、その日にやった内容として記録に入ります。メニューは「練習メニュー」のタブで作れます。</p>
+                </div>
+
                 <div class="form-group" id="detailedActivitiesContainer" style="display: none;">
                     <label>詳細活動項目（選択した活動に応じて表示）</label>
                     <div class="detailed-activity-checkboxes" id="detailedActivityCheckboxes">
@@ -3529,6 +3670,42 @@ function renderBatchRecordStep1(container) {
         // 初期状態で詳細活動項目を更新
         updateDetailedActivities();
     }, 100);
+
+    loadBatchMenuOptions();
+}
+
+// 作ってある練習メニューを選択肢に入れる
+let batchMenuCache = [];
+async function loadBatchMenuOptions() {
+    try {
+        batchMenuCache = await dataAdapter.getGeneratedMenus();
+    } catch (e) {
+        batchMenuCache = [];
+    }
+    const sel = document.getElementById('batchMenuSelect');
+    if (!sel) return;
+    const esc = t => String(t || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    sel.innerHTML = '<option value="">選ばない</option>' + batchMenuCache.map(m => {
+        const d = m.createdAt ? String(m.createdAt).slice(0, 10) : '';
+        return `<option value="${esc(m.id)}" ${batchRecordState.menuId === m.id ? 'selected' : ''}>${esc(m.title || '練習メニュー')}${d ? `（${d} 作成）` : ''}</option>`;
+    }).join('');
+    if (batchMenuCache.length === 0) {
+        const hint = document.getElementById('batchMenuHint');
+        if (hint) hint.textContent = '※まだ保存された練習メニューがありません。「練習メニュー」のタブで作って保存すると、ここで選べます。';
+    }
+}
+
+// 練習メニューを、記録を書く AI に渡す短い文章にする
+function practiceMenuToText(menu) {
+    if (!menu) return '';
+    const lines = [`メニュー名: ${menu.title || ''}`];
+    if (menu.purpose) lines.push(`ねらい: ${menu.purpose}`);
+    (menu.sections || []).forEach(sec => {
+        const head = [sec.label, sec.name].filter(Boolean).join(' ');
+        const steps = (sec.steps || []).slice(0, 4).join(' / ');
+        lines.push(`・${head}${sec.minutes ? `（${sec.minutes}分）` : ''}${steps ? `: ${steps}` : ''}`);
+    });
+    return lines.join('\n').slice(0, 1500);
 }
 
 /**
@@ -3667,6 +3844,11 @@ function batchRecordStep1Submit(event) {
         : '';
     batchRecordState.detailedActivities = selectedDetailedActivities;
     batchRecordState.goals = selectedGoals;
+    const menuId = document.getElementById('batchMenuSelect')?.value || '';
+    const menu = batchMenuCache.find(m => String(m.id) === menuId) || null;
+    batchRecordState.menuId = menu ? menu.id : '';
+    batchRecordState.menuTitle = menu ? (menu.title || '練習メニュー') : '';
+    batchRecordState.menuText = practiceMenuToText(menu);
     batchRecordState.step = 2;
 
     const container = document.getElementById('batchRecordContent');
@@ -3740,6 +3922,7 @@ async function renderBatchRecordStep2(container) {
             locationId,
             locationName,
             createdAt: childData.createdAt || latestAssessmentByChild[name]?.createdAt || new Date().toISOString(),
+            attendDays: Array.isArray(childData.attendDays) ? childData.attendDays : [],
             metadata: metadata
         });
     });
@@ -3763,6 +3946,24 @@ async function renderBatchRecordStep2(container) {
 
     // 並び替えを適用
     const sortedStudents = sortStudents(filteredStudents, batchRecordState.sortBy);
+
+    // その曜日に利用する児童を、最初から選んでおく（日付か拠点を変えたときに 1 回だけ。手で選び直した内容は消さない）
+    const weekday = batchWeekdayOf(batchRecordState.date);
+    const weekdayLabel = '日月火水木金土'[weekday];
+    const dayMembers = filteredStudents.filter(s => s.attendDays.includes(weekday)).map(s => s.name);
+    const autoKey = batchRecordState.date + '|' + (batchRecordState.locationFilter || '');
+    if (batchRecordState.autoPickedFor !== autoKey) {
+        batchRecordState.autoPickedFor = autoKey;
+        if (batchRecordState.selectedChildren.length === 0 && dayMembers.length > 0) {
+            batchRecordState.selectedChildren = dayMembers.slice();
+            batchRecordState.autoPickedCount = dayMembers.length;
+        } else {
+            batchRecordState.autoPickedCount = 0;
+        }
+    }
+    const weekdayNote = dayMembers.length > 0
+        ? `${weekdayLabel}曜日に利用する児童として ${dayMembers.length} 名が登録されています。${batchRecordState.autoPickedCount ? '最初から選んであります。お休みの児童は外してください。' : ''}`
+        : `${weekdayLabel}曜日に利用する児童は、まだ登録されていません。今日来た児童を選んで下のボタンを押すと、次の${weekdayLabel}曜日から自動で選ばれます。`;
 
     const activityLabels = ACTIVITY_LABELS;
 
@@ -3815,6 +4016,7 @@ async function renderBatchRecordStep2(container) {
             <div class="batch-summary">
                 <p><strong>日付:</strong> ${batchRecordState.date}</p>
                 <p><strong>活動:</strong> ${selectedActivityLabels}</p>
+                ${batchRecordState.menuTitle ? `<p><strong>練習メニュー:</strong> ${batchRecordState.menuTitle}</p>` : ''}
                 ${batchRecordState.detailedActivities && batchRecordState.detailedActivities.length > 0 ? `<p><strong>詳細:</strong> ${batchRecordState.detailedActivities.map(id => {
                     for (const opts of Object.values(detailedActivityOptions)) {
                         const found = opts.find(o => o.id === id);
@@ -3868,6 +4070,10 @@ async function renderBatchRecordStep2(container) {
                         ${childrenCheckboxes}
                     </div>
                     <p class="batch-selected-count">えらんだ児童: <strong id="batchSelectedCount">${batchRecordState.selectedChildren.length}</strong> 名</p>
+                    <div class="batch-weekday-box">
+                        <p>${weekdayNote}</p>
+                        <button type="button" class="btn-small" onclick="saveBatchWeekdayMembers()">いま選んでいる児童を「${weekdayLabel}曜日の児童」として登録する</button>
+                    </div>
                 </div>
 
                 <div class="wizard-buttons">
@@ -3877,6 +4083,42 @@ async function renderBatchRecordStep2(container) {
             </form>
         </div>
     `;
+}
+
+// 日付（YYYY-MM-DD）の曜日。0 = 日曜
+function batchWeekdayOf(dateStr) {
+    const d = new Date(String(dateStr) + 'T00:00:00');
+    return isNaN(d) ? new Date().getDay() : d.getDay();
+}
+
+// いま一覧に出ている児童について、「この曜日に利用する児童」を、チェックの付いている児童に合わせる
+async function saveBatchWeekdayMembers() {
+    const weekday = batchWeekdayOf(batchRecordState.date);
+    const label = '日月火水木金土'[weekday];
+    const boxes = Array.from(document.querySelectorAll('#batchChildrenList input[name="batchChild"]'));
+    const checked = boxes.filter(b => b.checked).map(b => b.value);
+    if (checked.length === 0) { showToast('児童を 1 名以上選んでから押してください'); return; }
+    if (!confirm(`${label}曜日に利用する児童を、いま選んでいる ${checked.length} 名にします。よろしいですか？`)) return;
+    const children = await dataAdapter.getChildren();
+    let changed = 0, failed = 0;
+    for (const box of boxes) {
+        const name = box.value;
+        const cur = Array.isArray(children[name]?.attendDays) ? children[name].attendDays : [];
+        const has = cur.includes(weekday);
+        if (box.checked === has) continue;
+        const next = box.checked ? [...cur, weekday].sort() : cur.filter(d => d !== weekday);
+        try {
+            await dataAdapter.saveChild(name);   // アセスメントにしかいない児童は、ここで児童として登録される
+            await dataAdapter.updateChildBasicInfo(name, { attendDays: next });
+            changed++;
+        } catch (e) {
+            console.error('曜日の登録に失敗:', name, e);
+            failed++;
+        }
+    }
+    batchRecordState.selectedChildren = checked;
+    showToast(failed ? `${failed} 名は登録できませんでした。もう一度お試しください` : `${label}曜日の児童を登録しました（${checked.length} 名）`);
+    renderBatchRecordStep2(document.getElementById('batchRecordContent'));
 }
 
 /**
@@ -3989,7 +4231,7 @@ async function refreshBatchChildren() {
 /**
  * Step 2 送信処理
  */
-function batchRecordStep2Submit(event) {
+async function batchRecordStep2Submit(event) {
     event.preventDefault();
 
     const selectedChildren = [];
@@ -4011,6 +4253,23 @@ function batchRecordStep2Submit(event) {
             batchRecordState.childrenMemos[name] = { memo: '', noIssue: false };
         }
     });
+
+    // この日にためてあるメモを、メモ欄が空の児童に入れる（同じメモを二度は入れない）
+    try {
+        const stock = await dataAdapter.getMemoStock(batchRecordState.date);
+        batchRecordState.stockApplied = batchRecordState.stockApplied || {};
+        selectedChildren.forEach(name => {
+            const mine = stock.filter(m => m.childName === name && !batchRecordState.stockApplied[m.id]);
+            if (mine.length === 0) return;
+            const memoData = batchRecordState.childrenMemos[name];
+            memoData.memo = [memoData.memo, ...mine.map(m => m.text)].filter(Boolean).join('\n');
+            memoData.stockCount = (memoData.stockCount || 0) + mine.length;
+            memoData.stockStaff = [...new Set([...(memoData.stockStaff || []), ...mine.map(m => m.staffName).filter(Boolean)])];
+            mine.forEach(m => { batchRecordState.stockApplied[m.id] = true; });
+        });
+    } catch (e) {
+        console.error('ためたメモの読み込みに失敗:', e);
+    }
 
     const container = document.getElementById('batchRecordContent');
     renderBatchRecordStep3(container);
@@ -4053,6 +4312,7 @@ function renderBatchRecordStep3(container) {
                 <div class="memo-tools">
                     ${typeof VoiceInput !== 'undefined' ? VoiceInput.button(`memo_${index}`) : ''}
                 </div>
+                ${memoData.stockCount ? `<p class="memo-stock-note">ためてあったメモ ${memoData.stockCount} 件を入れました${memoData.stockStaff && memoData.stockStaff.length ? `（${memoData.stockStaff.join('・')}）` : ''}</p>` : ''}
                 <label class="no-issue-label">
                     <input type="checkbox" id="noIssue_${index}"
                         ${memoData.noIssue ? 'checked' : ''}
@@ -4074,6 +4334,7 @@ function renderBatchRecordStep3(container) {
             <div class="batch-summary">
                 <p><strong>日付:</strong> ${batchRecordState.date}</p>
                 <p><strong>活動:</strong> ${selectedActivityLabels}</p>
+                ${batchRecordState.menuTitle ? `<p><strong>練習メニュー:</strong> ${batchRecordState.menuTitle}</p>` : ''}
                 ${batchRecordState.detailedActivities && batchRecordState.detailedActivities.length > 0 ? `<p><strong>詳細:</strong> ${batchRecordState.detailedActivities.map(id => {
                     for (const opts of Object.values(detailedActivityOptions)) {
                         const found = opts.find(o => o.id === id);
@@ -4187,7 +4448,8 @@ async function generateBatchRecords() {
                 notes: memoData.noIssue ? '特に問題なし' : '',
                 outingDetail: batchRecordState.outingDetail || '',
                 nonSoccer: nonSoccerByChild[childName] === true,
-                parentNoteStyle: styleByChild[childName] || ''
+                parentNoteStyle: styleByChild[childName] || '',
+                practiceMenu: batchRecordState.menuText || ''
             };
 
             let generatedText = '';
@@ -4206,7 +4468,8 @@ async function generateBatchRecords() {
             const saveResult = await dataAdapter.saveDailyReport(reportKey, renderedHtml, childName, batchRecordState.date, {
                 activity: recordData.activityType,
                 observation: recordData.observation,
-                rawMarkdown: generatedText
+                rawMarkdown: generatedText,
+                practiceMenuTitle: batchRecordState.menuTitle || ''
             });
 
             results.push({

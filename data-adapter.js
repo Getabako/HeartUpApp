@@ -55,12 +55,15 @@ const dataAdapter = {
                     locationId: r.locationId,
                     metadata: metadata,
                     // 下位互換性のため主要なメタデータもルートレベルに展開
+                    // 「基本情報の編集」で直した値（児童データの直下に入る）を優先する
                     grade: metadata.grade,
                     characteristic: metadata.characteristic,
-                    birthDate: metadata.birthDate,
-                    gender: metadata.gender,
-                    diagnosis: metadata.diagnosis,
-                    childNameKana: metadata.childNameKana
+                    birthDate: r.birthDate || metadata.birthDate,
+                    gender: r.gender || metadata.gender,
+                    diagnosis: r.diagnosis || metadata.diagnosis,
+                    childNameKana: r.childNameKana || metadata.childNameKana,
+                    staffNotes: r.staffNotes || '',
+                    attendDays: Array.isArray(r.attendDays) ? r.attendDays : []
                 };
             });
             return obj;
@@ -113,7 +116,7 @@ const dataAdapter = {
         // localStorageキャッシュも更新
         const children = JSON.parse(localStorage.getItem('children') || '{}');
         if (children[childName]) {
-            ['childNameKana', 'birthDate', 'gender', 'diagnosis', 'staffNotes'].forEach(k => {
+            ['childNameKana', 'birthDate', 'gender', 'diagnosis', 'staffNotes', 'attendDays'].forEach(k => {
                 if (info[k] !== undefined) children[childName][k] = info[k];
             });
             lsSet('children', JSON.stringify(children));
@@ -702,6 +705,32 @@ const dataAdapter = {
     // AI生成練習メニュー
     // Firebase接続時はFirestore（拠点ごと）、未接続時はlocalStorage
     // ============================================================
+
+    // ためたメモ（Firebase なしのときは端末内）
+    async getMemoStock(date) {
+        if (heartUpDB.isReady()) {
+            if (!heartUpDB.currentProfile) {
+                try { await heartUpDB.getMyProfile(); } catch (e) { /* ignore */ }
+            }
+            return await heartUpDB.getMemoStock(date);
+        }
+        return JSON.parse(localStorage.getItem('memoStock') || '[]').filter(m => m.date === date);
+    },
+
+    async addMemoStock(memo) {
+        if (heartUpDB.isReady()) return await heartUpDB.addMemoStock(memo);
+        const list = JSON.parse(localStorage.getItem('memoStock') || '[]');
+        const saved = { ...memo, id: 'memo_' + Date.now(), staffName: '', createdAt: new Date().toISOString() };
+        list.push(saved);
+        lsSet('memoStock', JSON.stringify(list));
+        return saved;
+    },
+
+    async deleteMemoStock(id) {
+        if (heartUpDB.isReady()) return await heartUpDB.deleteMemoStock(id);
+        const list = JSON.parse(localStorage.getItem('memoStock') || '[]');
+        lsSet('memoStock', JSON.stringify(list.filter(m => m.id !== id)));
+    },
 
     async getGeneratedMenus() {
         if (heartUpDB.isReady()) {

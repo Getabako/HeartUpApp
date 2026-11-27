@@ -274,8 +274,9 @@ async function amLoadChildren(stage2) {
                 birthDate,
                 gender: formData.gender || child.gender || '',
                 diagnosis: formData.diagnosis || child.diagnosis || '',
-                childNameKana: formData.childNameKana || child.childNameKana || '',
+                childNameKana: child.childNameKana || formData.childNameKana || '',
                 staffNotes: child.staffNotes || formData.staffNotes || '',
+                attendDays: Array.isArray(child.attendDays) ? child.attendDays : [],
                 createdAt: child.createdAt,
                 locationId,
                 assessmentCount: childAssessments.length,
@@ -772,6 +773,13 @@ window.amShowEditChildModal = function(childName) {
             </div>
 
             <div style="margin-bottom:12px;">
+                <label style="display:block; font-size:13px; color:#555; margin-bottom:4px;">利用する曜日（一括記録で、その曜日の児童が自動で選ばれます）</label>
+                <div class="attend-days">
+                    ${['月', '火', '水', '木', '金', '土', '日'].map((d, i) => { const v = (i + 1) % 7; return `<label class="attend-day"><input type="checkbox" class="editChildDay" value="${v}" ${(child.attendDays || []).includes(v) ? 'checked' : ''}><span>${d}</span></label>`; }).join('')}
+                </div>
+            </div>
+
+            <div style="margin-bottom:12px;">
                 <label style="display:block; font-size:13px; color:#555; margin-bottom:4px;">生年月日</label>
                 <input type="date" id="editChildBirthDate" value="${child.birthDate || ''}" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px;">
             </div>
@@ -830,7 +838,8 @@ window.amSubmitEditChild = async function(childName) {
             birthDate: document.getElementById('editChildBirthDate').value,
             gender: document.getElementById('editChildGender').value,
             diagnosis: diagList.length > 0 ? diagList.join('、') : '',
-            staffNotes: document.getElementById('editChildStaffNotes').value
+            staffNotes: document.getElementById('editChildStaffNotes').value,
+            attendDays: Array.from(document.querySelectorAll('.editChildDay:checked')).map(el => Number(el.value))
         };
 
         await dataAdapter.updateChildBasicInfo(childName, info);

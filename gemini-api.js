@@ -157,7 +157,7 @@ ${domainSection}
 日付: ${recordData.date}
 対象児童: ${recordData.childName}
 活動内容: ${recordData.activityType}${recordData.outingDetail ? `\nお出かけ先・内容: ${recordData.outingDetail}` : ''}${recordData.detailedActivities ? `\n詳細活動: ${recordData.detailedActivities}` : ''}${recordData.goals ? `\n本日の目標項目: ${recordData.goals}` : ''}
-観察された様子（スタッフメモ・原文）: ${recordData.observation}
+${recordData.practiceMenu ? `本日の練習メニュー（この日に行った内容。「何をしたか」の説明にだけ使う。児童の様子はここから作らない）:\n${recordData.practiceMenu}\n` : ''}観察された様子（スタッフメモ・原文）: ${recordData.observation}
 特記事項: ${recordData.notes || 'なし'}
 
 【最重要: 事実ベースで書くこと】

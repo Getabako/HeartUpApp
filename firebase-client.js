@@ -293,7 +293,7 @@ const heartUpDB = {
         if (!this.isReady()) throw new Error('Firebase未初期化');
         const snapshot = await this.db.collection('children').where('name', '==', childName).get();
         if (snapshot.empty) throw new Error('児童が見つかりません: ' + childName);
-        const allowed = ['childNameKana', 'birthDate', 'gender', 'diagnosis', 'staffNotes'];
+        const allowed = ['childNameKana', 'birthDate', 'gender', 'diagnosis', 'staffNotes', 'attendDays'];
         const updateData = { updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
         allowed.forEach(k => {
             if (info[k] !== undefined) updateData[k] = info[k];
@@ -432,8 +432,10 @@ const heartUpDB = {
 
     async createDailyReport(childName, reportDate, html, reportData) {
         if (!this.isReady()) throw new Error('Firebase未初期化');
-        const child = await this.getOrCreateChild(childName);
-        const locationId = this.getMyLocationId();
+        // 児童の登録が引けなくても（拠点が未設定の管理者など）、記録そのものは名前で保存する
+        let child = { id: null };
+        try { child = await this.getOrCreateChild(childName); } catch (e) { console.warn('児童の登録を引けませんでした:', childName, e); }
+        const locationId = this.getMyLocationId() || child.locationId || '';
         const docRef = await this.db.collection('daily_reports').add({
             childId: child.id, childName, locationId,
             reportDate: reportDate || null, html: html || '', reportData: reportData || {},
@@ -801,6 +803,33 @@ const heartUpDB = {
     async deleteGeneratedMenu(id) {
         if (!this.isReady()) throw new Error('Firebase未初期化');
         await this.db.collection('generated_menus').doc(id).delete();
+    },
+
+    // ============================================================
+    // ためたメモ（その日のうちに、複数のスタッフが児童ごとに書きためる。一括記録で使う）
+    // ============================================================
+
+    async getMemoStock(date) {
+        if (!this.isReady()) return [];
+        const snapshot = await this._locationQuery('memo_stock').where('date', '==', date).get();
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), createdAt: this._ts(doc.data().createdAt) }))
+            .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+    },
+
+    async addMemoStock(memo) {
+        if (!this.isReady()) throw new Error('Firebase未初期化');
+        const docRef = await this.db.collection('memo_stock').add({
+            childName: memo.childName, date: memo.date, text: memo.text,
+            locationId: this.getMyLocationId() || '',
+            staffName: this.currentProfile?.name || this.currentProfile?.email || '',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        return { id: docRef.id };
+    },
+
+    async deleteMemoStock(id) {
+        if (!this.isReady()) throw new Error('Firebase未初期化');
+        await this.db.collection('memo_stock').doc(id).delete();
     },
 
     async getStudyResources() {
