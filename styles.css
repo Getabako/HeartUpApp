@@ -3724,3 +3724,24 @@ html, body { overflow-x: clip; max-width: 100%; }
 }
 .pm-theme-chip:active { transform: translateY(3px); box-shadow: none; }
 .pm-theme-chip.active { background: #f57c00; border-color: #f57c00; color: #fff; box-shadow: 0 3px 0 #e65100; }
+
+/* 専門支援メニューの表示（押せない説明の面。影は付けない） */
+.pm-subtitle { margin: 0.2rem 0 0.5rem; color: #555; font-size: 1rem; line-height: 1.8; letter-spacing: 0.03em; }
+.pm-sup { border: 1px solid #d9e2d9; border-radius: 10px; padding: 0.7rem 0.9rem; margin-top: 0.8rem; background: #fbfdfb; }
+.pm-sup-title { display: flex; align-items: center; gap: 0.35rem; color: #2e7d32; font-weight: bold; font-size: 0.98rem; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
+.pm-sup-title .h-ic { width: 18px; height: 18px; }
+.pm-sup p, .pm-sup li { margin: 0.1rem 0; line-height: 1.8; font-size: 0.98rem; letter-spacing: 0.03em; color: #2f3b30; }
+.pm-sup ul, .pm-sup ol { margin: 0; padding-left: 1.3rem; }
+.pm-sup-voice li { list-style: none; margin-left: -1.3rem; padding: 0.25rem 0.7rem; background: #e3f2fd; border-radius: 8px; margin-bottom: 0.3rem; }
+.pm-sup-flow, .pm-sup-staff { display: flex; align-items: center; gap: 0.4rem; font-weight: bold; font-size: 1.1rem; letter-spacing: 0.05em; color: #1b5e20; margin: 1.4rem 0 0.5rem; padding-bottom: 0.3rem; border-bottom: 2px solid #c8e6c9; }
+.pm-sup-staff { color: #4a148c; border-bottom-color: #e1bee7; }
+.pm-sup-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+.pm-sup-card { background: #fff8e1; border-radius: 8px; padding: 0.5rem 0.6rem; text-align: center; }
+.pm-sup-card b { display: block; color: #e65100; font-size: 1rem; }
+.pm-sup-card span { font-size: 0.9rem; line-height: 1.7; color: #4e342e; }
+.pm-sup-cols { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.8rem; }
+.pm-sup-cols b { color: #4a148c; font-size: 0.95rem; }
+.pm-sup-table { width: 100%; border-collapse: collapse; }
+.pm-sup-table th, .pm-sup-table td { border-top: 1px dashed #d5dcd5; padding: 0.4rem 0.3rem; text-align: left; font-size: 0.95rem; line-height: 1.7; vertical-align: top; }
+.pm-sup-table th { white-space: nowrap; color: #1565c0; padding-right: 0.8rem; }
+@media (max-width: 480px) { .pm-sup-cards, .pm-sup-cols { grid-template-columns: 1fr; } }

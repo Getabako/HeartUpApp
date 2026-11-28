@@ -12,7 +12,9 @@ const PracticeMenuGen = {
     mode: 'theme',          // 'theme' | 'photo'
     photo: null,            // { base64, mimeType, dataUrl }
     kind: 'practice',       // 'practice'（練習メニュー）| 'support'（専門支援）
-    SUPPORT_THEMES: ['努力', '思いやり', '協力', 'ルール・マナー', '挑戦'],
+    // 伸ばしたい力（先方の専門支援の資料 28 枚から。押すと入力欄に入る。複数選べる）
+    SUPPORT_THEMES: ['集中・記憶', '聞く・質問する', '分かりやすく伝える', '気持ちの切り替え', '協力・思いやり', '手先・力加減', '体の使い方', '自分で決める・ふり返る', '友達の良いところを見つける', 'ルール・マナー'],
+    SUPPORT_PLACES: ['どちらでも', '屋外', '室内'],
     kindLabel(menu) { return (menu ? menu.kind : this.kind) === 'support' ? '専門支援メニュー' : '練習メニュー'; },
 
     LEVELS: ['下級', '中級', '上級', '中・上級', '小集団', '全体'],
@@ -81,7 +83,7 @@ const PracticeMenuGen = {
                 <button type="button" class="pm-mode-tab ${isSupport ? 'active' : ''}" onclick="PracticeMenuGen.switchKind('support')">専門支援</button>
             </div>
             <p class="pm-lead">${isSupport
-                ? '「努力」「思いやり」などのテーマを選ぶと、導入・活動・ふり返りの流れで専門支援のメニューを組み立てます。生成後にイラストも作れます。'
+                ? '伸ばしたい力を選ぶと、小集団で行う専門支援の活動を 1 つ組み立てます（ねらい・時間の流れ・声かけ・観察ポイントつき）。子ども向けのポスターも作れます。'
                 : 'ホワイトボードに書いていた練習を、テーマから自動で組み立てたり、写真から読み取って整えたりできます。生成後にイラストも作れます。'}</p>
             ${isSupport ? '' : `<div class="pm-kind-label">作り方</div><div class="pm-mode-tabs">
                 <button type="button" class="pm-mode-tab ${!isPhoto ? 'active' : ''}" onclick="PracticeMenuGen.switchMode('theme')">テーマから</button>
@@ -107,13 +109,17 @@ const PracticeMenuGen = {
                     <textarea id="pmHints" rows="2" placeholder="例: 下級グループ向け。Tr.2は時間の都合で短め。読みにくい字の補足など"></textarea>
                 </div>` : `
                 <div class="form-group">
-                    <label>テーマ <span style="color:#e74c3c;">*</span></label>
+                    <label>${isSupport ? '伸ばしたい力・やりたいこと' : 'テーマ'} <span style="color:#e74c3c;">*</span></label>
                     ${isSupport ? `<div class="pm-theme-chips">${this.SUPPORT_THEMES.map(t => `<button type="button" class="pm-theme-chip" onclick="PracticeMenuGen.pickTheme(this)">${t}</button>`).join('')}</div>` : ''}
-                    <input type="text" id="pmTheme" required placeholder="${isSupport ? '上から選ぶか、ここに書く（例: 最後までやりきる）' : '例: 見る・判断、切り替え、足裏トラップ、コミュニケーション'}">
+                    <input type="text" id="pmTheme" required placeholder="${isSupport ? '上から選ぶか、ここに書く（例: 順番を待つ、神経衰弱）' : '例: 見る・判断、切り替え、足裏トラップ、コミュニケーション'}">
                 </div>
                 <div class="form-group">
                     <label>目的・ねらい</label>
-                    <textarea id="pmPurpose" rows="2" placeholder="${isSupport ? '例: 友だちのよいところを見つけて、言葉で伝えられるようになる' : '例: まわりを見てパスかドリブルかを自分で選べるようになる'}"></textarea>
+                    <textarea id="pmPurpose" rows="2" placeholder="${isSupport ? '例: むずかしいときに、自分でやり方を変えたり相談したりできる' : '例: まわりを見てパスかドリブルかを自分で選べるようになる'}"></textarea>
+                </div>
+                <div class="form-group" ${isSupport ? '' : 'style="display:none;"'}>
+                    <label>場所</label>
+                    <select id="pmPlace">${this.SUPPORT_PLACES.map(pl => `<option value="${pl}">${pl === '屋外' ? '屋外（ボールやコーンを使う）' : pl === '室内' ? '室内（机の活動）' : 'どちらでも（AIが選ぶ）'}</option>`).join('')}</select>
                 </div>`}
                 <div class="pm-grid">
                     <div class="form-group">
@@ -134,8 +140,8 @@ const PracticeMenuGen = {
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>使える用具</label>
-                    <input type="text" id="pmEquipment" value="コーン（橙・赤・青・黄・緑）、マーカー、ボール、ミニゴール、ビブス、ラダー">
+                    <label>${isSupport ? '使える物（空のままなら AI が身近な物で考えます）' : '使える用具'}</label>
+                    <input type="text" id="pmEquipment" ${isSupport ? 'value="" placeholder="例: トランプ、カード、紙とペン、コーン、ボール"' : 'value="コーン（橙・赤・青・黄・緑）、マーカー、ボール、ミニゴール、ビブス、ラダー"'}>
                 </div>
                 <div class="form-group">
                     <label>配慮事項（児童の特性・注意点）</label>
@@ -159,9 +165,14 @@ const PracticeMenuGen = {
 
     // 専門支援のテーマを押して選ぶ
     pickTheme(btn) {
+        btn.classList.toggle('active');
         const input = document.getElementById('pmTheme');
-        if (input) input.value = btn.textContent;
-        document.querySelectorAll('.pm-theme-chip').forEach(b => b.classList.toggle('active', b === btn));
+        if (!input) return;
+        // 自分で書いた分は残し、ボタンで選んだ分だけ付け外しする
+        const all = this.SUPPORT_THEMES;
+        const typed = input.value.split('、').map(t => t.trim()).filter(t => t && !all.includes(t));
+        const picked = [...document.querySelectorAll('.pm-theme-chip.active')].map(b => b.textContent);
+        input.value = [...picked, ...typed].join('、');
     },
 
     switchMode(mode) {
@@ -266,6 +277,8 @@ const PracticeMenuGen = {
                 params.purpose = document.getElementById('pmPurpose')?.value.trim() || '';
                 if (!params.theme) { showToast('テーマを入力してください'); return; }
                 if (this.kind === 'support') {
+                    const place = document.getElementById('pmPlace')?.value || '';
+                    params.place = place === 'どちらでも' ? '' : place;
                     loading('AIが専門支援メニューを作成中...');
                     menu = await geminiAPI.generateSupportMenu(params);
                     menu.kind = 'support';
@@ -299,8 +312,25 @@ const PracticeMenuGen = {
         m.participants = m.participants || params.participants || '';
         m.equipment = Array.isArray(m.equipment) ? m.equipment : (m.equipment ? String(m.equipment).split(/[、,]/) : []);
         m.sections = Array.isArray(m.sections) ? m.sections : [];
+        if (m.kind === 'support') {
+            const list = v => (Array.isArray(v) ? v : (v ? [v] : [])).map(x => String(x || '').trim()).filter(Boolean);
+            m.subtitle = m.subtitle || '';
+            m.place = m.place || params.place || '';
+            m.aims = list(m.aims);
+            m.supportPoints = list(m.supportPoints);
+            m.phrases = list(m.phrases);
+            m.care = list(m.care);
+            m.rules = list(m.rules);
+            const lv = (m.levels && typeof m.levels === 'object') ? m.levels : {};
+            m.levels = { easy: lv.easy || '', normal: lv.normal || '', hard: lv.hard || '' };
+            m.strategies = (Array.isArray(m.strategies) ? m.strategies : []).filter(x => x && x.name).map(x => ({ name: String(x.name), how: String(x.how || '') }));
+            if (!m.strategies.length) m.strategies = [{ name: 'ひといき', how: 'ゆっくり すう・はく' }, { name: 'もういちど', how: 'やり方をかえてみる' }, { name: 'そうだん', how: 'せんせいにきく' }];
+            m.observe = (Array.isArray(m.observe) ? m.observe : []).filter(x => x && x.area).map(x => ({ area: String(x.area), items: list(x.items) }));
+            m.domainAims = (Array.isArray(m.domainAims) ? m.domainAims : []).filter(x => x && x.domain).map(x => ({ domain: String(x.domain), aim: String(x.aim || '') }));
+            m.motto = m.motto || '';
+        }
         m.sections = m.sections.map((s, i) => {
-            const type = s.type || ['warmup', 'training1', 'training2', 'game'][i] || 'other';
+            const type = s.type || ['warmup', 'training1', 'training2', 'game'][i % 4] || 'other';
             const label = s.label || ((m.kind === 'support'
                 ? { warmup: '導入', training1: '活動1', training2: '活動2', game: 'ふり返り' }
                 : { warmup: 'W-up', training1: 'Tr.1', training2: 'Tr.2', game: '試合' })[type] || '');
@@ -419,12 +449,13 @@ const PracticeMenuGen = {
                     <div class="pm-sec-body">
                         ${blk('target', '準備', s.setup ? `<p>${this.esc(s.setup)}</p>` : '')}
                         ${blk('next', 'やり方', list(s.steps, true))}
-                        ${blk('spark', 'ポイント', list(s.points), 'pm-blk-point')}
-                        ${more ? `<details class="pm-more" ${openAll ? 'open' : ''}><summary>くわしく（ルール・声かけ・むずかしさ）</summary>${more}</details>` : ''}
+                        ${blk('spark', menu.kind === 'support' ? 'スタッフの動き' : 'ポイント', list(s.points), 'pm-blk-point')}
+                        ${more ? `<details class="pm-more" ${openAll ? 'open' : ''}><summary>${menu.kind === 'support' ? 'くわしく（声かけ）' : 'くわしく（ルール・声かけ・むずかしさ）'}</summary>${more}</details>` : ''}
                     </div>
                 </details>`;
         }).join('');
         const chip = (icon, text) => text ? `<span class="pm-chip">${ic(icon)}${this.esc(text)}</span>` : '';
+        if (menu.kind === 'support') return this.supportPosterHtml(menu, secHtml, chip, ic);
         return `
             <div class="pm-head">
                 <div class="pm-head-top"><span class="pm-date">${this.esc(menu.date)}</span>${menu.level ? `<span class="pm-level">${this.esc(menu.level)}</span>` : ''}</div>
@@ -440,6 +471,47 @@ const PracticeMenuGen = {
             ${secHtml}
             ${menu.summary ? `<div class="pm-summary"><b>${ic('check')}大切なこと</b><p>${this.esc(menu.summary)}</p></div>` : ''}
             ${menu.therapeuticNotes ? `<div class="pm-therapy"><b>${ic('info')}療育的な配慮</b><p>${this.esc(menu.therapeuticNotes)}</p></div>` : ''}`;
+    },
+
+    // 専門支援の形: 題名 → ねらい 3 つ → 時間の流れ → むずかしさ・さくせん・やくそく → スタッフ用（支援・声かけ・観察・配慮・5領域）
+    supportPosterHtml(menu, secHtml, chip, ic) {
+        const e = t => this.esc(t);
+        const ul = items => items && items.length ? `<ul>${items.map(i => `<li>${e(i)}</li>`).join('')}</ul>` : '';
+        const box = (icon, title, inner, cls) => inner ? `<div class="pm-sup ${cls || ''}"><div class="pm-sup-title">${ic(icon)}${title}</div>${inner}</div>` : '';
+        const lv = menu.levels || {};
+        const levels = (lv.easy || lv.normal || lv.hard) ? `<div class="pm-diff">${lv.easy ? `<div class="pm-diff-easy"><b>LEVEL 1</b>${e(lv.easy)}</div>` : ''}${lv.normal ? `<div class="pm-diff-normal"><b>LEVEL 2</b>${e(lv.normal)}</div>` : ''}${lv.hard ? `<div class="pm-diff-hard"><b>LEVEL 3</b>${e(lv.hard)}</div>` : ''}</div>` : '';
+        const strategies = (menu.strategies || []).length ? `<div class="pm-sup-cards">${menu.strategies.map(s => `<div class="pm-sup-card"><b>${e(s.name)}</b><span>${e(s.how)}</span></div>`).join('')}</div>` : '';
+        const observe = (menu.observe || []).length ? `<div class="pm-sup-cols">${menu.observe.map(o => `<div><b>${e(o.area)}</b>${ul(o.items)}</div>`).join('')}</div>` : '';
+        const domains = (menu.domainAims || []).length ? `<table class="pm-sup-table">${menu.domainAims.map(d => `<tr><th>${e(d.domain)}</th><td>${e(d.aim)}</td></tr>`).join('')}</table>` : '';
+        return `
+            <div class="pm-head">
+                <div class="pm-head-top"><span class="pm-date">${e(menu.date)}</span><span class="pm-level">専門支援${menu.level ? '・' + e(menu.level) : ''}</span></div>
+                <h3 class="pm-title">${e(menu.title)}</h3>
+                ${menu.subtitle ? `<p class="pm-subtitle">${e(menu.subtitle)}</p>` : ''}
+                <div class="pm-meta">
+                    ${chip('calendar', menu.duration)}
+                    ${chip('users', menu.participants)}
+                    ${chip('target', menu.place)}
+                </div>
+                ${menu.purpose ? `<div class="pm-purpose"><b>${ic('target')}伸ばしたい力</b><p>${e(menu.purpose)}</p></div>` : ''}
+                ${menu.keyword ? `<div class="pm-keyword"><b>合言葉</b>${e(menu.keyword)}</div>` : ''}
+            </div>
+            ${box('target', 'ねらい', menu.aims && menu.aims.length ? `<ol>${menu.aims.map(a => `<li>${e(a)}</li>`).join('')}</ol>` : '')}
+            ${box('clipboard', '準備物', menu.equipment && menu.equipment.length ? `<p>${e(menu.equipment.join('、'))}</p>` : '')}
+            <div class="pm-sup-flow">${ic('calendar')}${e(menu.duration || '')}の流れ</div>
+            ${secHtml}
+            ${box('layers', 'むずかしさを変える（変える条件は 1 つずつ）', levels)}
+            ${box('refresh', 'こまったときの 3 つのさくせん', strategies)}
+            ${box('check', 'やくそく', ul(menu.rules))}
+            <div class="pm-sup-staff">スタッフ用</div>
+            ${box('spark', '支援のポイント', ul(menu.supportPoints))}
+            ${box('mic', '声かけの例', ul(menu.phrases), 'pm-sup-voice')}
+            ${box('search', '観察ポイント', observe)}
+            ${box('info', '配慮', ul(menu.care))}
+            ${box('layers', '5 領域との関係', domains)}
+            ${menu.motto ? `<div class="pm-summary"><p>${e(menu.motto)}</p></div>` : ''}
+            ${menu.summary ? `<div class="pm-summary"><b>${ic('check')}ふり返りで確かめること</b><p>${e(menu.summary)}</p></div>` : ''}
+            ${menu.therapeuticNotes ? `<div class="pm-therapy"><b>${ic('info')}安全・体調</b><p>${e(menu.therapeuticNotes)}</p></div>` : ''}`;
     },
 
     copyPrompt() {
@@ -474,7 +546,7 @@ ${req}
 
 【指示】
 - 修正依頼に関係する箇所だけを変更し、それ以外は維持する
-- 各セクションの steps / points / coaching / difficulty は空にしない
+${menu.kind === 'support' ? '- sections の steps、aims / supportPoints / phrases / observe / care / domainAims / strategies / rules / levels / motto は空にしない' : '- 各セクションの steps / points / coaching / difficulty は空にしない'}
 - 絵文字・個人名は使わない
 ${menu.kind === 'support' ? GeminiAPI.SUPPORT_MENU_STYLE : GeminiAPI.PRACTICE_MENU_STYLE}`;
             const result = await geminiAPI.generateContent(prompt, { temperature: 0.5 });
@@ -663,6 +735,14 @@ ${menu.kind === 'support' ? GeminiAPI.SUPPORT_MENU_STYLE : GeminiAPI.PRACTICE_ME
             .pm-blk { margin: 4px 0; } .pm-blk-title { font-weight:bold; color:#2e7d32; }
             .pm-blk ul, .pm-blk ol { margin: 2px 0 6px 20px; padding:0; } .pm-blk p { margin:2px 0; }
             .pm-diff b { margin-right: 8px; }
+            .pm-subtitle { margin: 0 0 6px; color:#555; }
+            .pm-sup { border: 2px solid #ccc; border-radius: 10px; padding: 6px 12px; margin: 8px 0; page-break-inside: avoid; }
+            .pm-sup-title { font-weight: bold; color:#2e7d32; }
+            .pm-sup ul, .pm-sup ol { margin: 2px 0 4px 20px; padding: 0; } .pm-sup p { margin: 2px 0; }
+            .pm-sup-flow, .pm-sup-staff { font-weight: bold; font-size: 17px; margin: 14px 0 4px; border-bottom: 2px solid #999; }
+            .pm-sup-cards, .pm-sup-cols { display: flex; gap: 10px; } .pm-sup-cards > div, .pm-sup-cols > div { flex: 1; }
+            .pm-sup-card b { display:block; } .pm-sup-table { border-collapse: collapse; width: 100%; }
+            .pm-sup-table th, .pm-sup-table td { border: 1px solid #bbb; padding: 4px 8px; text-align: left; } .pm-sup-table th { white-space: nowrap; }
             img.poster { max-width: 100%; page-break-before: always; }
             @media print { body { margin: 8mm; } }`;
         w.document.write(`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>${this.esc(menu.title)}</title><style>${css}</style></head><body>${this.posterHtml(menu, true)}${menu.imageData ? `<img class="poster" src="${menu.imageData}" alt="">` : ''}</body></html>`);

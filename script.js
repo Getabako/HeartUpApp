@@ -3732,6 +3732,7 @@ function practiceMenuToText(menu) {
     if (!menu) return '';
     const lines = [`メニュー名: ${menu.title || ''}`];
     if (menu.purpose) lines.push(`ねらい: ${menu.purpose}`);
+    if (Array.isArray(menu.aims) && menu.aims.length) lines.push(`ねらいの内訳: ${menu.aims.join(' / ')}`);
     (menu.sections || []).forEach(sec => {
         const head = [sec.label, sec.name].filter(Boolean).join(' ');
         const steps = (sec.steps || []).slice(0, 4).join(' / ');
