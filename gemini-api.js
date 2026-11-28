@@ -157,7 +157,7 @@ ${domainSection}
 日付: ${recordData.date}
 対象児童: ${recordData.childName}
 活動内容: ${recordData.activityType}${recordData.outingDetail ? `\nお出かけ先・内容: ${recordData.outingDetail}` : ''}${recordData.detailedActivities ? `\n詳細活動: ${recordData.detailedActivities}` : ''}${recordData.goals ? `\n本日の目標項目: ${recordData.goals}` : ''}
-${recordData.practiceMenu ? `本日の練習メニュー（この日に行った内容。「何をしたか」の説明にだけ使う。児童の様子はここから作らない）:\n${recordData.practiceMenu}\n` : ''}観察された様子（スタッフメモ・原文）: ${recordData.observation}
+${recordData.supportMenu ? `本日の専門支援（この日に行った内容。「何をしたか」の説明にだけ使う。児童の様子はここから作らない）:\n${recordData.supportMenu}\n` : ''}${recordData.practiceMenu ? `本日の練習メニュー（この日に行った内容。「何をしたか」の説明にだけ使う。児童の様子はここから作らない）:\n${recordData.practiceMenu}\n` : ''}観察された様子（スタッフメモ・原文）: ${recordData.observation}
 特記事項: ${recordData.notes || 'なし'}
 
 【最重要: 事実ベースで書くこと】
@@ -823,6 +823,58 @@ JSONのみを出力してください。`;
         return this._extractJson(result);
     }
 
+    // 専門支援メニューの型（ねらいを 1 つにしぼり、活動を通して体験し、言葉にしてふり返る）
+    static SUPPORT_MENU_STYLE = `
+【専門支援メニューの型】
+- 専門支援は、ねらいを 1 つにしぼって行う支援の時間。テーマは「努力」「思いやり」「協力」「ルール・マナー」「挑戦」のような、子どもに身につけてほしい力
+- 構成: 導入（今日のテーマを子どもの言葉で伝える）→ 活動1（テーマをやさしく体験する）→ 活動2（少しむずかしい場面で試す）→ ふり返り（できたことを言葉にする）。sections は必ずこの 4 つ。label は「導入」「活動1」「活動2」「ふり返り」、type は順に warmup / training1 / training2 / game
+- 活動はサッカーやボールあそびなど、体を動かしながらテーマを体験できるものにする。テーマと関係のない技術練習にしない
+- 各セクション: 準備（人数・用具・並び方）/ やり方 / ルール / ポイント（そのテーマの姿が出た場面をどう見つけるか）/ 声かけ例（できた姿をその場でほめる具体的なセリフ）/ むずかしさの変え方
+- ふり返りでは「どの場面でできたか」を子どもが言えるようにする問いかけを入れる
+- 療育的配慮: うまくできなかった子を責めない、できた場面を具体的に伝える、言葉にするのが苦手な子にはカードや二択で答えられるようにする
+
+【書き方: 短く。ぱっと見て分かる量にする】
+- purpose は 1 文・35 字まで。keyword は 12 字まで
+- setup は 1 文・40 字まで
+- steps は 3 つまで、1 つ 20 字まで。「〜する」で終える短い言い切り
+- rules は 2 つまで、points は 2 つまで、coaching は 2 つまで（そのまま言えるセリフ、12 字まで）。それぞれ 1 つ 20 字まで
+- difficulty の easy / normal / hard はそれぞれ 18 字まで
+- summary は 30 字まで、therapeuticNotes は 2 文・70 字まで
+- 同じことを別の項目でくり返さない。むずかしい言葉・専門用語は使わず、現場でそのまま読める言葉にする
+`;
+
+    /**
+     * テーマ・条件から専門支援メニューを生成する（出力の形は練習メニューと同じ）
+     */
+    async generateSupportMenu(p) {
+        const prompt = `
+あなたはサッカー療育（放課後等デイサービス）の経験豊富な指導者です。以下の条件に合う本日の「専門支援」のメニューを、この事業所の型に沿って作成してください。
+
+【条件】
+日付: ${p.date || '未定'}
+テーマ（身につけてほしい力）: ${p.theme || '（テーマ未指定。目的から適切に設定）'}
+目的・ねらい: ${p.purpose || '（テーマに沿って設定）'}
+対象: ${p.level || '小集団'}
+参加人数: ${p.participants || '3〜6名'}
+時間: ${p.duration || '30分'}
+使える用具: ${p.equipment || 'コーン、マーカー、ボール、ミニゴール、ビブス'}
+配慮事項（児童の特性など）: ${p.considerations || '特になし'}
+${GeminiAPI.SUPPORT_MENU_STYLE}
+
+【作成ルール】
+- 子どもが見て分かる平易な言葉
+- 各セクションに「声かけ例」と「難易度調整（かんたん/ふつう/むずかしい）」を必ず入れる
+- 5領域（健康・生活、運動・感覚、認知・行動、言語・コミュニケーション、人間関係・社会性）のうち関係するものを各セクションに紐づける
+- 絵文字は使わない。個人名は使わない
+
+${GeminiAPI.PRACTICE_MENU_JSON_FORMAT}
+
+上の出力形式の sections は、label を「導入」「活動1」「活動2」「ふり返り」に置きかえて出力する。
+JSONのみを出力してください。`;
+        const result = await this.generateContent(prompt, { temperature: 0.8 });
+        return this._extractJson(result);
+    }
+
     static PRACTICE_MENU_JSON_FORMAT = `【出力形式（JSON）】
 {
   "title": "テーマ名（かぎ括弧なし）",
@@ -868,7 +920,8 @@ JSONのみを出力してください。`;
             return `コマ${i + 1}: ラベル「${s.label || ''}」／題「${short(s.name, 14)}」${s.minutes ? `／「${s.minutes}分」` : ''}
   描く場面（絵で表す。文章として書き込まない）: ${s.setup || ''} ${steps}`;
         }).join('\n');
-        return `次の内容で、放課後等デイサービスのサッカー療育「本日の練習メニュー」の掲示用ポスターを1枚のイラストにしてください。
+        const isSupport = menu.kind === 'support';
+        return `次の内容で、放課後等デイサービスのサッカー療育「${isSupport ? '本日の専門支援' : '本日の練習メニュー'}」の掲示用ポスターを1枚のイラストにしてください。
 
 【いちばん大事なこと】
 絵が主役。文字を読まなくても、絵と矢印だけで「どこに並び、どう動き、何をねらうか」が分かるようにする。説明の文章・箇条書き・長い注意書きは描かない。
@@ -878,7 +931,7 @@ ${GeminiAPI.ILLUSTRATION_STYLE}
 
 【レイアウト】
 上の細い帯: 「${menu.date || ''}」と題名「${short(menu.title, 16)}」だけを大きく。
-本体: 下の ${secs.length} コマを、同じ大きさの色付き角丸の枠で縦に並べる（W-up=橙、Tr.1=青、Tr.2=緑、試合=紫）。各コマは枠いっぱいにコートの絵を描く。子ども・コーチ・コーン・ゴール・ボールを置き、動きを太い矢印と丸数字①②③で示す。コマの左上に白抜きのラベルと題、右上に時間を小さく入れる。
+本体: 下の ${secs.length} コマを、同じ大きさの色付き角丸の枠で縦に並べる（${isSupport ? '導入=橙、活動1=青、活動2=緑、ふり返り=紫' : 'W-up=橙、Tr.1=青、Tr.2=緑、試合=紫'}）。各コマは枠いっぱいにコートの絵を描く。子ども・コーチ・コーン・ゴール・ボールを置き、動きを太い矢印と丸数字①②③で示す。コマの左上に白抜きのラベルと題、右上に時間を小さく入れる。
 ${sec}
 ${menu.keyword ? `いちばん下の帯: 合言葉「${short(menu.keyword, 12)}」だけを大きく。` : ''}
 

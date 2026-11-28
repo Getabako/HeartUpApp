@@ -1729,6 +1729,12 @@ async function amGetListLocationContext() {
         if (!heartUpDB.currentProfile) { try { await heartUpDB.getMyProfile(); } catch (e) { /* ignore */ } }
         ctx.myLocationId = heartUpDB.getMyLocationId() || '';
         ctx.locations = await heartUpDB.getLocationsCached();
+        // 管理者でなければ、選べるのは自分の拠点と、同じグループの拠点だけ
+        if (!heartUpDB.isAdmin() && ctx.myLocationId) {
+            const ids = heartUpDB.getMyGroupLocationIds();
+            ctx.locations = ctx.locations.filter(l => ids.includes(l.id));
+            ctx.groupName = heartUpDB.getMyGroupName();
+        }
         // 児童→拠点のマップ（古い記録に locationId が無い場合の補完用）
         const children = await dataAdapter.getChildren();
         Object.entries(children).forEach(([name, c]) => { ctx.childLocation[name] = c.locationId || ''; });
@@ -1753,7 +1759,7 @@ function amLocationFilterBar(ctx, onChangeFn) {
         <div class="am-list-filter">
             <label>拠点で絞り込み</label>
             <select onchange="${onChangeFn}(this.value)">
-                <option value="" ${!ctx.filterId ? 'selected' : ''}>全拠点</option>
+                <option value="" ${!ctx.filterId ? 'selected' : ''}>${ctx.groupName ? amEscapeHtml(ctx.groupName) + 'の全拠点' : '全拠点'}</option>
                 ${opts}
             </select>
         </div>`;

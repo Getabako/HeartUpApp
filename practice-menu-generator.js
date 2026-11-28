@@ -11,6 +11,9 @@ const PracticeMenuGen = {
     aiStatus: null,         // /api/ai-status の結果
     mode: 'theme',          // 'theme' | 'photo'
     photo: null,            // { base64, mimeType, dataUrl }
+    kind: 'practice',       // 'practice'（練習メニュー）| 'support'（専門支援）
+    SUPPORT_THEMES: ['努力', '思いやり', '協力', 'ルール・マナー', '挑戦'],
+    kindLabel(menu) { return (menu ? menu.kind : this.kind) === 'support' ? '専門支援メニュー' : '練習メニュー'; },
 
     LEVELS: ['下級', '中級', '上級', '中・上級', '小集団', '全体'],
     SECTION_COLORS: { warmup: '#ff9800', training1: '#1e88e5', training2: '#43a047', game: '#8e24aa', other: '#607d8b' },
@@ -53,8 +56,9 @@ const PracticeMenuGen = {
     // ============================================================
     // 入力フォーム
     // ============================================================
-    open(mode) {
-        this.mode = mode || 'theme';
+    open(mode, kind) {
+        if (kind) this.kind = kind;
+        this.mode = this.kind === 'support' ? 'theme' : (mode || 'theme');
         this.photo = null;
         this.current = null;
         const modal = document.getElementById('modal');
@@ -65,15 +69,24 @@ const PracticeMenuGen = {
     },
 
     formHtml() {
-        const isPhoto = this.mode === 'photo';
-        const levelOpts = this.LEVELS.map(l => `<option value="${l}" ${l === '中級' ? 'selected' : ''}>${l}</option>`).join('');
+        const isSupport = this.kind === 'support';
+        const isPhoto = !isSupport && this.mode === 'photo';
+        const defLevel = isSupport ? '小集団' : '中級';
+        const levelOpts = this.LEVELS.map(l => `<option value="${l}" ${l === defLevel ? 'selected' : ''}>${l}</option>`).join('');
         return `
-            <h2 style="color:#2e7d32; margin-bottom:0.5rem;">AIで練習メニューを作成</h2>
-            <p class="pm-lead">ホワイトボードに書いていた練習を、テーマから自動で組み立てたり、写真から読み取って整えたりできます。生成後にイラストも作れます。</p>
+            <h2 style="color:#2e7d32; margin-bottom:0.5rem;">AIで${isSupport ? '専門支援メニュー' : '練習メニュー'}を作成</h2>
+            <div class="pm-kind-label">作るもの</div>
             <div class="pm-mode-tabs">
+                <button type="button" class="pm-mode-tab ${!isSupport ? 'active' : ''}" onclick="PracticeMenuGen.switchKind('practice')">練習メニュー</button>
+                <button type="button" class="pm-mode-tab ${isSupport ? 'active' : ''}" onclick="PracticeMenuGen.switchKind('support')">専門支援</button>
+            </div>
+            <p class="pm-lead">${isSupport
+                ? '「努力」「思いやり」などのテーマを選ぶと、導入・活動・ふり返りの流れで専門支援のメニューを組み立てます。生成後にイラストも作れます。'
+                : 'ホワイトボードに書いていた練習を、テーマから自動で組み立てたり、写真から読み取って整えたりできます。生成後にイラストも作れます。'}</p>
+            ${isSupport ? '' : `<div class="pm-kind-label">作り方</div><div class="pm-mode-tabs">
                 <button type="button" class="pm-mode-tab ${!isPhoto ? 'active' : ''}" onclick="PracticeMenuGen.switchMode('theme')">テーマから</button>
                 <button type="button" class="pm-mode-tab ${isPhoto ? 'active' : ''}" onclick="PracticeMenuGen.switchMode('photo')">写真から</button>
-            </div>
+            </div>`}
             <form id="pmForm" onsubmit="PracticeMenuGen.submit(event)">
                 ${isPhoto ? `
                 <div class="form-group">
@@ -95,11 +108,12 @@ const PracticeMenuGen = {
                 </div>` : `
                 <div class="form-group">
                     <label>テーマ <span style="color:#e74c3c;">*</span></label>
-                    <input type="text" id="pmTheme" required placeholder="例: 見る・判断、切り替え、足裏トラップ、コミュニケーション">
+                    ${isSupport ? `<div class="pm-theme-chips">${this.SUPPORT_THEMES.map(t => `<button type="button" class="pm-theme-chip" onclick="PracticeMenuGen.pickTheme(this)">${t}</button>`).join('')}</div>` : ''}
+                    <input type="text" id="pmTheme" required placeholder="${isSupport ? '上から選ぶか、ここに書く（例: 最後までやりきる）' : '例: 見る・判断、切り替え、足裏トラップ、コミュニケーション'}">
                 </div>
                 <div class="form-group">
                     <label>目的・ねらい</label>
-                    <textarea id="pmPurpose" rows="2" placeholder="例: まわりを見てパスかドリブルかを自分で選べるようになる"></textarea>
+                    <textarea id="pmPurpose" rows="2" placeholder="${isSupport ? '例: 友だちのよいところを見つけて、言葉で伝えられるようになる' : '例: まわりを見てパスかドリブルかを自分で選べるようになる'}"></textarea>
                 </div>`}
                 <div class="pm-grid">
                     <div class="form-group">
@@ -112,11 +126,11 @@ const PracticeMenuGen = {
                     </div>
                     <div class="form-group">
                         <label>参加人数</label>
-                        <input type="text" id="pmParticipants" placeholder="例: 8名" value="6〜10名">
+                        <input type="text" id="pmParticipants" placeholder="例: 8名" value="${isSupport ? '3〜6名' : '6〜10名'}">
                     </div>
                     <div class="form-group">
                         <label>時間</label>
-                        <input type="text" id="pmDuration" placeholder="例: 60分" value="60分">
+                        <input type="text" id="pmDuration" placeholder="例: 60分" value="${isSupport ? '30分' : '60分'}">
                     </div>
                 </div>
                 <div class="form-group">
@@ -132,6 +146,22 @@ const PracticeMenuGen = {
                     <button type="submit" class="btn-primary" id="pmSubmitBtn">${isPhoto ? '写真を読み取って作成' : 'メニューを生成'}</button>
                 </div>
             </form>`;
+    },
+
+    switchKind(kind) {
+        this.kind = kind;
+        if (kind === 'support') this.mode = 'theme';
+        this.photo = null;
+        const body = document.getElementById('modalBody');
+        body.innerHTML = this.formHtml();
+        this.bindPhotoInput();
+    },
+
+    // 専門支援のテーマを押して選ぶ
+    pickTheme(btn) {
+        const input = document.getElementById('pmTheme');
+        if (input) input.value = btn.textContent;
+        document.querySelectorAll('.pm-theme-chip').forEach(b => b.classList.toggle('active', b === btn));
     },
 
     switchMode(mode) {
@@ -235,8 +265,14 @@ const PracticeMenuGen = {
                 params.theme = document.getElementById('pmTheme')?.value.trim() || '';
                 params.purpose = document.getElementById('pmPurpose')?.value.trim() || '';
                 if (!params.theme) { showToast('テーマを入力してください'); return; }
-                loading('AIが練習メニューを作成中...');
-                menu = await geminiAPI.generatePracticeMenu(params);
+                if (this.kind === 'support') {
+                    loading('AIが専門支援メニューを作成中...');
+                    menu = await geminiAPI.generateSupportMenu(params);
+                    menu.kind = 'support';
+                } else {
+                    loading('AIが練習メニューを作成中...');
+                    menu = await geminiAPI.generatePracticeMenu(params);
+                }
                 menu.sourceType = 'theme';
             }
             menu = this.normalize(menu, params);
@@ -248,13 +284,14 @@ const PracticeMenuGen = {
             console.error('練習メニュー生成エラー:', e);
             body.innerHTML = `
                 <div style="color:#d32f2f; padding:1rem;">生成に失敗しました: ${this.esc(e.message || '')}</div>
-                <div class="pm-actions"><button class="btn-secondary" onclick="PracticeMenuGen.open('${this.mode}')">入力に戻る</button></div>`;
+                <div class="pm-actions"><button class="btn-secondary" onclick="PracticeMenuGen.open('${this.mode}', '${this.kind}')">入力に戻る</button></div>`;
         }
     },
 
     normalize(menu, params) {
         const m = Object.assign({}, menu);
-        m.title = m.title || params.theme || '練習メニュー';
+        m.kind = m.kind === 'support' ? 'support' : 'practice';
+        m.title = m.title || params.theme || this.kindLabel(m);
         m.date = m.date || params.date || '';
         m.level = m.level || params.level || '';
         m.purpose = m.purpose || params.purpose || '';
@@ -264,7 +301,9 @@ const PracticeMenuGen = {
         m.sections = Array.isArray(m.sections) ? m.sections : [];
         m.sections = m.sections.map((s, i) => {
             const type = s.type || ['warmup', 'training1', 'training2', 'game'][i] || 'other';
-            const label = s.label || ({ warmup: 'W-up', training1: 'Tr.1', training2: 'Tr.2', game: '試合' }[type] || '');
+            const label = s.label || ((m.kind === 'support'
+                ? { warmup: '導入', training1: '活動1', training2: '活動2', game: 'ふり返り' }
+                : { warmup: 'W-up', training1: 'Tr.1', training2: 'Tr.2', game: '試合' })[type] || '');
             // 頭の ①② や 1. などは外す（画面側で番号を振るので二重になる）
             const arr = v => (Array.isArray(v) ? v.filter(Boolean) : (v ? [String(v)] : [])).map(x => String(x).replace(/^\s*(?:[①-⑳]|[(（]?\d{1,2}[)）.．、]|[・\-●])\s*/, ''));
             const diff = (s.difficulty && typeof s.difficulty === 'object') ? s.difficulty : {};
@@ -279,7 +318,7 @@ const PracticeMenuGen = {
                 notes: s.notes || ''
             };
         });
-        m.category = this.guessCategory(m);
+        m.category = m.kind === 'support' ? 'support' : this.guessCategory(m);
         return m;
     },
 
@@ -305,7 +344,7 @@ const PracticeMenuGen = {
         // いちばん上はイラスト。作っている間は待ち表示、まだなければ作るボタン
         let imageHtml = '';
         if (menu.imageData) {
-            imageHtml = `<div class="pm-hero"><img src="${menu.imageData}" alt="練習メニューのイラスト">
+            imageHtml = `<div class="pm-hero"><img src="${menu.imageData}" alt="メニューのイラスト">
                 <div class="pm-hero-actions">
                     <a class="pm-mini-btn" href="${menu.imageDataFull || menu.imageData}" download="${this.esc(menu.title)}.${menu.imageDataFull ? 'png' : 'jpg'}">${ic('download')}画像を保存</a>
                     ${canImage ? `<button type="button" class="pm-mini-btn" data-ic="0" id="pmImageBtn" onclick="PracticeMenuGen.generateImage()">${ic('refresh')}絵を作り直す</button>` : ''}
@@ -317,7 +356,7 @@ const PracticeMenuGen = {
         }
         body.innerHTML = `
             <div class="pm-result-toolbar">
-                <h2>${saved ? '練習メニュー' : 'できました'}${saved ? '' : '<span class="pm-unsaved">保存はまだです</span>'}</h2>
+                <h2>${saved ? this.kindLabel(menu) : 'できました'}${saved ? '' : '<span class="pm-unsaved">保存はまだです</span>'}</h2>
             </div>
             ${imageHtml}
             <div class="pm-poster" id="pmPoster">${this.posterHtml(menu)}</div>
@@ -328,7 +367,7 @@ const PracticeMenuGen = {
             <div class="pm-refine">
                 <label>${ic('pen')}直したいところを伝える</label>
                 <div class="pm-refine-row">
-                    <input type="text" id="pmRefineText" placeholder="例: Tr.2をシュート練習に。全体を10分短く">
+                    <input type="text" id="pmRefineText" placeholder="${menu.kind === 'support' ? '例: 活動2をペアでやる形に。全体を10分短く' : '例: Tr.2をシュート練習に。全体を10分短く'}">
                     <button type="button" class="btn-small" onclick="PracticeMenuGen.refine()">AIに修正を依頼</button>
                 </div>
             </div>
@@ -425,7 +464,7 @@ const PracticeMenuGen = {
             const editable = Object.assign({}, menu);
             ['id', 'imageData', 'sourcePhoto', 'illustrationPrompt', 'createdAt', 'created_at', 'locationId', 'createdBy', 'category', 'sourceType'].forEach(k => delete editable[k]);
             const prompt = `
-以下はサッカー療育の練習メニュー（JSON）です。スタッフからの修正依頼に基づいて内容を修正し、同じキー構成のJSONのみを出力してください。
+以下はサッカー療育の${menu.kind === 'support' ? '専門支援メニュー' : '練習メニュー'}（JSON）です。スタッフからの修正依頼に基づいて内容を修正し、同じキー構成のJSONのみを出力してください。
 
 【現在のメニュー】
 ${JSON.stringify(editable, null, 2)}
@@ -437,9 +476,10 @@ ${req}
 - 修正依頼に関係する箇所だけを変更し、それ以外は維持する
 - 各セクションの steps / points / coaching / difficulty は空にしない
 - 絵文字・個人名は使わない
-${GeminiAPI.PRACTICE_MENU_STYLE}`;
+${menu.kind === 'support' ? GeminiAPI.SUPPORT_MENU_STYLE : GeminiAPI.PRACTICE_MENU_STYLE}`;
             const result = await geminiAPI.generateContent(prompt, { temperature: 0.5 });
             let refined = geminiAPI._extractJson(result);
+            refined.kind = menu.kind;
             refined = this.normalize(refined, {});
             const keep = { id: menu.id, imageData: null, sourcePhoto: menu.sourcePhoto, sourceType: menu.sourceType, createdAt: menu.createdAt };
             this.current = Object.assign({}, refined, keep);
@@ -519,12 +559,12 @@ ${GeminiAPI.PRACTICE_MENU_STYLE}`;
         try {
             if (menu.id) {
                 await dataAdapter.updateGeneratedMenu(menu.id, payload);
-                showToast('練習メニューを上書き保存しました');
+                showToast(this.kindLabel(menu) + 'を上書き保存しました');
             } else {
                 const saved = await dataAdapter.saveGeneratedMenu(payload);
                 this.current.id = saved.id;
                 this.current.createdAt = saved.createdAt;
-                showToast('練習メニューを保存しました');
+                showToast(this.kindLabel(menu) + 'を保存しました');
             }
             await this.reload();
             this.renderResult();
@@ -546,7 +586,7 @@ ${GeminiAPI.PRACTICE_MENU_STYLE}`;
     },
 
     async remove(id) {
-        if (!confirm('この練習メニューを削除しますか？')) return;
+        if (!confirm('このメニューを削除しますか？')) return;
         try {
             await dataAdapter.deleteGeneratedMenu(id);
             showToast('削除しました');
@@ -565,7 +605,7 @@ ${GeminiAPI.PRACTICE_MENU_STYLE}`;
             <div class="practice-header">
                 <span class="practice-category-label">${this.esc(label)}</span>
                 ${menu.level ? `<span class="practice-difficulty difficulty-medium">${this.esc(menu.level)}</span>` : ''}
-                <span class="uploaded-badge pm-badge">AI作成</span>
+                <span class="uploaded-badge pm-badge">${menu.kind === 'support' ? '専門支援' : 'AI作成'}</span>
             </div>
             ${menu.imageData ? `<img class="pm-card-thumb" src="${menu.imageData}" alt="">` : ''}
             <h3>${this.esc(menu.title)}</h3>

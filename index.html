@@ -30,7 +30,7 @@
       }
     }
     </script>
-    <link rel="stylesheet" href="styles.css?v=20261127e">
+    <link rel="stylesheet" href="styles.css?v=20261128a">
 </head>
 <body>
     <header>
@@ -118,13 +118,15 @@
                             <button class="practice-category-btn" data-category="flexibility">柔軟性（稼働域）</button>
                             <button class="practice-category-btn" data-category="bodyimage">ボディイメージ</button>
                             <button class="practice-category-btn" data-category="balance">バランス</button>
+                            <button class="practice-category-btn" data-category="support">専門支援</button>
                         </div>
                     </div>
                 </div>
 
                 <div class="practice-toolbar">
-                    <button class="btn-ai-menu" onclick="PracticeMenuGen.open('theme')">AIで練習メニューを作成</button>
-                    <button class="btn-ai-menu secondary" onclick="PracticeMenuGen.open('photo')">ホワイトボード写真から作成</button>
+                    <button class="btn-ai-menu" onclick="PracticeMenuGen.open('theme', 'practice')">AIで練習メニューを作成</button>
+                    <button class="btn-ai-menu support" onclick="PracticeMenuGen.open('theme', 'support')">AIで専門支援メニューを作成</button>
+                    <button class="btn-ai-menu secondary" onclick="PracticeMenuGen.open('photo', 'practice')">ホワイトボード写真から作成</button>
                     <button class="btn-upload" onclick="showPracticeUploadForm()">+ メニューを追加</button>
                 </div>
 
@@ -319,16 +321,16 @@
     <script src="icons.js?v=20261125p"></script>
     <script src="toast.js?v=20260818"></script>
     <script src="config.js?v=20261125p" onerror="console.log('config.js not found - using default API_CONFIG')"></script>
-    <script src="firebase-client.js?v=20261127e"></script>
+    <script src="firebase-client.js?v=20261128a"></script>
     <script src="data-adapter.js?v=20261127d"></script>
     <script src="auth-guard.js?v=20261125p"></script>
-    <script src="gemini-api.js?v=20261127d"></script>
+    <script src="gemini-api.js?v=20261128a"></script>
     <script src="csv-importer.js?v=20261125p"></script>
     <script src="markdown-renderer.js?v=20261125p"></script>
     <script src="voice-input.js?v=20261125p"></script>
-    <script src="assessment-manager.js?v=20261127d"></script>
-    <script src="script.js?v=20261127f"></script>
-    <script src="practice-menu-generator.js?v=20261125p"></script>
+    <script src="assessment-manager.js?v=20261128a"></script>
+    <script src="script.js?v=20261128a"></script>
+    <script src="practice-menu-generator.js?v=20261128a"></script>
     <script>
         // Firebase初期化 + 認証ガード
         heartUpDB.init();

@@ -47,9 +47,52 @@ const heartUpDB = {
     _locationQuery(collectionName, skipLocationFilter) {
         let ref = this.db.collection(collectionName);
         if (!skipLocationFilter && !this.isAdmin() && this.getMyLocationId()) {
-            ref = ref.where('locationId', '==', this.getMyLocationId());
+            // 同じグループ（エリア）の拠点どうしは、互いの児童・記録を見られる
+            const ids = this.getMyGroupLocationIds();
+            ref = ids.length > 1
+                ? ref.where('locationId', 'in', ids.slice(0, 10))
+                : ref.where('locationId', '==', this.getMyLocationId());
         }
         return ref;
+    },
+
+    // 拠点のグループ名。管理画面で決めた値を優先し、未設定なら拠点名から決める
+    locationGroupOf(loc) {
+        if (!loc) return '';
+        if (typeof loc.group === 'string') return loc.group.trim();
+        const name = String(loc.name || '');
+        if (/大正町|古野町|プリマ|鳥栖/.test(name)) return '鳥栖エリア';
+        if (/長南/.test(name)) return '長南エリア';
+        return '';
+    },
+
+    // 自分の拠点と同じグループの拠点 ID を覚える（ログイン時に 1 回）
+    async _loadMyGroup(locationId) {
+        this._groupLocationIds = locationId ? [locationId] : [];
+        this._groupName = '';
+        if (!locationId) return;
+        try {
+            const snap = await this.db.collection('locations').get();
+            const locs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            const mine = locs.find(l => l.id === locationId);
+            const group = this.locationGroupOf(mine);
+            if (!group) return;
+            const ids = locs.filter(l => this.locationGroupOf(l) === group).map(l => l.id);
+            // 自分の拠点を先頭にする
+            this._groupLocationIds = [locationId, ...ids.filter(id => id !== locationId)];
+            this._groupName = group;
+        } catch (e) { console.warn('拠点グループの読み込みに失敗:', e); }
+    },
+
+    getMyGroupLocationIds() {
+        const my = this.getMyLocationId();
+        if (!my) return [];
+        const ids = this._groupLocationIds || [];
+        return ids.length && ids[0] === my ? ids : [my];
+    },
+
+    getMyGroupName() {
+        return this._groupName || '';
     },
 
     // クライアント側ソート（Firestore複合インデックス不要にするため）
@@ -161,6 +204,7 @@ const heartUpDB = {
                 const locDoc = await this.db.collection('locations').doc(data.locationId).get();
                 if (locDoc.exists) data._locationName = locDoc.data().name;
             } catch (e) { /* ignore */ }
+            if (data.role !== 'admin') await this._loadMyGroup(data.locationId);
         }
         this.currentProfile = data;
         return data;
@@ -196,6 +240,7 @@ const heartUpDB = {
             const locDoc = await this.db.collection('locations').doc(invitation.locationId).get();
             if (locDoc.exists) profileData._locationName = locDoc.data().name;
         } catch (e) { /* ignore */ }
+        if (profileData.role !== 'admin') await this._loadMyGroup(profileData.locationId);
         this.currentProfile = profileData;
         return profileData;
     },
@@ -260,7 +305,10 @@ const heartUpDB = {
         if (snapshot.empty) return null;
         let docs = snapshot.docs;
         if (!this.isAdmin() && locationId) {
-            docs = docs.filter(d => (d.data().locationId || '') === locationId);
+            // 自分の拠点の児童を優先し、いなければ同じグループの拠点の児童
+            const ids = this.getMyGroupLocationIds();
+            docs = docs.filter(d => ids.includes(d.data().locationId || ''))
+                .sort((a, b) => ids.indexOf(a.data().locationId || '') - ids.indexOf(b.data().locationId || ''));
         }
         if (docs.length === 0) return null;
         return { id: docs[0].id, ...docs[0].data() };
@@ -907,7 +955,7 @@ const heartUpDB = {
     // 行ごとに浅く写して返す（日時の型を壊さないため、深い複製はしない）
     const clone = (v) => (Array.isArray(v) ? v.map(r => (r && typeof r === 'object' ? Object.assign({}, r) : r)) : v);
     const scope = () => {
-        try { return (heartUpDB.isAdmin() ? 'admin' : 'staff') + '|' + (heartUpDB.getMyLocationId() || ''); } catch (e) { return ''; }
+        try { return (heartUpDB.isAdmin() ? 'admin' : 'staff') + '|' + (heartUpDB.getMyGroupLocationIds().join(',') || ''); } catch (e) { return ''; }
     };
     const clear = () => { cache = {}; };
 

@@ -3712,3 +3712,15 @@ html, body { overflow-x: clip; max-width: 100%; }
 .memo-item-text { margin: 0.3rem 0 0.5rem; line-height: 1.8; letter-spacing: 0.03em; white-space: pre-wrap; }
 
 .parent-note-content { white-space: pre-wrap; line-height: 1.8; letter-spacing: 0.03em; font-size: 1rem; }
+
+/* 専門支援メニュー（2026-11-28） */
+.btn-ai-menu.support { background: linear-gradient(135deg, #f57c00 0%, #ffa726 100%); box-shadow: 0 2px 8px rgba(245, 124, 0, 0.3); }
+.pm-kind-label { font-size: 0.95rem; font-weight: bold; color: #555; margin: 0.6rem 0 0.4rem; letter-spacing: 0.03em; }
+.pm-theme-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.7rem; }
+.pm-theme-chip {
+    min-height: 44px; padding: 0.5rem 1.1rem; border: 2px solid #ffcc80; background: #fff8e1; color: #e65100;
+    border-radius: 12px; font-weight: bold; font-size: 1rem; letter-spacing: 0.03em; cursor: pointer;
+    box-shadow: 0 3px 0 #ffcc80;
+}
+.pm-theme-chip:active { transform: translateY(3px); box-shadow: none; }
+.pm-theme-chip.active { background: #f57c00; border-color: #f57c00; color: #fff; box-shadow: 0 3px 0 #e65100; }

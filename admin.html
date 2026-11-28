@@ -86,6 +86,7 @@
             <div class="actions">
                 <button class="btn btn-primary" onclick="showAddLocationModal()">+ 拠点を追加</button>
             </div>
+            <datalist id="groupNames"><option value="鳥栖エリア"><option value="長南エリア"></datalist>
             <table>
                 <thead><tr><th>拠点名</th><th>活動内容</th><th>作成日</th><th></th></tr></thead>
                 <tbody id="locationsBody"><tr><td colspan="4" class="empty-msg">読み込み中...</td></tr></tbody>
@@ -197,7 +198,7 @@
     </script>
     <script src="toast.js?v=20260818"></script>
     <script src="config.js?v=20260706" onerror="console.log('config.js not found')"></script>
-    <script src="firebase-client.js?v=20261127e"></script>
+    <script src="firebase-client.js?v=20261128a"></script>
     <script src="data-adapter.js?v=20261127d"></script>
     <script src="auth-guard.js?v=20260706"></script>
     <script>
@@ -288,6 +289,11 @@
                                 <option value="none" ${mode === 'none' ? 'selected' : ''}>サッカー活動なし</option>
                             </select>`; })()}
                             <div style="color:#999;font-size:11px;margin-top:4px;line-height:1.5;">「一部の日のみ」は、記録で「ウォーミングアップ・個別練習・ミニゲーム」などサッカー系の活動を選んだ日だけサッカーの記録を残し、公園・工作などだけの日はサッカーに触れません。計画書・モニタリングはサッカー以外の活動も含めて作成します。</div>
+                            <div style="margin-top:10px;">
+                                <label for="group_${l.id}" style="display:block;font-size:13px;color:#555;">グループ（同じグループの拠点は、互いの児童の情報を見られます）</label>
+                                <input type="text" id="group_${l.id}" list="groupNames" value="${heartUpDB.locationGroupOf(l).replace(/"/g, '&quot;')}" placeholder="例: 鳥栖エリア（空にするとグループなし）" style="padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:60%;">
+                                <button class="btn btn-sm btn-primary" onclick="saveLocationGroup('${l.id}')">グループを保存</button>
+                            </div>
                             <details style="margin-top:8px;">
                                 <summary style="cursor:pointer;color:#1976d2;font-size:13px;">連絡帳の文体ルール${l.parentNoteStyle ? '（設定あり）' : ''}</summary>
                                 <textarea id="noteStyle_${l.id}" rows="4" style="width:100%;margin-top:6px;padding:8px;border:1px solid #ccc;border-radius:4px;font-size:14px;line-height:1.7;" placeholder="例:&#10;・語尾は「です」「ます」「でした」。「おられました」「存じます」は使わない&#10;・「〇〇くん」ではなく「〇〇さん」と呼ぶ&#10;・最後に「ご家庭でも〜」の一言は入れない">${(l.parentNoteStyle || '').replace(/</g, '&lt;')}</textarea>
@@ -314,6 +320,17 @@
                 // noSoccer は旧バージョン互換のため同時に更新
                 await heartUpDB.updateLocationSettings(id, { soccerMode: mode, noSoccer: mode === 'none' });
                 showToast(`サッカー活動の設定を「${labels[mode] || mode}」にしました`);
+                await loadLocations();
+            } catch (e) {
+                showToast('エラー: ' + e.message);
+            }
+        }
+
+        async function saveLocationGroup(id) {
+            const text = (document.getElementById('group_' + id)?.value || '').trim();
+            try {
+                await heartUpDB.updateLocationSettings(id, { group: text });
+                showToast(text ? `グループを「${text}」にしました` : 'グループから外しました');
                 await loadLocations();
             } catch (e) {
                 showToast('エラー: ' + e.message);

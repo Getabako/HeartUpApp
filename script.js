@@ -1159,7 +1159,8 @@ function getPracticeCategoryLabel(category) {
         'tactile': '触覚刺激',
         'flexibility': '柔軟性（稼働域）',
         'bodyimage': 'ボディイメージ',
-        'balance': 'バランス'
+        'balance': 'バランス',
+        'support': '専門支援'
     };
     return labels[category] || 'その他';
 }
@@ -3659,6 +3660,10 @@ function renderBatchRecordStep1(container) {
                     <select id="batchMenuSelect" style="width:100%;">
                         <option value="">選ばない</option>
                     </select>
+                    <label for="batchSupportSelect" style="margin-top:1rem;">今日の専門支援（作ってあるメニューから選ぶ・選ばなくてもよい）</label>
+                    <select id="batchSupportSelect" style="width:100%;">
+                        <option value="">選ばない</option>
+                    </select>
                     <p id="batchMenuHint" style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">※選ぶと、その日にやった内容として記録に入ります。メニューは「練習メニュー」のタブで作れます。</p>
                 </div>
 
@@ -3709,13 +3714,16 @@ async function loadBatchMenuOptions() {
     const sel = document.getElementById('batchMenuSelect');
     if (!sel) return;
     const esc = t => String(t || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-    sel.innerHTML = '<option value="">選ばない</option>' + batchMenuCache.map(m => {
+    const opts = (list, picked, fallback) => '<option value="">選ばない</option>' + list.map(m => {
         const d = m.createdAt ? String(m.createdAt).slice(0, 10) : '';
-        return `<option value="${esc(m.id)}" ${batchRecordState.menuId === m.id ? 'selected' : ''}>${esc(m.title || '練習メニュー')}${d ? `（${d} 作成）` : ''}</option>`;
+        return `<option value="${esc(m.id)}" ${picked === m.id ? 'selected' : ''}>${esc(m.title || fallback)}${d ? `（${d} 作成）` : ''}</option>`;
     }).join('');
+    sel.innerHTML = opts(batchMenuCache.filter(m => m.kind !== 'support'), batchRecordState.menuId, '練習メニュー');
+    const sup = document.getElementById('batchSupportSelect');
+    if (sup) sup.innerHTML = opts(batchMenuCache.filter(m => m.kind === 'support'), batchRecordState.supportId, '専門支援');
     if (batchMenuCache.length === 0) {
         const hint = document.getElementById('batchMenuHint');
-        if (hint) hint.textContent = '※まだ保存された練習メニューがありません。「練習メニュー」のタブで作って保存すると、ここで選べます。';
+        if (hint) hint.textContent = '※まだ保存されたメニューがありません。「練習メニュー」のタブで作って保存すると、ここで選べます。';
     }
 }
 
@@ -3873,6 +3881,11 @@ function batchRecordStep1Submit(event) {
     batchRecordState.menuId = menu ? menu.id : '';
     batchRecordState.menuTitle = menu ? (menu.title || '練習メニュー') : '';
     batchRecordState.menuText = practiceMenuToText(menu);
+    const supportId = document.getElementById('batchSupportSelect')?.value || '';
+    const support = batchMenuCache.find(m => String(m.id) === supportId) || null;
+    batchRecordState.supportId = support ? support.id : '';
+    batchRecordState.supportTitle = support ? (support.title || '専門支援') : '';
+    batchRecordState.supportText = practiceMenuToText(support);
     batchRecordState.step = 2;
 
     const container = document.getElementById('batchRecordContent');
@@ -4041,6 +4054,7 @@ async function renderBatchRecordStep2(container) {
                 <p><strong>日付:</strong> ${batchRecordState.date}</p>
                 <p><strong>活動:</strong> ${selectedActivityLabels}</p>
                 ${batchRecordState.menuTitle ? `<p><strong>練習メニュー:</strong> ${batchRecordState.menuTitle}</p>` : ''}
+                ${batchRecordState.supportTitle ? `<p><strong>専門支援:</strong> ${batchRecordState.supportTitle}</p>` : ''}
                 ${batchRecordState.detailedActivities && batchRecordState.detailedActivities.length > 0 ? `<p><strong>詳細:</strong> ${batchRecordState.detailedActivities.map(id => {
                     for (const opts of Object.values(detailedActivityOptions)) {
                         const found = opts.find(o => o.id === id);
@@ -4359,6 +4373,7 @@ function renderBatchRecordStep3(container) {
                 <p><strong>日付:</strong> ${batchRecordState.date}</p>
                 <p><strong>活動:</strong> ${selectedActivityLabels}</p>
                 ${batchRecordState.menuTitle ? `<p><strong>練習メニュー:</strong> ${batchRecordState.menuTitle}</p>` : ''}
+                ${batchRecordState.supportTitle ? `<p><strong>専門支援:</strong> ${batchRecordState.supportTitle}</p>` : ''}
                 ${batchRecordState.detailedActivities && batchRecordState.detailedActivities.length > 0 ? `<p><strong>詳細:</strong> ${batchRecordState.detailedActivities.map(id => {
                     for (const opts of Object.values(detailedActivityOptions)) {
                         const found = opts.find(o => o.id === id);
@@ -4473,7 +4488,8 @@ async function generateBatchRecords() {
                 outingDetail: batchRecordState.outingDetail || '',
                 nonSoccer: nonSoccerByChild[childName] === true,
                 parentNoteStyle: styleByChild[childName] || '',
-                practiceMenu: batchRecordState.menuText || ''
+                practiceMenu: batchRecordState.menuText || '',
+                supportMenu: batchRecordState.supportText || ''
             };
 
             let generatedText = '';
@@ -4506,7 +4522,8 @@ async function generateBatchRecords() {
                 activity: recordData.activityType,
                 observation: recordData.observation,
                 rawMarkdown: generatedText,
-                practiceMenuTitle: batchRecordState.menuTitle || ''
+                practiceMenuTitle: batchRecordState.menuTitle || '',
+                supportMenuTitle: batchRecordState.supportTitle || ''
             };
             if (parentNote) reportData.parentNote = parentNote;
             const saveResult = await dataAdapter.saveDailyReport(reportKey, renderedHtml + (parentNote ? parentNoteBlockHtml(parentNote) : ''), childName, batchRecordState.date, reportData);
@@ -4686,6 +4703,7 @@ async function generateAllParentNotes() {
                                     observation: result.recordData.observation,
                                     rawMarkdown: result.generatedText,
                                     practiceMenuTitle: batchRecordState.menuTitle || '',
+                                    supportMenuTitle: batchRecordState.supportTitle || '',
                                     parentNote: note.parentNote
                                 }
                             });
