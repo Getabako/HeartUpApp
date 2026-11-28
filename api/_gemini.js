@@ -12,9 +12,13 @@ const crypto = require('crypto');
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models/';
 
+// 予備の経路は、ALLOW_VERTEX_FALLBACK=1 を入れたときだけ使う（2026-11-28 本人指示）。
+// ふだんは切ってあり、ハートアップの鍵（GEMINI_API_KEY）が有効でないと AI は動かない
+const VERTEX_ALLOWED = process.env.ALLOW_VERTEX_FALLBACK === '1';
+const KEY_MISSING_MESSAGE = 'AI を使うための鍵（Gemini API キー）が登録されていないか、無効になっています。鍵を登録すると使えるようになります。管理者に連絡してください。';
 let VERTEX_SA = null;
 try {
-    const raw = process.env.GOOGLE_VERTEX_SA || '';
+    const raw = VERTEX_ALLOWED ? (process.env.GOOGLE_VERTEX_SA || '') : '';
     if (raw) VERTEX_SA = JSON.parse(raw.trim().startsWith('{') ? raw : Buffer.from(raw, 'base64').toString('utf8'));
 } catch (e) {
     console.error('GOOGLE_VERTEX_SA を読み取れません:', e.message);
@@ -128,12 +132,14 @@ async function generate(models, bodies) {
         if (result.ok) return result;
         last = result;
         if (route === 'key' && keyRefused(result.status, result.message)) {
+            console.error('Gemini の鍵が断られました:', result.status, result.message);
+            if (!VERTEX_SA) break;
             keyRefusedUntil = Date.now() + 10 * 60 * 1000;
-            console.error('Gemini の鍵が断られたため、予備の経路に回します:', result.status, result.message);
             continue;
         }
         break;
     }
+    if (keyRefused(last.status, last.message)) return { ok: false, status: 503, message: KEY_MISSING_MESSAGE };
     return { ok: false, status: last.status, message: last.message };
 }
 

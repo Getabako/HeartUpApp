@@ -12,7 +12,7 @@ module.exports = async (req, res) => {
     if (req.method === 'OPTIONS') { res.statusCode = 204; return res.end(); }
     if (req.method === 'GET') return json(res, 200, { configured: isConfigured() });
     if (req.method !== 'POST') return json(res, 405, { error: 'Method not allowed' });
-    if (!isConfigured()) return json(res, 501, { error: 'AI の設定がされていません', configured: false });
+    if (!isConfigured()) return json(res, 501, { error: 'AI を使うための鍵（Gemini API キー）が登録されていません。鍵を登録すると使えるようになります。管理者に連絡してください。', configured: false });
 
     const body = await readJson(req);
     const prompt = String(body.prompt || '');
